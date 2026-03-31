@@ -1,0 +1,93 @@
+graph TD
+    subgraph AUTH["🔐 Kimlik Doğrulama"]
+        A["📱 Uygulama Açılır"] --> B{"_layout.tsx\noturum var mı?"}
+        B -->|Evet| TABS
+        B -->|Hayır| C["giris.tsx\n🗺 İstanbul Rehber"]
+        C --> D["Giriş Yap\n(email + şifre)"]
+        C --> E["Kayıt Ol\n(isim + soyisim + email + şifre)"]
+        C --> F["Misafir olarak devam et →"]
+        D -->|Başarılı| TABS
+        E -->|Başarılı| G["✅ E-posta doğrulama"]
+        F -->|Session yok| TABS
+    end
+
+    subgraph TABS["📱 Tab Navigation (6 Sekme)"]
+        direction TB
+
+        subgraph T1["🏠 Ana Sayfa · index.tsx · 455 LOC"]
+            H["⏰ Saat + Tarih\n(1sn güncelleme)"]
+            I["🕌 Namaz Vakitleri\n(aladhan.com API)"]
+            J["📡 Saha Durumu\n(Supabase Realtime)"]
+            K["📍 Güncel Durum"]
+            K --> K1["🚢 Galataport\n20 gemi takvimi"]
+            K --> K2["🕌 Sultanahmet\ndinamik namaz saatleri"]
+            K --> K3["🏛 Ayasofya\nmevsimsel saatler"]
+            K --> K4["🚇 Marmaray"]
+            K --> K5["🚧 Yol Durumu"]
+        end
+
+        subgraph T2["🏛 Müzeler · muzeler.tsx · 391 LOC"]
+            L["3 Kategori · 32 Mekan"]
+            L --> L1["👑 Milli Saraylar (6)"]
+            L --> L2["🏛 Müzeler (17)"]
+            L --> L3["🎨 Özel Müzeler (9)"]
+        end
+
+        subgraph T3["🛥 Boğaz · bogaz.tsx · 344 LOC"]
+            M["3 Vapur Şirketi"]
+            M --> M1["🔴 Turyol\nsaatlik sefer"]
+            M --> M2["🔵 Dentur Avrasya\n11 sefer"]
+            M --> M3["🟡 Şehir Hatları\nkısa + uzun tur"]
+        end
+
+        subgraph T4["✈️ Ulaşım · ulasim.tsx · 223 LOC"]
+            N["2 Havalimanı"]
+            N --> N1["IST · Havaist\n4 durak"]
+            N --> N2["SAW · Havabus\n2 durak"]
+        end
+
+        subgraph T5["🎟 Müze Kart · museKart.tsx"]
+            O["Müze Kart Bilgileri\nGeçerli mekanlar + fiyatlar"]
+        end
+
+        subgraph T6["🚨 Acil · acil.tsx · 161 LOC"]
+            P["🆘 Acil Numaralar (5)"]
+            Q["🪪 Meslek Kuruluşları (2)"]
+            R["🔗 Faydalı Linkler (3)"]
+            S["👤 Hesap\nGiriş/Çıkış"]
+        end
+    end
+
+    subgraph MODALS["📋 Modal Ekranlar (9 adet)"]
+        K1 -->|tıkla| MA["Gemi Takvimi\n10 yaklaşan gemi"]
+        K2 -->|tıkla| MB["Sultanahmet Detay\nziyaret pencereleri + kurallar"]
+        K3 -->|tıkla| MC["Ayasofya Detay\nmevsim + fiyat + kurallar"]
+        L  -->|kart tıkla| MD["Mekan Detay\nsaat + fiyat + özel bilgi"]
+        M1 -->|tıkla| ME["Turyol Tüm Saatler"]
+        M2 -->|tıkla| MF["Dentur Tüm Saatler"]
+        N  -->|durak tıkla| MG["Durak Tüm Saatler"]
+        J  -->|Tümünü Gör| MH["Tüm Saha Bildirimleri\nkategori bazlı"]
+        J  -->|＋ Bildir| MI["Durum Bildir\n3 adımlı wizard"]
+    end
+
+    subgraph DATA["💾 Veri Kaynakları"]
+        API1["☁️ aladhan.com\nNamaz Vakitleri API"]
+        DB1["🗄 Supabase\nauth.users\nprofiles\nsaha_noktalari\ncanli_durum"]
+        STATIC["📦 Hardcoded\n20 gemi + 32 mekan\n+ sefer saatleri\n+ havalimanı"]
+    end
+
+    S -->|Çıkış| C
+    MI -->|"auth gerekli"| S
+
+    I -.-> API1
+    J -.-> DB1
+    S -.-> DB1
+    K1 -.-> STATIC
+    L -.-> STATIC
+    M -.-> STATIC
+    N -.-> STATIC
+
+    style AUTH fill:#1a0a2e,stroke:#c9a84c,color:#e0e0e0
+    style TABS fill:#08131f,stroke:#c9a84c,color:#e0e0e0
+    style MODALS fill:#0d1f2d,stroke:#2a9d8f,color:#e0e0e0
+    style DATA fill:#0a1a28,stroke:#6b8a9a,color:#e0e0e0

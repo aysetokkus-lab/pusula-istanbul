@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pusula Istanbul - Gizlilik Politikasi ve Kullanim Kosullari</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #1E293B;
+      background: #F8FAFC;
+      line-height: 1.7;
+    }
+    header {
+      background: linear-gradient(135deg, #005A8D, #0077B6, #0096C7);
+      color: white;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    header p {
+      font-size: 15px;
+      opacity: 0.9;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      padding: 20px;
+      background: white;
+      border-bottom: 1px solid #E2E8F0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    nav a {
+      text-decoration: none;
+      color: #0077B6;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 8px 20px;
+      border-radius: 8px;
+      border: 2px solid #0077B6;
+      transition: all 0.2s;
+    }
+    nav a:hover, nav a.active {
+      background: #0077B6;
+      color: white;
+    }
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+    .section { display: none; }
+    .section.active { display: block; }
+    .tarih {
+      font-size: 13px;
+      color: #94A3B8;
+      margin-bottom: 28px;
+    }
+    h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #0F172A;
+      margin-bottom: 6px;
+    }
+    h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1E293B;
+      margin-top: 28px;
+      margin-bottom: 10px;
+      padding-left: 12px;
+      border-left: 4px solid #0077B6;
+    }
+    p {
+      font-size: 15px;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+    ul {
+      list-style: none;
+      margin-bottom: 12px;
+    }
+    ul li {
+      font-size: 15px;
+      color: #475569;
+      padding: 4px 0 4px 20px;
+      position: relative;
+    }
+    ul li::before {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 13px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #0077B6;
+    }
+    footer {
+      text-align: center;
+      padding: 30px 20px;
+      background: #F1F5F9;
+      border-top: 1px solid #E2E8F0;
+      font-size: 13px;
+      color: #94A3B8;
+    }
+    footer a { color: #0077B6; text-decoration: none; }
+    @media (max-width: 480px) {
+      header h1 { font-size: 22px; }
+      nav { flex-direction: column; align-items: center; }
+      nav a { width: 80%; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Pusula Istanbul</h1>
+  <p>Profesyonel Turist Rehberleri Icin Dijital Yol Arkadasi</p>
+</header>
+
+<nav>
+  <a href="#gizlilik" id="nav-gizlilik" class="active" onclick="goster('gizlilik')">Gizlilik Politikasi</a>
+  <a href="#kullanim" id="nav-kullanim" onclick="goster('kullanim')">Kullanim Kosullari</a>
+</nav>
+
+<div class="container">
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- GİZLİLİK POLİTİKASI                      -->
+  <!-- ════════════════════════════════════════ -->
+  <div id="gizlilik" class="section active">
+    <h2>Gizlilik Politikasi ve KVKK Aydinlatma Metni</h2>
+    <p class="tarih">Son guncelleme: 28 Mart 2026</p>
+
+    <h3>1. Veri Sorumlusu</h3>
+    <p>
+      Pusula Istanbul uygulamasi, Ayse Tokkus Bayar tarafindan gelistirilmis ve isletilmektedir.
+      Bu gizlilik politikasi, 6698 sayili Kisisel Verilerin Korunmasi Kanunu (KVKK) kapsaminda
+      kisisel verilerinizin nasil islendigini aciklamaktadir.
+    </p>
+
+    <h3>2. Toplanan Veriler</h3>
+    <p>Uygulamamiz asagidaki kisisel verileri toplamaktadir:</p>
+    <ul>
+      <li>Kimlik bilgileri: Ad, soyad</li>
+      <li>Iletisim bilgileri: E-posta adresi</li>
+      <li>Mesleki bilgi: TUREB ruhsat numarasi</li>
+      <li>Konum bilgisi: Sehir (kullanici tarafindan girilen)</li>
+      <li>Kullanim verileri: Uygulama ici etkilesimler, sohbet mesajlari</li>
+      <li>Abonelik bilgileri: Abonelik durumu, plan turu</li>
+    </ul>
+
+    <h3>3. Verilerin Islenme Amaci</h3>
+    <p>Kisisel verileriniz asagidaki amaclarla islenmektedir:</p>
+    <ul>
+      <li>Kullanici hesabi olusturma ve yonetimi</li>
+      <li>Uygulama hizmetlerinin sunulmasi</li>
+      <li>Sohbet ve iletisim ozelliklerinin saglanmasi</li>
+      <li>Abonelik yonetimi ve odeme islemleri</li>
+      <li>Icerik moderasyonu ve guvenlik</li>
+      <li>Uygulama iyilestirme ve analiz</li>
+    </ul>
+
+    <h3>4. Verilerin Aktarimi</h3>
+    <p>Kisisel verileriniz asagidaki ucuncu taraflarla paylasilabilir:</p>
+    <ul>
+      <li>Supabase Inc. — Veritabani altyapi hizmeti (ABD)</li>
+      <li>RevenueCat Inc. — Abonelik yonetim hizmeti (ABD)</li>
+      <li>Apple Inc. / Google LLC — Uygulama magazasi ve odeme islemleri</li>
+    </ul>
+    <p>
+      Bu aktarimlar, KVKK'nin 9. maddesi kapsaminda yeterli koruma bulunan ulkelere
+      veya yeterli korumayi taahhut eden veri sorumlulari ile gerceklestirilmektedir.
+    </p>
+
+    <h3>5. Verilerin Saklanma Suresi</h3>
+    <p>
+      Kisisel verileriniz, hesabiniz aktif oldugu surece saklanir. Hesap silme talebinde
+      bulunmaniz halinde verileriniz 30 gun icinde silinir. Yasal zorunluluklar saklidir.
+    </p>
+
+    <h3>6. Haklariniz (KVKK Madde 11)</h3>
+    <p>KVKK kapsaminda asagidaki haklara sahipsiniz:</p>
+    <ul>
+      <li>Kisisel verilerinizin islenip islenmedigini ogrenme</li>
+      <li>Islenmisse buna iliskin bilgi talep etme</li>
+      <li>Islenme amacini ve amaca uygun kullanilip kullanilmadigini ogrenme</li>
+      <li>Aktarildigi ucuncu kisileri bilme</li>
+      <li>Eksik veya yanlis islenmisse duzeltilmesini isteme</li>
+      <li>Silinmesini veya yok edilmesini isteme</li>
+      <li>Islenen verilerin munhasiran otomatik sistemler araciligiyla analiz edilmesi suretiyle aleyhinize bir sonucun ortaya cikmasina itiraz etme</li>
+      <li>Kanuna aykiri isleme sebebiyle zarara ugramaniz halinde zararin giderilmesini talep etme</li>
+    </ul>
+
+    <h3>7. Cocuklarin Gizliligi</h3>
+    <p>
+      Pusula Istanbul, profesyonel turist rehberlerine yonelik bir uygulamadir.
+      18 yasindan kucuk bireylerin kisisel verilerini bilerek toplamiyoruz.
+    </p>
+
+    <h3>8. Guvenlik</h3>
+    <p>
+      Kisisel verilerinizin guvenligi icin endustri standardi sifreleme, guvenli baglantilar (SSL/TLS)
+      ve erisim kontrolu mekanizmalari kullanilmaktadir. Supabase altyapisi, SOC 2 Type II
+      sertifikalidir.
+    </p>
+
+    <h3>9. Hesap Silme</h3>
+    <p>
+      Hesabinizi ve tum kisisel verilerinizi silmek icin ayse.tokkus@gmail.com adresine
+      e-posta gonderebilirsiniz. Silme talebiniz 30 gun icinde islenecektir. Silme islemi
+      geri alinamaz ve tum verileriniz kalici olarak kaldirilacaktir.
+    </p>
+
+    <h3>10. Degisiklikler</h3>
+    <p>
+      Bu gizlilik politikasi zaman zaman guncellenebilir. Onemli degisikliklerde
+      uygulama ici bildirim yapilacaktir.
+    </p>
+
+    <h3>11. Iletisim</h3>
+    <p>
+      Gizlilik ile ilgili sorulariniz ve KVKK kapsamindaki basvurulariniz icin:<br>
+      E-posta: <a href="mailto:ayse.tokkus@gmail.com">ayse.tokkus@gmail.com</a>
+    </p>
+  </div>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- KULLANIM KOŞULLARI                        -->
+  <!-- ════════════════════════════════════════ -->
+  <div id="kullanim" class="section">
+    <h2>Kullanim Kosullari</h2>
+    <p class="tarih">Son guncelleme: 28 Mart 2026</p>
+
+    <h3>1. Kabul</h3>
+    <p>
+      Pusula Istanbul uygulamasini kullanarak bu kullanim kosullarini kabul etmis sayilirsiniz.
+      Kosullari kabul etmiyorsaniz uygulamayi kullanmayiniz.
+    </p>
+
+    <h3>2. Hizmet Tanimi</h3>
+    <p>
+      Pusula Istanbul, profesyonel turist rehberlerine yonelik bir bilgi ve iletisim uygulamasidir.
+      Muze bilgileri, ulasim saatleri, ezan vakitleri, hava durumu, gemi takvimi, kent etkinlikleri
+      ve rehberler arasi sohbet ozelliklerini sunmaktadir.
+    </p>
+
+    <h3>3. Hesap ve Kayit</h3>
+    <p>
+      Uygulamayi kullanmak icin gecerli bir e-posta adresi ile kayit olmaniz gerekmektedir.
+      Hesap bilgilerinizin dogrulugundan ve guvenligindan siz sorumlusunuz.
+      TUREB ruhsat numaraniz dogrulama amaciyla talep edilmektedir.
+    </p>
+
+    <h3>4. Abonelik ve Odeme</h3>
+    <p>
+      Pusula Istanbul ucretli bir abonelik hizmetidir. Yeni kullanicilara 7 gunluk ucretsiz
+      deneme suresi sunulmaktadir. Deneme suresi sonunda abonelik otomatik olarak baslar.
+    </p>
+    <ul>
+      <li>Aylik plan: 99 TL/ay</li>
+      <li>Yillik plan: 699 TL/yil</li>
+    </ul>
+    <p>
+      Abonelikler, mevcut donem sona ermeden en az 24 saat once iptal edilmezse otomatik
+      olarak yenilenir. Iptal islemi, cihazinizin uygulama magazasi ayarlarindan yapilabilir.
+      Kismi donem icin iade yapilmamaktadir.
+    </p>
+
+    <h3>5. Kullanim Kurallari</h3>
+    <p>Uygulamayi kullanirken asagidaki kurallara uymayi kabul edersiniz:</p>
+    <ul>
+      <li>Yasalara ve duzenlemelere uygun davranma</li>
+      <li>Diger kullanicilara saygili olma</li>
+      <li>Kufur, hakaret, tehdit veya ayrimci icerik paylasmama</li>
+      <li>Spam, reklam veya yaniltici bilgi yaymama</li>
+      <li>Baskalarinin kisisel bilgilerini izinsiz paylasmama</li>
+      <li>Uygulamayi kotuye kullanmama veya teknik altyapiya zarar vermeme</li>
+    </ul>
+
+    <h3>6. Sohbet ve Icerik Moderasyonu</h3>
+    <p>
+      Uygulama ici sohbet, otomatik kufur filtresi ve manuel moderasyon sistemiyle denetlenmektedir.
+      Uygunsuz icerik paylasan kullanicilarin hesaplari gecici veya kalici olarak askiya alinabilir.
+      Moderator kararlarina itiraz icin ayse.tokkus@gmail.com adresine basvurabilirsiniz.
+    </p>
+
+    <h3>7. Bilgi Dogrulugu</h3>
+    <p>
+      Uygulamadaki muze saatleri, ulasim bilgileri, ezan vakitleri ve diger veriler bilgilendirme
+      amaclidir. Bu bilgilerin anlik dogrulugunu garanti etmiyoruz. Resmi kaynaklardan
+      teyit etmenizi oneriyoruz.
+    </p>
+
+    <h3>8. Fikri Mulkiyet</h3>
+    <p>
+      Pusula Istanbul uygulamasinin tum icerigi, tasarimi, logosu ve yazilimi telif hakkiyla
+      korunmaktadir. Izinsiz kopyalama, dagitma veya degistirme yasaktir.
+    </p>
+
+    <h3>9. Sorumluluk Siniri</h3>
+    <p>
+      Uygulama "oldugu gibi" sunulmaktadir. Teknik sorunlar, kesintiler veya veri kaybindan
+      dogabilecek zararlardan sorumlu degiliz. Uygulamadaki bilgilerin resmi niteligi yoktur.
+    </p>
+
+    <h3>10. Fesih</h3>
+    <p>
+      Kullanim kosullarini ihlal etmeniz durumunda hesabiniz bildirim yapilarak veya yapilmaksizin
+      askiya alinabilir veya kapatilabilir. Hesabinizi istediginiz zaman silme talebinde bulunabilirsiniz.
+    </p>
+
+    <h3>11. Uygulanacak Hukuk</h3>
+    <p>
+      Bu kullanim kosullari Turkiye Cumhuriyeti yasalarina tabidir. Uyusmazliklarda
+      Istanbul Mahkemeleri ve Icra Daireleri yetkilidir.
+    </p>
+
+    <h3>12. Degisiklikler</h3>
+    <p>
+      Bu kosullar onceden bildirimde bulunularak guncellenebilir. Guncelleme sonrasi
+      uygulamayi kullanmaya devam etmeniz, yeni kosullari kabul ettiginiz anlamina gelir.
+    </p>
+
+    <h3>13. Iletisim</h3>
+    <p>
+      Sorulariniz icin:<br>
+      E-posta: <a href="mailto:ayse.tokkus@gmail.com">ayse.tokkus@gmail.com</a>
+    </p>
+  </div>
+
+</div>
+
+<footer>
+  Pusula Istanbul &copy; 2026 Ayse Tokkus Bayar. Tum haklari saklidir.<br>
+  Iletisim: <a href="mailto:ayse.tokkus@gmail.com">ayse.tokkus@gmail.com</a>
+</footer>
+
+<script>
+function goster(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('nav-' + id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// URL hash ile direkt acma
+if (window.location.hash === '#kullanim') goster('kullanim');
+</script>
+
+</body>
+</html>

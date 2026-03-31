@@ -1,0 +1,138 @@
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+interface NamazVakti { Fajr: string; Sunrise: string; Dhuhr: string; Asr: string; Maghrib: string; Isha: string; }
+interface DurumKarti { id: string; baslik: string; emoji: string; aktif: boolean; mesaj: string; renk?: string; }
+
+const DURUM_KARTLARI: DurumKarti[] = [
+  { id: 'sultanahmet', emoji: '🕌', baslik: 'Sultanahmet Camii', aktif: false, mesaj: 'Normal açık', renk: '#2a9d8f' },
+  { id: 'ayasofya', emoji: '🏛', baslik: 'Ayasofya', aktif: false, mesaj: 'Normal açık', renk: '#2a9d8f' },
+  { id: 'galataport', emoji: '🚢', baslik: 'Galataport', aktif: false, mesaj: 'Gemi yok', renk: '#6b8a9a' },
+  { id: 'marmaray', emoji: '🚇', baslik: 'Marmaray', aktif: false, mesaj: 'Normal sefer', renk: '#2a9d8f' },
+  { id: 'yol', emoji: '🚧', baslik: 'Yol & Kapamalar', aktif: false, mesaj: 'Önemli kapatma yok', renk: '#2a9d8f' },
+];
+
+const NAMAZ_ETIKETLERI = [
+  { key: 'Fajr' as keyof NamazVakti, label: 'İmsak', emoji: '🌙' },
+  { key: 'Sunrise' as keyof NamazVakti, label: 'Güneş', emoji: '🌅' },
+  { key: 'Dhuhr' as keyof NamazVakti, label: 'Öğle', emoji: '☀️' },
+  { key: 'Asr' as keyof NamazVakti, label: 'İkindi', emoji: '🌤' },
+  { key: 'Maghrib' as keyof NamazVakti, label: 'Akşam', emoji: '🌇' },
+  { key: 'Isha' as keyof NamazVakti, label: 'Yatsı', emoji: '🌙' },
+];
+
+export default function AnaSayfa() {
+  const [saat, setSaat] = useState('');
+  const [tarih, setTarih] = useState('');
+  const [namaz, setNamaz] = useState<NamazVakti | null>(null);
+  const [namazYukleniyor, setNamazYukleniyor] = useState(true);
+  const [yenileniyor, setYenileniyor] = useState(false);
+  const [sonrakiVakit, setSonrakiVakit] = useState('');
+
+  useEffect(() => {
+    const guncelle = () => {
+      const s = new Date();
+      setSaat(s.toLocaleTimeString('tr-TR', { timeZone: 'Europe/Istanbul', hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setTarih(s.toLocaleDateString('tr-TR', { timeZone: 'Europe/Istanbul', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+    };
+    guncelle();
+    const iv = setInterval(guncelle, 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const namazCek = async () => {
+    try {
+      const s = new Date();
+      const gun = s.toLocaleDateString('en-GB', { timeZone: 'Europe/Istanbul' }).replace(/\//g, '-');
+      const res = await fetch(`https://api.aladhan.com/v1/timingsByCity/${gun}?city=Istanbul&country=Turkey&method=13`);
+      const data = await res.json();
+      if (data.code === 200) {
+        setNamaz(data.data.timings);
+        const simdiStr = new Date().toLocaleTimeString('tr-TR', { timeZone: 'Europe/Istanbul', hour: '2-digit', minute: '2-digit', hour12: false });
+        const vakitler = NAMAZ_ETIKETLERI.map(v => ({ label: v.label, saat: data.data.timings[v.key] }));
+        const sonraki = vakitler.find(v => v.saat > simdiStr);
+        setSonrakiVakit(sonraki ? `${sonraki.label}: ${sonraki.saat}` : `${vakitler[0].label}: ${vakitler[0].saat}`);
+      }
+    } catch {}
+    finally { setNamazYukleniyor(false); }
+  };
+
+  useEffect(() => { namazCek(); }, []);
+  const onYenile = async () => { setYenileniyor(true); await namazCek(); setYenileniyor(false); };
+
+  return (
+    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={yenileniyor} onRefresh={onYenile} tintColor="#c9a84c" />}>
+      <View style={styles.header}>
+        <Text style={styles.sehir}>🗺 İSTANBUL</Text>
+        <Text style={styles.saat}>{saat}</Text>
+        <Text style={styles.tarih}>{tarih}</Text>
+      </View>
+
+      <View style={styles.bolum}>
+        <Text style={styles.bolumBaslik}>🕌 Namaz Vakitleri</Text>
+        {namazYukleniyor ? (
+          <ActivityIndicator color="#c9a84c" style={{ marginTop: 12 }} />
+        ) : namaz ? (
+          <>
+            {sonrakiVakit ? (
+              <View style={styles.sonrakiVakit}>
+                <Text style={styles.sonrakiYazi}>⏰ Sonraki: {sonrakiVakit}</Text>
+              </View>
+            ) : null}
+            <View style={styles.namazGrid}>
+              {NAMAZ_ETIKETLERI.map(v => (
+                <View key={v.key} style={styles.namazKutu}>
+                  <Text style={styles.namazEmoji}>{v.emoji}</Text>
+                  <Text style={styles.namazLabel}>{v.label}</Text>
+                  <Text style={styles.namazSaat}>{namaz[v.key]}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : (
+          <Text style={styles.hata}>Vakitler yüklenemedi</Text>
+        )}
+      </View>
+
+      <View style={styles.bolum}>
+        <Text style={styles.bolumBaslik}>📍 Güncel Durum</Text>
+        {DURUM_KARTLARI.map(kart => (
+          <View key={kart.id} style={[styles.durumKart, kart.aktif && styles.durumKartAktif]}>
+            <Text style={styles.durumEmoji}>{kart.emoji}</Text>
+            <View style={styles.durumIcerik}>
+              <Text style={styles.durumBaslik}>{kart.baslik}</Text>
+              <Text style={[styles.durumMesaj, { color: kart.renk || '#6b8a9a' }]}>{kart.mesaj}</Text>
+            </View>
+            <View style={[styles.durumDot, { backgroundColor: kart.aktif ? '#e63946' : '#2a9d8f' }]} />
+          </View>
+        ))}
+      </View>
+      <View style={{ height: 30 }} />
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#08131f' },
+  header: { backgroundColor: '#0a1a2a', padding: 24, paddingTop: 60, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#c9a84c' },
+  sehir: { color: '#c9a84c', fontSize: 13, letterSpacing: 4, fontWeight: '700', marginBottom: 8 },
+  saat: { color: '#ffffff', fontSize: 48, fontWeight: '300', letterSpacing: 2 },
+  tarih: { color: '#6b8a9a', fontSize: 13, marginTop: 4 },
+  bolum: { margin: 16, marginBottom: 8 },
+  bolumBaslik: { color: '#c9a84c', fontSize: 15, fontWeight: '700', marginBottom: 12, letterSpacing: 1 },
+  sonrakiVakit: { backgroundColor: '#1a2f20', borderRadius: 8, padding: 10, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#2a9d8f' },
+  sonrakiYazi: { color: '#2a9d8f', fontSize: 13, fontWeight: '600' },
+  namazGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  namazKutu: { backgroundColor: '#0d1f2d', borderRadius: 10, padding: 12, alignItems: 'center', width: '30%', flexGrow: 1 },
+  namazEmoji: { fontSize: 18, marginBottom: 4 },
+  namazLabel: { color: '#6b8a9a', fontSize: 11, marginBottom: 2 },
+  namazSaat: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
+  hata: { color: '#e63946', fontSize: 13 },
+  durumKart: { backgroundColor: '#0d1f2d', borderRadius: 10, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', borderLeftWidth: 3, borderLeftColor: '#1a3a4a' },
+  durumKartAktif: { borderLeftColor: '#e63946', backgroundColor: '#1a0d0f' },
+  durumEmoji: { fontSize: 24, marginRight: 12 },
+  durumIcerik: { flex: 1 },
+  durumBaslik: { color: '#ffffff', fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  durumMesaj: { fontSize: 12 },
+  durumDot: { width: 8, height: 8, borderRadius: 4, marginLeft: 8 },
+});

@@ -1,0 +1,99 @@
+PUSULA REHBER — DEVAM NOTU (23 Mart 2026)
+==========================================
+
+Asagidaki metni yeni oturumda yapistur:
+
+---
+
+Bu proje "Pusula Rehber" — profesyonel Istanbul turist rehberleri icin React Native Expo uygulamasi. Kaldigimiz yerden devam ediyoruz.
+
+TEKNOLOJI:
+- React Native Expo (SDK 54, React 19.1, Expo Router 6.0.23)
+- expo-linear-gradient, @expo-google-fonts/poppins, expo-image, expo-font, expo-splash-screen
+- Supabase (auth + real-time data)
+- Light mode aktif (hooks/use-tema.ts → isDark = false)
+
+PROJE YAPISI:
+app/(tabs)/
+  _layout.tsx    — 4 tab: Ana Sayfa, Acil, Ara, Profil (+ muzeler, bogaz, ulasim, muzeKart gizli)
+  index.tsx      — Ana sayfa (~580 satir) — tum gradient bantlar, 8li ikon grid, modaller
+  acil.tsx       — Acil numaralar, hesap
+  ara.tsx        — Arama ekrani (placeholder)
+  profil.tsx     — Profil ekrani (placeholder)
+  muzeler.tsx    — 32 mekan, kategori, detay modal
+  bogaz.tsx      — Vapur sefer saatleri
+  ulasim.tsx     — Havalimani ulasim
+  muzeKart.tsx   — Muze Kart bilgileri
+
+components/
+  canli-durum-panel.tsx — useSahaBildir hook + CanliDurumOzet + DurumBildirModal
+
+constants/theme.ts — Palette, Space, Radius, TemaRenkleri, light/dark
+
+hooks/
+  use-tema.ts        — { t, isDark }
+  use-canli-durum.ts — Supabase real-time saha bildirimleri
+
+assets/icons/ — 8 SVG (beyaz line-art): namaz-vakitleri, muzeler, saraylar, bogaz-turlari, havalimani-ulasim, gemi-tarihleri, doviz-kuru, logo
+
+ANA SAYFA (index.tsx) YAPISI (yukaridan asagiya):
+1. Header — pusula [logo] istanbul, mavi diagonal gradient ['#00A8E8', '#0077B6', '#0096C7', '#48CAE4'], Poppins font, logo ortada, yazilar flex:1 ile simetrik
+2. Greeting Strip — Ayni mavi gradient, saat (sol), "Hos geldin" + canli hava durumu (wttr.in API) + "Iyi turlar" (sag), tum yazilar beyaz
+3. Saha Durumu bandi — Ayni mavi gradient, "+ Bildir" butonu → useSahaBildir hook ile DurumBildirModal aciliyor
+4. Sultan Ahmet Camii bandi — Ayni mavi gradient, tiklaninca Sultanahmet modal aciliyor, sagda ACIK/KAPALI durumu
+5. Yaklasan Etkinlikler bandi — Sari-turuncu-kirmizi diagonal gradient ['#FFD60A', '#FF9F1C', '#E63946', '#C1121F']
+6. Ulasim Uyarilari bandi — Ayni sari-kirmizi gradient
+7. 8li Ikon Grid (4x2) — Gradient mavi daireler, SVG ikonlar (44x44), sira: Namaz, Muzeler, Saraylar, Bogaz, Havalimani, Muze Kart, Gemi, Doviz
+8. Bugunku Gemi Listesi bandi — Ayni sari-kirmizi gradient + gemi karti/modal
+- Tum bantlar arasi 3px beyaz whiteSeparator
+- 3 Modal: Gemi Takvimi, Sultanahmet, Ayasofya
+- Canli hava durumu: wttr.in API, emoji ikon esleme
+- Sultanahmet ziyaret pencereleri: namaz vakitlerine gore dinamik hesaplama
+- Galataport gemi takvimi: Mart-Mayis 2026 verileri
+
+CANVA MOCKUP TASARIM KURALLARI:
+- Poppins font ailesi (Regular, SemiBold, Bold, ExtraBold)
+- pusula ve istanbul kucuk harf
+- Mavi gradient: ['#00A8E8', '#0077B6', '#0096C7', '#48CAE4'] diagonal
+- Sari-kirmizi gradient: ['#FFD60A', '#FF9F1C', '#E63946', '#C1121F'] diagonal
+- Bantlar arasi beyaz cizgi (3px)
+- Ikon daireleri gradient mavi, ikonlar beyaz SVG line-art
+- Light mode, beyaz arka plan
+
+TAMAMLANAN ISLER:
+- Header gradient + logo ortalamasi (flex:1 simetri)
+- Greeting strip mavi gradient + canli hava durumu (wttr.in)
+- Tum mavi bantlar ayni gradient (header = saat = saha = sultan ahmet)
+- Tum sari-kirmizi bantlar ayni gradient + diagonal efekt
+- Beyaz separatorler esit kalinlikta (3px)
+- CanliDurumOzet karti kaldirildi (sadece bant)
+- Sultanahmet karti kaldirildi (bant tiklanabilir → modal)
+- Grid 4 sutun (4x2) duzeltildi
+- Ikon boyutu buyutuldu (44x44)
+- Havalimani SVG beyaz yapildi
+- Ara + Profil tablari eklendi
+- Bildir butonu calisir hale getirildi (useSahaBildir hook)
+- Hava durumu: buyuk font (18px, bold, beyaz)
+
+YAPILACAKLAR / BILINEN EKSIKLER:
+- Grid ikon tiklamalari → ilgili ekranlara navigasyon (onPress handler'lar)
+- Kullanici adini Supabase'den cekip "user surname" yerine gostermek
+- Yaklasan Etkinlikler ve Ulasim Uyarilari bantlarina gercek veri/icerik
+- Namaz Vakitleri sayfasi (grid'den tiklaninca acilacak)
+- Doviz Kuru sayfasi
+- Saraylar sayfasi
+- Diger ekranlarin mockup'a uygun tasarimi
+- Tab bar ikonlari emoji yerine SVG/ikon olabilir
+- Dark mode toggle (altyapi hazir, su an kapali)
+- Pull-to-refresh hava durumunu da guncelliyor (zaten aktif)
+
+ONEMLI DOSYA KONUMLARI:
+- Ana sayfa: app/(tabs)/index.tsx
+- Tab layout: app/(tabs)/_layout.tsx
+- Root layout: app/_layout.tsx
+- Tema: constants/theme.ts
+- Saha bildirimi: components/canli-durum-panel.tsx
+- Hook'lar: hooks/use-tema.ts, hooks/use-canli-durum.ts
+- SVG ikonlar: assets/icons/
+
+app/(tabs)/index.tsx dosyasini oku ve kaldigimiz yerden devam et.
