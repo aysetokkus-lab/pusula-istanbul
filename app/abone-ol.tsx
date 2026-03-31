@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   Platform,
@@ -12,8 +12,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
+import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { supabase } from '../lib/supabase';
 import { Palette, Radius, Space } from '../constants/theme';
+import { ENTITLEMENT_ID } from '../lib/revenuecat';
 
 /* ═══════════════════════════════════════════
    EKRAN 3: Paywall / Abonelik
@@ -28,19 +30,94 @@ export default function AboneOl() {
   const insets = useSafeAreaInsets();
   const [secilenPlan, setSecilenPlan] = useState<Plan>('yillik');
   const [yukleniyor, setYukleniyor] = useState(false);
+  const [paketler, setPaketler] = useState<{
+    aylik?: PurchasesPackage;
+    yillik?: PurchasesPackage;
+  }>({});
+  const [fiyatlar, setFiyatlar] = useState<{
+    aylik: string;
+    yillik: string;
+    aylikBirimYillik: string;
+  }>({ aylik: '99 TL', yillik: '699 TL', aylikBirimYillik: '58,25 TL' });
+
+  // RevenueCat'ten guncel fiyatlari cek
+  useEffect(() => {
+    const fiyatlariCek = async () => {
+      try {
+        const offerings = await Purchases.getOfferings();
+        const current = offerings.current;
+        if (!current) return;
+
+        const aylikPaket = current.monthly;
+        const yillikPaket = current.annual;
+
+        const yeniPaketler: typeof paketler = {};
+        const yeniFiyatlar = { ...fiyatlar };
+
+        if (aylikPaket) {
+          yeniPaketler.aylik = aylikPaket;
+          yeniFiyatlar.aylik = aylikPaket.product.priceString;
+        }
+        if (yillikPaket) {
+          yeniPaketler.yillik = yillikPaket;
+          yeniFiyatlar.yillik = yillikPaket.product.priceString;
+          // Aylik birim fiyat hesapla
+          const aylikBirim = yillikPaket.product.price / 12;
+          yeniFiyatlar.aylikBirimYillik = aylikBirim.toLocaleString('tr-TR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + ' TL';
+        }
+
+        setPaketler(yeniPaketler);
+        setFiyatlar(yeniFiyatlar);
+      } catch (e) {
+        console.warn('RevenueCat fiyat cekme hatasi:', e);
+        // Hata durumunda hardcoded fiyatlar kullanilir
+      }
+    };
+    fiyatlariCek();
+  }, []);
 
   const satinAl = async () => {
     setYukleniyor(true);
     try {
-      // TODO: RevenueCat entegrasyonu (development build'de)
-      Alert.alert(
-        'Bilgi',
-        'Ödeme sistemi henüz aktif değil. Development build\'e geçildikten sonra RevenueCat ile ödeme alınacak.\n\nSeçilen plan: ' +
-          (secilenPlan === 'yillik' ? 'Avantajlı Yıllık — ₺699/yıl' : 'Aylık — ₺99/ay'),
-        [{ text: 'Tamam' }],
-      );
+      const paket = secilenPlan === 'yillik' ? paketler.yillik : paketler.aylik;
+
+      if (!paket) {
+        // RevenueCat henuz hazir degil (API key eksik veya store'da urun yok)
+        Alert.alert(
+          'Bilgi',
+          'Odeme sistemi henuz hazirlanıyor. Lutfen daha sonra tekrar deneyin.',
+          [{ text: 'Tamam' }],
+        );
+        return;
+      }
+
+      // RevenueCat ile satin alma
+      const { customerInfo } = await Purchases.purchasePackage(paket);
+      const aktif = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
+
+      if (aktif) {
+        // Supabase'de de guncelle
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('profiles').update({
+            abonelik_durumu: 'aktif',
+            abonelik_plani: secilenPlan,
+          }).eq('id', user.id);
+        }
+
+        Alert.alert(
+          'Basarili',
+          'Pusula Istanbul aboneliginiz aktif edildi. Hos geldiniz!',
+          [{ text: 'Basla', onPress: () => router.replace('/(tabs)') }],
+        );
+      }
     } catch (e: any) {
-      Alert.alert('Hata', e?.message || 'Satın alma başarısız');
+      // Kullanici iptal ettiyse sessizce gec
+      if (e?.userCancelled) return;
+      Alert.alert('Hata', e?.message || 'Satin alma basarisiz. Lutfen tekrar deneyin.');
     } finally {
       setYukleniyor(false);
     }
@@ -100,7 +177,7 @@ export default function AboneOl() {
             </Text>
             <View style={styles.planFiyatSatir}>
               <Text style={[styles.planFiyat, secilenPlan === 'aylik' && styles.planFiyatAktif]}>
-                ₺99
+                {fiyatlar.aylik}
               </Text>
               <Text style={[styles.planPeriyot, secilenPlan === 'aylik' && styles.planPeriyotAktif]}>
                 /ay
@@ -129,10 +206,10 @@ export default function AboneOl() {
                 </View>
                 <Text style={styles.planEtiketBeyaz}>Avantajlı Yıllık</Text>
                 <View style={styles.planFiyatSatir}>
-                  <Text style={styles.planFiyatBeyaz}>₺699</Text>
+                  <Text style={styles.planFiyatBeyaz}>{fiyatlar.yillik}</Text>
                   <Text style={styles.planPeriyotBeyaz}>/yıl</Text>
                 </View>
-                <Text style={styles.planAylikBeyaz}>₺58,25/ay</Text>
+                <Text style={styles.planAylikBeyaz}>{fiyatlar.aylikBirimYillik}/ay</Text>
               </LinearGradient>
             ) : (
               <>
@@ -141,10 +218,10 @@ export default function AboneOl() {
                 </View>
                 <Text style={styles.planEtiket}>Avantajlı Yıllık</Text>
                 <View style={styles.planFiyatSatir}>
-                  <Text style={styles.planFiyat}>₺699</Text>
+                  <Text style={styles.planFiyat}>{fiyatlar.yillik}</Text>
                   <Text style={styles.planPeriyot}>/yıl</Text>
                 </View>
-                <Text style={styles.planAylik}>₺58,25/ay</Text>
+                <Text style={styles.planAylik}>{fiyatlar.aylikBirimYillik}/ay</Text>
               </>
             )}
           </TouchableOpacity>
