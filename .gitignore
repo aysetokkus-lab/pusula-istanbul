@@ -34,7 +34,7 @@ yarn-error.*
 .env*.local
 
 # API keys & secrets
-lib/config.ts
+# lib/config.ts artik env variable kullaniyor, gitignore'dan cikarildi
 
 # typescript
 *.tsbuildinfo
