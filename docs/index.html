@@ -3,373 +3,585 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pusula Istanbul - Gizlilik Politikasi ve Kullanim Kosullari</title>
+  <title>Pusula İstanbul — Profesyonel Turist Rehberinin Dijital Asistanı</title>
+  <meta name="description" content="İstanbul'daki profesyonel turist rehberleri için geliştirilen mobil uygulama. Canlı saha durumu, müze bilgileri, ulaşım, rehber sohbeti ve daha fazlası.">
+  <meta name="theme-color" content="#005A8D">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       color: #1E293B;
       background: #F8FAFC;
       line-height: 1.7;
+      scroll-behavior: smooth;
     }
-    header {
-      background: linear-gradient(135deg, #005A8D, #0077B6, #0096C7);
+
+    /* ═══ NAVBAR ═══ */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(0, 90, 141, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 12px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .navbar-logo { color: #fff; font-weight: 800; font-size: 18px; letter-spacing: 2px; }
+    .navbar-links { display: flex; gap: 8px; }
+    .navbar-links a {
+      color: rgba(255,255,255,0.85); text-decoration: none; font-size: 13px; font-weight: 600;
+      padding: 6px 14px; border-radius: 6px; transition: all 0.2s;
+    }
+    .navbar-links a:hover { background: rgba(255,255,255,0.15); color: #fff; }
+    .navbar-links .store-btn {
+      background: #48CAE4; color: #005A8D; border-radius: 6px; font-weight: 700;
+    }
+    .navbar-links .store-btn:hover { background: #fff; }
+
+    /* ═══ HERO ═══ */
+    .hero {
+      background: linear-gradient(135deg, #003D5C 0%, #005A8D 30%, #0077B6 60%, #0096C7 100%);
       color: white;
-      padding: 40px 20px;
+      padding: 120px 24px 80px;
       text-align: center;
+      position: relative;
+      overflow: hidden;
     }
-    header h1 {
-      font-size: 28px;
-      font-weight: 800;
-      margin-bottom: 6px;
+    .hero::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(circle at 30% 40%, rgba(72,202,228,0.15) 0%, transparent 60%),
+                  radial-gradient(circle at 70% 80%, rgba(0,168,232,0.1) 0%, transparent 50%);
     }
-    header p {
-      font-size: 15px;
-      opacity: 0.9;
+    .hero-content { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; }
+    .hero-badge {
+      display: inline-block; background: rgba(255,255,255,0.15);
+      padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      letter-spacing: 1px; margin-bottom: 20px; text-transform: uppercase;
     }
-    nav {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      padding: 20px;
-      background: white;
-      border-bottom: 1px solid #E2E8F0;
-      position: sticky;
-      top: 0;
-      z-index: 10;
+    .hero h1 { font-size: 42px; font-weight: 800; line-height: 1.2; margin-bottom: 16px; }
+    .hero h1 span { color: #48CAE4; }
+    .hero p { font-size: 17px; opacity: 0.9; max-width: 540px; margin: 0 auto 32px; line-height: 1.7; }
+    .hero-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .hero-buttons a {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 28px; border-radius: 12px; text-decoration: none;
+      font-weight: 700; font-size: 15px; transition: all 0.2s;
     }
-    nav a {
-      text-decoration: none;
-      color: #0077B6;
-      font-weight: 600;
-      font-size: 14px;
-      padding: 8px 20px;
-      border-radius: 8px;
-      border: 2px solid #0077B6;
+    .btn-app-store { background: #fff; color: #005A8D; }
+    .btn-app-store:hover { background: #48CAE4; color: #003D5C; }
+    .btn-play-store { background: rgba(255,255,255,0.15); color: #fff; border: 2px solid rgba(255,255,255,0.3); }
+    .btn-play-store:hover { background: rgba(255,255,255,0.25); }
+    .store-icon { width: 22px; height: 22px; }
+
+    /* ═══ FEATURES ═══ */
+    .features {
+      padding: 80px 24px;
+      max-width: 1000px; margin: 0 auto;
+    }
+    .features-header { text-align: center; margin-bottom: 48px; }
+    .features-header h2 { font-size: 30px; font-weight: 800; color: #0F172A; margin-bottom: 10px; }
+    .features-header p { color: #64748B; font-size: 16px; max-width: 500px; margin: 0 auto; }
+    .features-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: #fff; border-radius: 16px; padding: 28px;
+      border: 1px solid #E2E8F0;
       transition: all 0.2s;
     }
-    nav a:hover, nav a.active {
-      background: #0077B6;
-      color: white;
+    .feature-card:hover { border-color: #0077B6; box-shadow: 0 4px 20px rgba(0,119,182,0.08); }
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800; margin-bottom: 16px;
     }
-    .container {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 32px 20px 60px;
+    .feature-card h3 { font-size: 17px; font-weight: 700; color: #0F172A; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: #64748B; line-height: 1.6; margin: 0; }
+
+    .icon-blue { background: rgba(0,119,182,0.1); color: #0077B6; }
+    .icon-teal { background: rgba(72,202,228,0.15); color: #0096C7; }
+    .icon-amber { background: rgba(224,159,62,0.15); color: #E09F3E; }
+    .icon-red { background: rgba(214,40,40,0.1); color: #D62828; }
+    .icon-purple { background: rgba(123,45,142,0.1); color: #7B2D8E; }
+    .icon-green { background: rgba(91,140,90,0.15); color: #5B8C5A; }
+
+    /* ═══ PREMIUM ═══ */
+    .premium {
+      background: linear-gradient(135deg, #005A8D, #0077B6);
+      padding: 60px 24px; color: white; text-align: center;
     }
-    .section { display: none; }
-    .section.active { display: block; }
-    .tarih {
-      font-size: 13px;
-      color: #94A3B8;
-      margin-bottom: 28px;
+    .premium h2 { font-size: 26px; font-weight: 800; margin-bottom: 10px; }
+    .premium p { opacity: 0.85; font-size: 15px; max-width: 500px; margin: 0 auto 28px; }
+    .plans { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .plan-card {
+      background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 16px; padding: 28px; min-width: 200px; text-align: center;
     }
-    h2 {
-      font-size: 22px;
-      font-weight: 800;
-      color: #0F172A;
-      margin-bottom: 6px;
-    }
-    h3 {
-      font-size: 17px;
-      font-weight: 700;
-      color: #1E293B;
-      margin-top: 28px;
-      margin-bottom: 10px;
-      padding-left: 12px;
-      border-left: 4px solid #0077B6;
-    }
-    p {
-      font-size: 15px;
-      color: #475569;
+    .plan-card.popular { background: rgba(255,255,255,0.2); border-color: #48CAE4; }
+    .plan-badge {
+      display: inline-block; background: #48CAE4; color: #003D5C;
+      padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 700;
       margin-bottom: 10px;
     }
-    ul {
-      list-style: none;
-      margin-bottom: 12px;
+    .plan-price { font-size: 32px; font-weight: 800; }
+    .plan-period { font-size: 13px; opacity: 0.7; }
+    .plan-name { font-size: 15px; font-weight: 600; margin-top: 6px; }
+
+    /* ═══ SCREENSHOTS ═══ */
+    .screenshots {
+      padding: 80px 24px; text-align: center;
+      max-width: 1000px; margin: 0 auto;
     }
-    ul li {
-      font-size: 15px;
-      color: #475569;
-      padding: 4px 0 4px 20px;
-      position: relative;
+    .screenshots h2 { font-size: 30px; font-weight: 800; color: #0F172A; margin-bottom: 10px; }
+    .screenshots > p { color: #64748B; font-size: 16px; margin-bottom: 40px; }
+    .screenshots-note {
+      color: #94A3B8; font-size: 13px; font-style: italic;
+      margin-top: 20px;
     }
-    ul li::before {
-      content: '';
-      position: absolute;
-      left: 4px;
-      top: 13px;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #0077B6;
+    .screenshot-grid {
+      display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
     }
+    .screenshot-placeholder {
+      width: 200px; height: 360px; background: linear-gradient(135deg, #E2E8F0, #CBD5E1);
+      border-radius: 20px; display: flex; align-items: center; justify-content: center;
+      color: #94A3B8; font-size: 13px; font-weight: 600;
+    }
+
+    /* ═══ LEGAL ═══ */
+    .legal {
+      padding: 60px 24px 80px;
+      max-width: 720px; margin: 0 auto;
+    }
+    .legal-tabs {
+      display: flex; justify-content: center; gap: 12px; margin-bottom: 32px;
+    }
+    .legal-tabs a {
+      text-decoration: none; color: #0077B6; font-weight: 600; font-size: 14px;
+      padding: 10px 24px; border-radius: 8px; border: 2px solid #0077B6;
+      transition: all 0.2s; cursor: pointer;
+    }
+    .legal-tabs a:hover, .legal-tabs a.active { background: #0077B6; color: #fff; }
+    .legal-section { display: none; }
+    .legal-section.active { display: block; }
+    .legal .tarih { font-size: 13px; color: #94A3B8; margin-bottom: 28px; }
+    .legal h2 { font-size: 22px; font-weight: 800; color: #0F172A; margin-bottom: 6px; }
+    .legal h3 {
+      font-size: 17px; font-weight: 700; color: #1E293B;
+      margin-top: 28px; margin-bottom: 10px;
+      padding-left: 12px; border-left: 4px solid #0077B6;
+    }
+    .legal p { font-size: 15px; color: #475569; margin-bottom: 10px; }
+    .legal ul { list-style: none; margin-bottom: 12px; }
+    .legal ul li {
+      font-size: 15px; color: #475569; padding: 4px 0 4px 20px; position: relative;
+    }
+    .legal ul li::before {
+      content: ''; position: absolute; left: 4px; top: 13px;
+      width: 6px; height: 6px; border-radius: 50%; background: #0077B6;
+    }
+
+    /* ═══ FOOTER ═══ */
     footer {
-      text-align: center;
-      padding: 30px 20px;
-      background: #F1F5F9;
-      border-top: 1px solid #E2E8F0;
-      font-size: 13px;
-      color: #94A3B8;
+      background: #0F172A; color: rgba(255,255,255,0.6);
+      padding: 40px 24px; text-align: center; font-size: 13px;
     }
-    footer a { color: #0077B6; text-decoration: none; }
-    @media (max-width: 480px) {
-      header h1 { font-size: 22px; }
-      nav { flex-direction: column; align-items: center; }
-      nav a { width: 80%; text-align: center; }
+    footer a { color: #48CAE4; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    .footer-links { margin-bottom: 16px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+    .footer-links a { color: rgba(255,255,255,0.7); font-weight: 600; }
+
+    /* ═══ RESPONSIVE ═══ */
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 28px; }
+      .hero p { font-size: 15px; }
+      .hero-buttons a { padding: 12px 20px; font-size: 14px; }
+      .navbar-links a { font-size: 12px; padding: 5px 10px; }
+      .features-header h2, .screenshots h2 { font-size: 24px; }
+      .plan-price { font-size: 26px; }
+      .screenshot-placeholder { width: 150px; height: 270px; }
+    }
+    @media (max-width: 400px) {
+      .navbar-links { gap: 4px; }
+      .hero { padding: 100px 16px 60px; }
     }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>Pusula Istanbul</h1>
-  <p>Profesyonel Turist Rehberleri Icin Dijital Yol Arkadasi</p>
-</header>
-
-<nav>
-  <a href="#gizlilik" id="nav-gizlilik" class="active" onclick="goster('gizlilik')">Gizlilik Politikasi</a>
-  <a href="#kullanim" id="nav-kullanim" onclick="goster('kullanim')">Kullanim Kosullari</a>
+<!-- ═══ NAVBAR ═══ -->
+<nav class="navbar">
+  <div class="navbar-logo">PUSULA</div>
+  <div class="navbar-links">
+    <a href="#ozellikler">Özellikler</a>
+    <a href="#yasal">Yasal</a>
+    <a href="https://apps.apple.com/tr/app/pusula-istanbul/id6761419678" target="_blank" class="store-btn">İndir</a>
+  </div>
 </nav>
 
-<div class="container">
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">İstanbul Rehberleri İçin</div>
+    <h1>Profesyonel Turist Rehberinin <span>Dijital Asistanı</span></h1>
+    <p>
+      Canlı saha durumu, müze ve saray ziyaret saatleri, ulaşım uyarıları,
+      rehber sohbeti ve acil durum bilgileri — hepsi tek uygulamada.
+    </p>
+    <div class="hero-buttons">
+      <a href="https://apps.apple.com/tr/app/pusula-istanbul/id6761419678" target="_blank" class="btn-app-store">
+        <svg class="store-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        App Store
+      </a>
+      <a href="https://play.google.com/store/apps/details?id=com.pusulaistanbul.app" target="_blank" class="btn-play-store">
+        <svg class="store-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.61 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/></svg>
+        Google Play
+      </a>
+    </div>
+  </div>
+</section>
 
-  <!-- ════════════════════════════════════════ -->
-  <!-- GİZLİLİK POLİTİKASI                      -->
-  <!-- ════════════════════════════════════════ -->
-  <div id="gizlilik" class="section active">
-    <h2>Gizlilik Politikasi ve KVKK Aydinlatma Metni</h2>
-    <p class="tarih">Son guncelleme: 16 Nisan 2026</p>
+<!-- ═══ FEATURES ═══ -->
+<section class="features" id="ozellikler">
+  <div class="features-header">
+    <h2>Her Tur İçin Yanında</h2>
+    <p>İstanbul'da sahada ihtiyacın olan her şey, cebinde.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon icon-blue">M</div>
+      <h3>Müze ve Saray Saatleri</h3>
+      <p>32+ müze, saray ve caminin güncel ziyaret saatleri, gişe kapanışları, giriş ücretleri ve MüzeKart bilgileri. Yaz/kış mevsim geçişleri otomatik.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-teal">S</div>
+      <h3>Canlı Saha Durumu</h3>
+      <p>Meslektaşlarınızın anlık müze kuyruk ve yoğunluk bildirimleri. Hangi müze kalabalık, hangisi sakin — sahanın nabzını tutun.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-amber">U</div>
+      <h3>Ulaşım Uyarıları</h3>
+      <p>Metro, tramvay, Marmaray arıza ve kesinti bildirimleri. İBB Ulaşım trafik uyarıları. Havalimanı transferleri ve Boğaz turları tarifeleri.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-purple">R</div>
+      <h3>Rehber Sohbeti</h3>
+      <p>Meslektaşlarınızla canlı mesajlaşma. Saha güncellemeleri, tavsiyeler ve yardımlaşmalar için güvenli iletişim ortamı.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-green">E</div>
+      <h3>Kent Etkinlikleri</h3>
+      <p>İstanbul'daki yaklaşan kültür, sanat ve turizm etkinlikleri. Turlarınıza değer katacak etkinlikleri kaçırmayın.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-red">A</div>
+      <h3>Acil Durum Rehberi</h3>
+      <p>Hastane, polis, konsolosluk ve turizm polisi numaraları. Meslek kuruluşları iletişim bilgileri. Tek tuşla arama.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MORE FEATURES ═══ -->
+<section class="features" style="padding-top: 0;">
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon icon-teal">H</div>
+      <h3>Hava Durumu ve Namaz Vakitleri</h3>
+      <p>Günlük hava durumu ve namaz vakitleri — tur planlamanız için. Galataport gemi takvimi ile kruvaziyer programı.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-blue">K</div>
+      <h3>MüzeKart Rehberi</h3>
+      <p>Museum Pass ve MüzeKart geçen/geçmeyen yerler listesi. Fatih'teki satış noktaları ve yoğunluk bilgileri.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-amber">D</div>
+      <h3>Koyu Tema Desteği</h3>
+      <p>Gece turları ve karanlık ortamlar için tam koyu tema. Göz yorulması olmadan rahat kullanım.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PREMIUM ═══ -->
+<section class="premium">
+  <h2>Dijital Asistanını Kesintisiz Kullan</h2>
+  <p>Temel özellikler ücretsiz. Premium ile tam erişim.</p>
+  <div class="plans">
+    <div class="plan-card">
+      <div class="plan-name">Aylık</div>
+      <div class="plan-price">99 <span class="plan-period">TL/ay</span></div>
+    </div>
+    <div class="plan-card popular">
+      <div class="plan-badge">%41 Tasarruf</div>
+      <div class="plan-name">Yıllık</div>
+      <div class="plan-price">699 <span class="plan-period">TL/yıl</span></div>
+      <div class="plan-period" style="margin-top: 4px;">58,25 TL/ay</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SCREENSHOTS ═══ -->
+<section class="screenshots" id="ekranlar">
+  <h2>Uygulama Görüntüleri</h2>
+  <p>Pusula İstanbul'un arayüzünden görüntüler</p>
+  <div class="screenshot-grid">
+    <div class="screenshot-placeholder">Ana Sayfa</div>
+    <div class="screenshot-placeholder">Müzeler</div>
+    <div class="screenshot-placeholder">Ulaşım</div>
+    <div class="screenshot-placeholder">Sohbet</div>
+  </div>
+  <p class="screenshots-note">Ekran görüntüleri yakında eklenecektir.</p>
+</section>
+
+<!-- ═══ LEGAL ═══ -->
+<section class="legal" id="yasal">
+  <div class="legal-tabs">
+    <a id="tab-gizlilik" class="active" onclick="gosterYasal('gizlilik')">Gizlilik Politikası</a>
+    <a id="tab-kullanim" onclick="gosterYasal('kullanim')">Kullanım Koşulları</a>
+  </div>
+
+  <!-- GİZLİLİK POLİTİKASI -->
+  <div id="gizlilik" class="legal-section active">
+    <h2>Gizlilik Politikası ve KVKK Aydınlatma Metni</h2>
+    <p class="tarih">Son güncelleme: 23 Nisan 2026</p>
 
     <h3>1. Veri Sorumlusu</h3>
     <p>
-      Pusula Istanbul uygulamasi, Ayşe Tokkuş Bayar tarafindan gelistirilmis ve isletilmektedir.
-      Bu gizlilik politikasi, 6698 sayili Kisisel Verilerin Korunmasi Kanunu (KVKK) kapsaminda
-      kisisel verilerinizin nasil islendigini aciklamaktadir.
+      Pusula İstanbul uygulaması, Ayşe Tokkuş Bayar tarafından geliştirilmiş ve işletilmektedir.
+      Bu gizlilik politikası, 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında
+      kişisel verilerinizin nasıl işlendiğini açıklamaktadır.
     </p>
 
     <h3>2. Toplanan Veriler</h3>
-    <p>Uygulamamiz asagidaki kisisel verileri toplamaktadir:</p>
+    <p>Uygulamamız aşağıdaki kişisel verileri toplamaktadır:</p>
     <ul>
       <li>Kimlik bilgileri: Ad, soyad</li>
-      <li>Iletisim bilgileri: E-posta adresi</li>
-      <li>Mesleki bilgi: TUREB ruhsat numarasi</li>
-      <li>Konum bilgisi: Sehir (kullanici tarafindan girilen)</li>
-      <li>Kullanim verileri: Uygulama ici etkilesimler, sohbet mesajlari</li>
-      <li>Abonelik bilgileri: Abonelik durumu, plan turu</li>
+      <li>İletişim bilgileri: E-posta adresi</li>
+      <li>Mesleki bilgi: TUREB ruhsat numarası</li>
+      <li>Konum bilgisi: Şehir (kullanıcı tarafından girilen)</li>
+      <li>Kullanım verileri: Uygulama içi etkileşimler, sohbet mesajları</li>
+      <li>Abonelik bilgileri: Abonelik durumu, plan türü</li>
     </ul>
 
-    <h3>3. Verilerin Islenme Amaci</h3>
-    <p>Kisisel verileriniz asagidaki amaclarla islenmektedir:</p>
+    <h3>3. Verilerin İşlenme Amacı</h3>
+    <p>Kişisel verileriniz aşağıdaki amaçlarla işlenmektedir:</p>
     <ul>
-      <li>Kullanici hesabi olusturma ve yonetimi</li>
-      <li>Uygulama hizmetlerinin sunulmasi</li>
-      <li>Sohbet ve iletisim ozelliklerinin saglanmasi</li>
-      <li>Abonelik yonetimi ve odeme islemleri</li>
-      <li>Icerik moderasyonu ve guvenlik</li>
-      <li>Uygulama iyilestirme ve analiz</li>
+      <li>Kullanıcı hesabı oluşturma ve yönetimi</li>
+      <li>Uygulama hizmetlerinin sunulması</li>
+      <li>Sohbet ve iletişim özelliklerinin sağlanması</li>
+      <li>Abonelik yönetimi ve ödeme işlemleri</li>
+      <li>İçerik moderasyonu ve güvenlik</li>
+      <li>Uygulama iyileştirme ve analiz</li>
     </ul>
 
-    <h3>4. Verilerin Aktarimi</h3>
-    <p>Kisisel verileriniz asagidaki ucuncu taraflarla paylasilabilir:</p>
+    <h3>4. Verilerin Aktarımı</h3>
+    <p>Kişisel verileriniz aşağıdaki üçüncü taraflarla paylaşılabilir:</p>
     <ul>
-      <li>Supabase Inc. — Veritabani altyapi hizmeti (ABD)</li>
-      <li>RevenueCat Inc. — Abonelik yonetim hizmeti (ABD)</li>
-      <li>Apple Inc. / Google LLC — Uygulama magazasi ve odeme islemleri</li>
+      <li>Supabase Inc. — Veritabanı altyapı hizmeti (ABD)</li>
+      <li>RevenueCat Inc. — Abonelik yönetim hizmeti (ABD)</li>
+      <li>Apple Inc. / Google LLC — Uygulama mağazası ve ödeme işlemleri</li>
     </ul>
     <p>
-      Bu aktarimlar, KVKK'nin 9. maddesi kapsaminda yeterli koruma bulunan ulkelere
-      veya yeterli korumayi taahhut eden veri sorumlulari ile gerceklestirilmektedir.
+      Bu aktarımlar, KVKK'nin 9. maddesi kapsamında yeterli koruma bulunan ülkelere
+      veya yeterli korumayı taahhüt eden veri sorumluları ile gerçekleştirilmektedir.
     </p>
 
-    <h3>5. Verilerin Saklanma Suresi</h3>
+    <h3>5. Verilerin Saklanma Süresi</h3>
     <p>
-      Kisisel verileriniz, hesabiniz aktif oldugu surece saklanir. Hesap silme talebinde
-      bulunmaniz halinde verileriniz 30 gun icinde silinir. Yasal zorunluluklar saklidir.
+      Kişisel verileriniz, hesabınız aktif olduğu sürece saklanır. Hesap silme talebinde
+      bulunmanız halinde verileriniz 30 gün içinde silinir. Yasal zorunluluklar saklıdır.
     </p>
 
-    <h3>6. Haklariniz (KVKK Madde 11)</h3>
-    <p>KVKK kapsaminda asagidaki haklara sahipsiniz:</p>
+    <h3>6. Haklarınız (KVKK Madde 11)</h3>
+    <p>KVKK kapsamında aşağıdaki haklara sahipsiniz:</p>
     <ul>
-      <li>Kisisel verilerinizin islenip islenmedigini ogrenme</li>
-      <li>Islenmisse buna iliskin bilgi talep etme</li>
-      <li>Islenme amacini ve amaca uygun kullanilip kullanilmadigini ogrenme</li>
-      <li>Aktarildigi ucuncu kisileri bilme</li>
-      <li>Eksik veya yanlis islenmisse duzeltilmesini isteme</li>
+      <li>Kişisel verilerinizin işlenip işlenmediğini öğrenme</li>
+      <li>İşlenmişse buna ilişkin bilgi talep etme</li>
+      <li>İşlenme amacını ve amaca uygun kullanılıp kullanılmadığını öğrenme</li>
+      <li>Aktarıldığı üçüncü kişileri bilme</li>
+      <li>Eksik veya yanlış işlenmişse düzeltilmesini isteme</li>
       <li>Silinmesini veya yok edilmesini isteme</li>
-      <li>Islenen verilerin munhasiran otomatik sistemler araciligiyla analiz edilmesi suretiyle aleyhinize bir sonucun ortaya cikmasina itiraz etme</li>
-      <li>Kanuna aykiri isleme sebebiyle zarara ugramaniz halinde zararin giderilmesini talep etme</li>
+      <li>İşlenen verilerin münhasıran otomatik sistemler aracılığıyla analiz edilmesi suretiyle aleyhinize bir sonucun ortaya çıkmasına itiraz etme</li>
+      <li>Kanuna aykırı işleme sebebiyle zarara uğramanız halinde zararın giderilmesini talep etme</li>
     </ul>
 
-    <h3>7. Cocuklarin Gizliligi</h3>
+    <h3>7. Çocukların Gizliliği</h3>
     <p>
-      Pusula Istanbul, profesyonel turist rehberlerine yonelik bir uygulamadir.
-      18 yasindan kucuk bireylerin kisisel verilerini bilerek toplamiyoruz.
+      Pusula İstanbul, profesyonel turist rehberlerine yönelik bir uygulamadır.
+      18 yaşından küçük bireylerin kişisel verilerini bilerek toplamıyoruz.
     </p>
 
-    <h3>8. Guvenlik</h3>
+    <h3>8. Güvenlik</h3>
     <p>
-      Kisisel verilerinizin guvenligi icin endustri standardi sifreleme, guvenli baglantilar (SSL/TLS)
-      ve erisim kontrolu mekanizmalari kullanilmaktadir. Supabase altyapisi, SOC 2 Type II
-      sertifikalidir.
+      Kişisel verilerinizin güvenliği için endüstri standardı şifreleme, güvenli bağlantılar (SSL/TLS)
+      ve erişim kontrolü mekanizmaları kullanılmaktadır. Supabase altyapısı, SOC 2 Type II
+      sertifikalıdır.
     </p>
 
     <h3>9. Hesap Silme</h3>
     <p>
-      Hesabinizi ve tum kisisel verilerinizi silmek icin info@pusulaistanbul.app adresine
-      e-posta gonderebilirsiniz. Silme talebiniz 30 gun icinde islenecektir. Silme islemi
-      geri alinamaz ve tum verileriniz kalici olarak kaldirilacaktir.
+      Hesabınızı ve tüm kişisel verilerinizi silmek için info@pusulaistanbul.app adresine
+      e-posta gönderebilirsiniz. Silme talebiniz 30 gün içinde işlenecektir. Silme işlemi
+      geri alınamaz ve tüm verileriniz kalıcı olarak kaldırılacaktır.
     </p>
 
-    <h3>10. Degisiklikler</h3>
+    <h3>10. Değişiklikler</h3>
     <p>
-      Bu gizlilik politikasi zaman zaman guncellenebilir. Onemli degisikliklerde
-      uygulama ici bildirim yapilacaktir.
+      Bu gizlilik politikası zaman zaman güncellenebilir. Önemli değişikliklerde
+      uygulama içi bildirim yapılacaktır.
     </p>
 
-    <h3>11. Iletisim</h3>
+    <h3>11. İletişim</h3>
     <p>
-      Gizlilik ile ilgili sorulariniz ve KVKK kapsamindaki basvurulariniz icin:<br>
+      Gizlilik ile ilgili sorularınız ve KVKK kapsamındaki başvurularınız için:<br>
       E-posta: <a href="mailto:info@pusulaistanbul.app">info@pusulaistanbul.app</a>
     </p>
   </div>
 
-  <!-- ════════════════════════════════════════ -->
-  <!-- KULLANIM KOŞULLARI                        -->
-  <!-- ════════════════════════════════════════ -->
-  <div id="kullanim" class="section">
-    <h2>Kullanim Kosullari</h2>
-    <p class="tarih">Son guncelleme: 16 Nisan 2026</p>
+  <!-- KULLANIM KOŞULLARI -->
+  <div id="kullanim" class="legal-section">
+    <h2>Kullanım Koşulları</h2>
+    <p class="tarih">Son güncelleme: 23 Nisan 2026</p>
 
     <h3>1. Kabul</h3>
     <p>
-      Pusula Istanbul uygulamasini kullanarak bu kullanim kosullarini kabul etmis sayilirsiniz.
-      Kosullari kabul etmiyorsaniz uygulamayi kullanmayiniz.
+      Pusula İstanbul uygulamasını kullanarak bu kullanım koşullarını kabul etmiş sayılırsınız.
+      Koşulları kabul etmiyorsanız uygulamayı kullanmayınız.
     </p>
 
-    <h3>2. Hizmet Tanimi</h3>
+    <h3>2. Hizmet Tanımı</h3>
     <p>
-      Pusula Istanbul, profesyonel turist rehberlerine yonelik bir bilgi ve iletisim uygulamasidir.
-      Muze bilgileri, ulasim saatleri, ezan vakitleri, hava durumu, gemi takvimi, kent etkinlikleri
-      ve rehberler arasi sohbet ozelliklerini sunmaktadir.
+      Pusula İstanbul, profesyonel turist rehberlerine yönelik bir bilgi ve iletişim uygulamasıdır.
+      Müze bilgileri, ulaşım saatleri, ezan vakitleri, hava durumu, gemi takvimi, kent etkinlikleri
+      ve rehberler arası sohbet özelliklerini sunmaktadır.
     </p>
 
-    <h3>3. Hesap ve Kayit</h3>
+    <h3>3. Hesap ve Kayıt</h3>
     <p>
-      Uygulamayi kullanmak icin gecerli bir e-posta adresi ile kayit olmaniz gerekmektedir.
-      Hesap bilgilerinizin dogrulugundan ve guvenligindan siz sorumlusunuz.
-      TUREB ruhsat numaraniz dogrulama amaciyla talep edilmektedir.
+      Uygulamayı kullanmak için geçerli bir e-posta adresi ile kayıt olmanız gerekmektedir.
+      Hesap bilgilerinizin doğruluğundan ve güvenliğinden siz sorumlusunuz.
+      TUREB ruhsat numaranız doğrulama amacıyla talep edilmektedir.
     </p>
 
-    <h3>4. Abonelik ve Odeme</h3>
+    <h3>4. Abonelik ve Ödeme</h3>
     <p>
-      Pusula Istanbul freemium bir uygulamadir. Temel ozellikler (muze/saray/cami ziyaret saatleri,
-      ulasim rehberi, acil durum bilgileri) ucretsiz olarak sunulmaktadir. Premium ozellikler
-      (canli saha durumu, rehber sohbeti, ulasim uyarilari, kent etkinlikleri) uygulama ici
-      abonelik ile kullanilabilir. Odeme, cihazinizin uygulama magazasi (App Store / Google Play)
-      uzerinden tahsil edilir.
+      Pusula İstanbul freemium bir uygulamadır. Temel özellikler (müze/saray/cami ziyaret saatleri,
+      ulaşım rehberi, acil durum bilgileri) ücretsiz olarak sunulmaktadır. Premium özellikler
+      (canlı saha durumu, rehber sohbeti, ulaşım uyarıları, kent etkinlikleri) uygulama içi
+      abonelik ile kullanılabilir. Ödeme, cihazınızın uygulama mağazası (App Store / Google Play)
+      üzerinden tahsil edilir.
     </p>
     <ul>
-      <li>Aylik plan: 99 TL/ay</li>
-      <li>Yillik plan: 699 TL/yil (%41 tasarruf)</li>
+      <li>Aylık plan: 99 TL/ay</li>
+      <li>Yıllık plan: 699 TL/yıl (%41 tasarruf)</li>
     </ul>
     <p>
-      Abonelikler, mevcut donem sona ermeden en az 24 saat once iptal edilmezse otomatik
-      olarak yenilenir. Iptal islemi, cihazinizin uygulama magazasi ayarlarindan yapilabilir.
-      Kismi donem icin iade yapilmamaktadir. Satin almalari geri yuklemek icin uygulama ici
-      "Satin Almalari Geri Yukle" secenegini kullanabilirsiniz.
+      Abonelikler, mevcut dönem sona ermeden en az 24 saat önce iptal edilmezse otomatik
+      olarak yenilenir. İptal işlemi, cihazınızın uygulama mağazası ayarlarından yapılabilir.
+      Kısmi dönem için iade yapılmamaktadır. Satın almaları geri yüklemek için uygulama içi
+      "Satın Almaları Geri Yükle" seçeneğini kullanabilirsiniz.
     </p>
 
-    <h3>5. Kullanim Kurallari</h3>
-    <p>Uygulamayi kullanirken asagidaki kurallara uymayi kabul edersiniz:</p>
+    <h3>5. Kullanım Kuralları</h3>
+    <p>Uygulamayı kullanırken aşağıdaki kurallara uymayı kabul edersiniz:</p>
     <ul>
-      <li>Yasalara ve duzenlemelere uygun davranma</li>
-      <li>Diger kullanicilara saygili olma</li>
-      <li>Kufur, hakaret, tehdit veya ayrimci icerik paylasmama</li>
-      <li>Spam, reklam veya yaniltici bilgi yaymama</li>
-      <li>Baskalarinin kisisel bilgilerini izinsiz paylasmama</li>
-      <li>Uygulamayi kotuye kullanmama veya teknik altyapiya zarar vermeme</li>
+      <li>Yasalara ve düzenlemelere uygun davranma</li>
+      <li>Diğer kullanıcılara saygılı olma</li>
+      <li>Küfür, hakaret, tehdit veya ayrımcı içerik paylaşmama</li>
+      <li>Spam, reklam veya yanıltıcı bilgi yaymama</li>
+      <li>Başkalarının kişisel bilgilerini izinsiz paylaşmama</li>
+      <li>Uygulamayı kötüye kullanmama veya teknik altyapıya zarar vermeme</li>
     </ul>
 
-    <h3>6. Sohbet ve Icerik Moderasyonu</h3>
+    <h3>6. Sohbet ve İçerik Moderasyonu</h3>
     <p>
-      Pusula Istanbul, kullanici tarafindan olusturulan iceriklerde (sohbet mesajlari) sifir tolerans
-      politikasi uygular. Uygunsuz icerik paylasan kullanicilarin hesaplari gecici veya kalici olarak
-      askiya alinabilir.
+      Pusula İstanbul, kullanıcı tarafından oluşturulan içeriklerde (sohbet mesajları) sıfır tolerans
+      politikası uygular. Uygunsuz içerik paylaşan kullanıcıların hesapları geçici veya kalıcı olarak
+      askıya alınabilir.
     </p>
-    <p>Moderasyon araclari:</p>
+    <p>Moderasyon araçları:</p>
     <ul>
-      <li>Otomatik kufur filtresi (veritabanindan yuklenen kelime listesi)</li>
-      <li>Mesaj raporlama: (...) butonuna dokunarak veya mesaja uzun basarak uygunsuz icerigi raporlayabilirsiniz</li>
-      <li>Kullanici engelleme: Rahatsiz edici kullanicilari engelleyerek mesajlarini gorunmez yapabilirsiniz</li>
-      <li>24 saat icinde moderator incelemesi</li>
+      <li>Otomatik küfür filtresi (veritabanından yüklenen kelime listesi)</li>
+      <li>Mesaj raporlama: (...) butonuna dokunarak veya mesaja uzun basarak uygunsuz içeriği raporlayabilirsiniz</li>
+      <li>Kullanıcı engelleme: Rahatsız edici kullanıcıları engelleyerek mesajlarını görünmez yapabilirsiniz</li>
+      <li>24 saat içinde moderatör incelemesi</li>
     </ul>
     <p>
-      Moderator kararlarina itiraz icin info@pusulaistanbul.app adresine basvurabilirsiniz.
+      Moderatör kararlarına itiraz için info@pusulaistanbul.app adresine başvurabilirsiniz.
     </p>
 
-    <h3>7. Bilgi Dogrulugu</h3>
+    <h3>7. Bilgi Doğruluğu</h3>
     <p>
-      Uygulamadaki muze saatleri, ulasim bilgileri, ezan vakitleri ve diger veriler bilgilendirme
-      amaclidir. Bu bilgilerin anlik dogrulugunu garanti etmiyoruz. Resmi kaynaklardan
-      teyit etmenizi oneriyoruz.
+      Uygulamadaki müze saatleri, ulaşım bilgileri, ezan vakitleri ve diğer veriler bilgilendirme
+      amaçlıdır. Bu bilgilerin anlık doğruluğunu garanti etmiyoruz. Resmi kaynaklardan
+      teyit etmenizi öneriyoruz.
     </p>
 
-    <h3>8. Fikri Mulkiyet</h3>
+    <h3>8. Fikri Mülkiyet</h3>
     <p>
-      Pusula Istanbul uygulamasinin tum icerigi, tasarimi, logosu ve yazilimi telif hakkiyla
-      korunmaktadir. Izinsiz kopyalama, dagitma veya degistirme yasaktir.
+      Pusula İstanbul uygulamasının tüm içeriği, tasarımı, logosu ve yazılımı telif hakkıyla
+      korunmaktadır. İzinsiz kopyalama, dağıtma veya değiştirme yasaktır.
     </p>
 
-    <h3>9. Sorumluluk Siniri</h3>
+    <h3>9. Sorumluluk Sınırı</h3>
     <p>
-      Uygulama "oldugu gibi" sunulmaktadir. Teknik sorunlar, kesintiler veya veri kaybindan
-      dogabilecek zararlardan sorumlu degiliz. Uygulamadaki bilgilerin resmi niteligi yoktur.
+      Uygulama "olduğu gibi" sunulmaktadır. Teknik sorunlar, kesintiler veya veri kaybından
+      doğabilecek zararlardan sorumlu değiliz. Uygulamadaki bilgilerin resmi niteliği yoktur.
     </p>
 
     <h3>10. Fesih</h3>
     <p>
-      Kullanim kosullarini ihlal etmeniz durumunda hesabiniz bildirim yapilarak veya yapilmaksizin
-      askiya alinabilir veya kapatilabilir. Hesabinizi istediginiz zaman silme talebinde bulunabilirsiniz.
+      Kullanım koşullarını ihlal etmeniz durumunda hesabınız bildirim yapılarak veya yapılmaksızın
+      askıya alınabilir veya kapatılabilir. Hesabınızı istediğiniz zaman silme talebinde bulunabilirsiniz.
     </p>
 
     <h3>11. Uygulanacak Hukuk</h3>
     <p>
-      Bu kullanim kosullari Turkiye Cumhuriyeti yasalarina tabidir. Uyusmazliklarda
-      Istanbul Mahkemeleri ve Icra Daireleri yetkilidir.
+      Bu kullanım koşulları Türkiye Cumhuriyeti yasalarına tabidir. Uyuşmazlıklarda
+      İstanbul Mahkemeleri ve İcra Daireleri yetkilidir.
     </p>
 
-    <h3>12. Degisiklikler</h3>
+    <h3>12. Değişiklikler</h3>
     <p>
-      Bu kosullar onceden bildirimde bulunularak guncellenebilir. Guncelleme sonrasi
-      uygulamayi kullanmaya devam etmeniz, yeni kosullari kabul ettiginiz anlamina gelir.
+      Bu koşullar önceden bildirimde bulunularak güncellenebilir. Güncelleme sonrası
+      uygulamayı kullanmaya devam etmeniz, yeni koşulları kabul ettiğiniz anlamına gelir.
     </p>
 
-    <h3>13. Iletisim</h3>
+    <h3>13. İletişim</h3>
     <p>
-      Sorulariniz icin:<br>
+      Sorularınız için:<br>
       E-posta: <a href="mailto:info@pusulaistanbul.app">info@pusulaistanbul.app</a>
     </p>
   </div>
+</section>
 
-</div>
-
+<!-- ═══ FOOTER ═══ -->
 <footer>
-  Pusula Istanbul &copy; 2026 Ayşe Tokkuş Bayar. Tum haklari saklidir.<br>
-  Iletisim: <a href="mailto:info@pusulaistanbul.app">info@pusulaistanbul.app</a>
+  <div class="footer-links">
+    <a href="#yasal" onclick="gosterYasal('gizlilik')">Gizlilik Politikası</a>
+    <a href="#yasal" onclick="gosterYasal('kullanim')">Kullanım Koşulları</a>
+    <a href="mailto:info@pusulaistanbul.app">İletişim</a>
+  </div>
+  Pusula İstanbul &copy; 2026 Ayşe Tokkuş Bayar. Tüm hakları saklıdır.<br>
+  <a href="mailto:info@pusulaistanbul.app">info@pusulaistanbul.app</a>
 </footer>
 
 <script>
-function goster(id) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+function gosterYasal(id) {
+  document.querySelectorAll('.legal-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.legal-tabs a').forEach(a => a.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  document.getElementById('nav-' + id).classList.add('active');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.getElementById('tab-' + id).classList.add('active');
 }
 
 // URL hash ile direkt acma
-if (window.location.hash === '#kullanim') goster('kullanim');
+if (window.location.hash === '#kullanim') {
+  gosterYasal('kullanim');
+} else if (window.location.hash === '#gizlilik') {
+  gosterYasal('gizlilik');
+}
 </script>
 
 </body>
