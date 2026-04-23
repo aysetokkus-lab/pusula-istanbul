@@ -141,21 +141,24 @@
     /* ═══ SCREENSHOTS ═══ */
     .screenshots {
       padding: 80px 24px; text-align: center;
-      max-width: 1000px; margin: 0 auto;
+      max-width: 1200px; margin: 0 auto;
     }
     .screenshots h2 { font-size: 30px; font-weight: 800; color: #0F172A; margin-bottom: 10px; }
     .screenshots > p { color: #64748B; font-size: 16px; margin-bottom: 40px; }
-    .screenshots-note {
-      color: #94A3B8; font-size: 13px; font-style: italic;
-      margin-top: 20px;
-    }
     .screenshot-grid {
-      display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+      display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
     }
-    .screenshot-placeholder {
-      width: 200px; height: 360px; background: linear-gradient(135deg, #E2E8F0, #CBD5E1);
-      border-radius: 20px; display: flex; align-items: center; justify-content: center;
-      color: #94A3B8; font-size: 13px; font-weight: 600;
+    .screenshot-card {
+      width: 220px; border-radius: 16px; overflow: hidden;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .screenshot-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.2);
+    }
+    .screenshot-card img {
+      width: 100%; height: auto; display: block;
     }
 
     /* ═══ LEGAL ═══ */
@@ -211,7 +214,7 @@
       .hero-buttons a { padding: 12px 20px; font-size: 14px; }
       .features-header h2, .screenshots h2 { font-size: 24px; }
       .plan-price { font-size: 26px; }
-      .screenshot-placeholder { width: 150px; height: 270px; }
+      .screenshot-card { width: 160px; }
     }
     @media (max-width: 400px) {
       .navbar-logo { font-size: 16px; letter-spacing: 2px; gap: 8px; }
@@ -255,6 +258,19 @@
         Google Play
       </a>
     </div>
+  </div>
+</section>
+
+<!-- ═══ SCREENSHOTS ═══ -->
+<section class="screenshots" id="ekranlar">
+  <h2>Sahadaki Dijital Gücünüz</h2>
+  <p>Karmaşık detaylardan arındırılmış, doğrudan rehberin ihtiyacına odaklanan modern arayüz.</p>
+  <div class="screenshot-grid">
+    <div class="screenshot-card"><img src="ss-1.png" alt="Her An Güncel — Sahadan anlık bildirimler" loading="lazy"></div>
+    <div class="screenshot-card"><img src="ss-2.png" alt="Kesintisiz İletişim — Rehber sohbeti" loading="lazy"></div>
+    <div class="screenshot-card"><img src="ss-3.png" alt="Kentin Nabzı — Ulaşım ve etkinlik uyarıları" loading="lazy"></div>
+    <div class="screenshot-card"><img src="ss-4.png" alt="Net Zamanlama — Cami ve müze ziyaret saatleri" loading="lazy"></div>
+    <div class="screenshot-card"><img src="ss-5.png" alt="Planlı. Hazır. — Liman gemi takvimi" loading="lazy"></div>
   </div>
 </section>
 
@@ -335,19 +351,6 @@
       <div class="plan-period" style="margin-top: 4px;">58,25 TL/ay</div>
     </div>
   </div>
-</section>
-
-<!-- ═══ SCREENSHOTS ═══ -->
-<section class="screenshots" id="ekranlar">
-  <h2>Sahadaki Dijital Gücünüz</h2>
-  <p>Karmaşık detaylardan arındırılmış, doğrudan rehberin ihtiyacına odaklanan modern arayüz.</p>
-  <div class="screenshot-grid">
-    <div class="screenshot-placeholder">Ana Sayfa</div>
-    <div class="screenshot-placeholder">Müzeler</div>
-    <div class="screenshot-placeholder">Ulaşım</div>
-    <div class="screenshot-placeholder">Sohbet</div>
-  </div>
-  <p class="screenshots-note">Ekran görüntüleri yakında eklenecektir.</p>
 </section>
 
 <!-- ═══ LEGAL ═══ -->
