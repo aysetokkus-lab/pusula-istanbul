@@ -28,11 +28,11 @@
       display: flex; align-items: center; justify-content: center;
     }
     .navbar-logo {
-      display: flex; align-items: center; gap: 10px;
-      color: #fff; font-weight: 800; font-size: 16px; letter-spacing: 3px;
+      display: flex; align-items: center; gap: 12px;
+      color: #fff; font-weight: 800; font-size: 20px; letter-spacing: 4px;
       text-transform: uppercase;
     }
-    .navbar-logo img { width: 28px; height: 28px; filter: brightness(0) invert(1); }
+    .navbar-logo img { width: 34px; height: 34px; filter: brightness(0) invert(1); }
     .navbar-links {
       position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
       display: flex; gap: 8px;
@@ -68,7 +68,7 @@
       padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;
       letter-spacing: 1px; margin-bottom: 20px; text-transform: uppercase;
     }
-    .hero h1 { font-size: 42px; font-weight: 800; line-height: 1.2; margin-bottom: 16px; }
+    .hero h1 { font-size: 50px; font-weight: 800; line-height: 1.2; margin-bottom: 16px; }
     .hero h1 span { color: #48CAE4; }
     .hero p { font-size: 17px; opacity: 0.9; max-width: 540px; margin: 0 auto 32px; line-height: 1.7; }
     .hero-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
@@ -203,7 +203,9 @@
 
     /* ═══ RESPONSIVE ═══ */
     @media (max-width: 640px) {
-      .hero h1 { font-size: 28px; }
+      .hero h1 { font-size: 32px; }
+      .navbar-logo { font-size: 16px; letter-spacing: 3px; }
+      .navbar-logo img { width: 26px; height: 26px; }
       .hero p { font-size: 15px; }
       .hero-buttons a { padding: 12px 20px; font-size: 14px; }
       .navbar-links a { font-size: 12px; padding: 5px 10px; }
@@ -236,11 +238,11 @@
 <!-- ═══ HERO ═══ -->
 <section class="hero">
   <div class="hero-content">
-    <div class="hero-badge">İstanbul Rehberleri İçin</div>
     <h1>Profesyonel Turist Rehberinin <span>Dijital Asistanı</span></h1>
     <p>
       Canlı saha durumu, müze ve saray ziyaret saatleri, ulaşım uyarıları,
-      rehber sohbeti ve acil durum bilgileri — hepsi tek uygulamada.
+      rehber sohbeti, indirilebilir sözleşme dosyaları, acil durum bilgileri
+      ve sahada ihtiyacınız olabilecek tüm faydalı linkler — hepsi tek uygulamada.
     </p>
     <div class="hero-buttons">
       <a href="https://apps.apple.com/tr/app/pusula-istanbul/id6761419678" target="_blank" class="btn-app-store">
