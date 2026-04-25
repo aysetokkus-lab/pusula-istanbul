@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-posta Doğrulandı — Pusula İstanbul</title>
+  <link rel="icon" type="image/png" href="logo-icon.png" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #005A8D 0%, #0077B6 50%, #0096C7 100%);
+      color: #FFFFFF;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #FFFFFF;
+      color: #1F2937;
+      max-width: 440px;
+      width: 100%;
+      border-radius: 20px;
+      padding: 40px 28px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    }
+    .check-circle {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      background: #16A34A;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      box-shadow: 0 8px 24px rgba(22, 163, 74, 0.35);
+    }
+    .check-circle svg {
+      width: 44px;
+      height: 44px;
+      stroke: #FFFFFF;
+      stroke-width: 4;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0F172A;
+      margin-bottom: 12px;
+      letter-spacing: -0.4px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.55;
+      color: #4B5563;
+      margin-bottom: 24px;
+    }
+    .info {
+      background: #F0F9FF;
+      border-left: 4px solid #0077B6;
+      padding: 14px 16px;
+      border-radius: 8px;
+      text-align: left;
+      margin-bottom: 24px;
+    }
+    .info-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #005A8D;
+      margin-bottom: 4px;
+    }
+    .info-text {
+      font-size: 13px;
+      color: #1F2937;
+      line-height: 1.5;
+    }
+    .button {
+      display: inline-block;
+      background: #0077B6;
+      color: #FFFFFF;
+      padding: 14px 28px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .button:hover { background: #005A8D; }
+    .footer {
+      margin-top: 24px;
+      font-size: 12px;
+      color: #9CA3AF;
+    }
+    .footer a {
+      color: #0077B6;
+      text-decoration: none;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <img src="logo-icon.png" alt="Pusula İstanbul" class="logo" />
+      <div class="check-circle">
+        <svg viewBox="0 0 52 52">
+          <polyline points="14,27 22,35 38,17" />
+        </svg>
+      </div>
+      <h1>E-posta Adresiniz Doğrulandı</h1>
+      <p>Hesabınız başarıyla aktive edildi. Pusula İstanbul uygulamasını açıp e-posta ve şifrenizle giriş yapabilirsiniz.</p>
+
+      <div class="info">
+        <div class="info-title">Sıradaki adım</div>
+        <div class="info-text">Telefonunuzdaki Pusula İstanbul uygulamasına dönüp giriş ekranından e-posta ve şifrenizi girin.</div>
+      </div>
+
+      <a href="pusulaistanbul://giris" class="button">Uygulamayı Aç</a>
+
+      <div class="footer">
+        <a href="/">pusulaistanbul.app</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
