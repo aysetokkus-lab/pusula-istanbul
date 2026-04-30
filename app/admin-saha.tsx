@@ -7,12 +7,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCanliDurum, durumBilgi, zamanOnce } from '../hooks/use-canli-durum';
 import { useAdmin } from '../hooks/use-admin';
+import { useTema } from '../hooks/use-tema';
+import type { TemaRenkleri } from '../constants/theme';
 
 export default function AdminSaha() {
   const insets = useSafeAreaInsets();
+  const { t } = useTema();
+  const s = createStyles(t);
   const { isYetkili, isAdmin, yukleniyor: adminYukleniyor } = useAdmin();
-  const { durumlar, yukleniyor, durumKaldir, tumunuTemizle, yenile } = useCanliDurum();
+  const { durumlar, yukleniyor, durumKaldir, sabitlemeDegistir, tumunuTemizle, yenile } = useCanliDurum();
   const [siliniyor, setSiliniyor] = useState<string | null>(null);
+  const [sabitleniyor, setSabitleniyor] = useState<string | null>(null);
 
   if (adminYukleniyor || yukleniyor) {
     return (
@@ -25,24 +30,25 @@ export default function AdminSaha() {
   if (!isYetkili) {
     return (
       <View style={s.yukleniyorContainer}>
-        <Text style={s.yetkisizBaslik}>Erisim Engellendi</Text>
+        <Text style={s.yetkisizBaslik}>Erişim Engellendi</Text>
         <TouchableOpacity style={s.geriBtn} onPress={() => router.back()}>
-          <Text style={s.geriBtnYazi}>Geri Don</Text>
+          <Text style={s.geriBtnYazi}>Geri Dön</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const gecerliDurumlar = durumlar.filter(d => d.dakika_once < 120);
+  // Sabitlenmiş bildirimler süre sınırından muaf
+  const gecerliDurumlar = durumlar.filter(d => d.sabitlendi || d.dakika_once < 120);
 
   const tekBildirimKaldir = (id: string, mekanIsim: string) => {
     Alert.alert(
-      'Bildirimi Kaldir',
-      `"${mekanIsim}" icin yapilan saha bildirimini kaldirmak istediginize emin misiniz?`,
+      'Bildirimi Kaldır',
+      `"${mekanIsim}" için yapılan saha bildirimini kaldırmak istediğinize emin misiniz?`,
       [
-        { text: 'Vazgec', style: 'cancel' },
+        { text: 'Vazgeç', style: 'cancel' },
         {
-          text: 'Kaldir',
+          text: 'Kaldır',
           style: 'destructive',
           onPress: async () => {
             setSiliniyor(id);
@@ -56,16 +62,16 @@ export default function AdminSaha() {
 
   const topluTemizle = () => {
     if (gecerliDurumlar.length === 0) {
-      Alert.alert('Bilgi', 'Kaldirilacak aktif bildirim yok.');
+      Alert.alert('Bilgi', 'Kaldırılacak aktif bildirim yok.');
       return;
     }
     Alert.alert(
-      'Tum Bildirimleri Kaldir',
-      `Aktif ${gecerliDurumlar.length} bildirimin tumunu kaldirmak istediginize emin misiniz?`,
+      'Tüm Bildirimleri Kaldır',
+      `Aktif ${gecerliDurumlar.length} bildirimin tümünü kaldırmak istediğinize emin misiniz?`,
       [
-        { text: 'Vazgec', style: 'cancel' },
+        { text: 'Vazgeç', style: 'cancel' },
         {
-          text: 'Hepsini Kaldir',
+          text: 'Hepsini Kaldır',
           style: 'destructive',
           onPress: async () => {
             setSiliniyor('all');
@@ -105,7 +111,7 @@ export default function AdminSaha() {
             {siliniyor === 'all' ? (
               <ActivityIndicator size="small" color="#D62828" />
             ) : (
-              <Text style={s.topluBtnYazi}>Tumunu Kaldir ({gecerliDurumlar.length})</Text>
+              <Text style={s.topluBtnYazi}>Tümünü Kaldır ({gecerliDurumlar.length})</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -122,18 +128,25 @@ export default function AdminSaha() {
           <View style={s.bosKutu}>
             <Text style={s.bosBaslik}>Aktif bildirim yok</Text>
             <Text style={s.bosAlt}>
-              Su an gecerli saha bildirimi bulunmuyor. Bildirimler 2 saat sonra otomatik olarak gecersiz olur.
+              Şu an geçerli saha bildirimi bulunmuyor. Bildirimler 2 saat sonra otomatik olarak geçersiz olur.
             </Text>
           </View>
         ) : (
           gecerliDurumlar.map((d) => {
             const bilgi = durumBilgi(d.durum);
             return (
-              <View key={d.id} style={s.kart}>
-                <View style={[s.kartRenk, { backgroundColor: bilgi.renk }]} />
+              <View key={d.id} style={[s.kart, d.sabitlendi && s.kartSabitKenarlık]}>
+                <View style={[s.kartRenk, { backgroundColor: d.sabitlendi ? '#0077B6' : bilgi.renk }]} />
                 <View style={s.kartIcerik}>
                   <View style={s.kartUst}>
-                    <Text style={s.kartMekan}>{d.nokta_isim}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                      {d.sabitlendi && (
+                        <View style={s.sabitBadge}>
+                          <Text style={s.sabitBadgeYazi}>SABiT</Text>
+                        </View>
+                      )}
+                      <Text style={s.kartMekan} numberOfLines={1}>{d.nokta_isim}</Text>
+                    </View>
                     <Text style={[s.kartDurum, { color: bilgi.renk }]}>{bilgi.label}</Text>
                   </View>
 
@@ -146,24 +159,45 @@ export default function AdminSaha() {
                   ) : null}
 
                   {d.kapali_bolum ? (
-                    <Text style={s.kartDetay}>Kapali bolum: {d.kapali_bolum}</Text>
+                    <Text style={s.kartDetay}>Kapalı bölüm: {d.kapali_bolum}</Text>
                   ) : null}
 
                   <View style={s.kartAlt}>
                     <Text style={s.kartRehber}>
                       {d.rehber_isim ?? 'Bilinmeyen'} - {zamanOnce(d.dakika_once)}
                     </Text>
-                    <TouchableOpacity
-                      style={s.kaldirBtn}
-                      onPress={() => tekBildirimKaldir(d.id, d.nokta_isim)}
-                      disabled={siliniyor === d.id}
-                    >
-                      {siliniyor === d.id ? (
-                        <ActivityIndicator size="small" color="#D62828" />
-                      ) : (
-                        <Text style={s.kaldirBtnYazi}>Kaldir</Text>
-                      )}
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {/* Sabitle / Kaldir butonu */}
+                      <TouchableOpacity
+                        style={d.sabitlendi ? s.sabitCozBtn : s.sabitleBtn}
+                        onPress={async () => {
+                          setSabitleniyor(d.id);
+                          await sabitlemeDegistir(d.id, !d.sabitlendi);
+                          setSabitleniyor(null);
+                        }}
+                        disabled={sabitleniyor === d.id}
+                      >
+                        {sabitleniyor === d.id ? (
+                          <ActivityIndicator size="small" color="#0077B6" />
+                        ) : (
+                          <Text style={d.sabitlendi ? s.sabitCozBtnYazi : s.sabitlBtnYazi}>
+                            {d.sabitlendi ? 'Sabiti Kaldır' : 'Sabitle'}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                      {/* Bildirimi kaldir butonu */}
+                      <TouchableOpacity
+                        style={s.kaldirBtn}
+                        onPress={() => tekBildirimKaldir(d.id, d.nokta_isim)}
+                        disabled={siliniyor === d.id}
+                      >
+                        {siliniyor === d.id ? (
+                          <ActivityIndicator size="small" color="#D62828" />
+                        ) : (
+                          <Text style={s.kaldirBtnYazi}>Kaldır</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -177,13 +211,13 @@ export default function AdminSaha() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
+const createStyles = (t: TemaRenkleri) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
   yukleniyorContainer: {
-    flex: 1, backgroundColor: '#F5F7FA',
+    flex: 1, backgroundColor: t.bg,
     justifyContent: 'center', alignItems: 'center',
   },
-  yetkisizBaslik: { fontSize: 18, fontWeight: '700', color: '#1E293B', marginBottom: 16 },
+  yetkisizBaslik: { fontSize: 18, fontWeight: '700', color: t.text, marginBottom: 16 },
   geriBtn: {
     backgroundColor: '#0077B6', borderRadius: 10,
     paddingHorizontal: 24, paddingVertical: 12,
@@ -217,30 +251,48 @@ const s = StyleSheet.create({
 
   // Bos
   bosKutu: { alignItems: 'center', paddingTop: 60 },
-  bosBaslik: { fontSize: 16, fontWeight: '700', color: '#64748B', marginBottom: 8 },
-  bosAlt: { fontSize: 13, color: '#94A3B8', textAlign: 'center', lineHeight: 20, paddingHorizontal: 20 },
+  bosBaslik: { fontSize: 16, fontWeight: '700', color: t.textSecondary, marginBottom: 8 },
+  bosAlt: { fontSize: 13, color: t.textMuted, textAlign: 'center', lineHeight: 20, paddingHorizontal: 20 },
 
   // Kart
   kart: {
-    backgroundColor: '#FFF', borderRadius: 12,
+    backgroundColor: t.bgCard, borderRadius: 12,
     flexDirection: 'row', overflow: 'hidden',
-    marginBottom: 10, borderWidth: 1, borderColor: '#E2E8F0',
+    marginBottom: 10, borderWidth: 1, borderColor: t.kartBorder,
   },
   kartRenk: { width: 5, alignSelf: 'stretch' },
   kartIcerik: { flex: 1, padding: 14 },
   kartUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  kartMekan: { fontSize: 15, fontWeight: '700', color: '#1E293B', flex: 1 },
+  kartMekan: { fontSize: 15, fontWeight: '700', color: t.text, flex: 1 },
   kartDurum: { fontSize: 13, fontWeight: '600' },
-  kartDetay: { fontSize: 12, color: '#64748B', marginTop: 2 },
-  kartNot: { fontSize: 12, color: '#475569', fontStyle: 'italic', marginTop: 4 },
+  kartDetay: { fontSize: 12, color: t.textSecondary, marginTop: 2 },
+  kartNot: { fontSize: 12, color: t.textSecondary, fontStyle: 'italic', marginTop: 4 },
   kartAlt: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9',
+    marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: t.divider,
   },
-  kartRehber: { fontSize: 11, color: '#94A3B8', flex: 1 },
+  kartRehber: { fontSize: 11, color: t.textMuted, flex: 1 },
   kaldirBtn: {
     backgroundColor: '#FEE2E2', borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 6,
   },
   kaldirBtnYazi: { color: '#D62828', fontSize: 12, fontWeight: '700' },
+
+  // Sabitleme
+  kartSabitKenarlık: { borderColor: '#B0D4E8', borderWidth: 1.5, backgroundColor: t.bgSecondary },
+  sabitBadge: {
+    backgroundColor: '#0077B620', borderRadius: 4,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  sabitBadgeYazi: { color: '#0077B6', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+  sabitleBtn: {
+    backgroundColor: '#D6EAF8', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 6,
+  },
+  sabitlBtnYazi: { color: '#0077B6', fontSize: 12, fontWeight: '700' },
+  sabitCozBtn: {
+    backgroundColor: '#FFF3E0', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 6,
+  },
+  sabitCozBtnYazi: { color: '#E09F3E', fontSize: 12, fontWeight: '700' },
 });

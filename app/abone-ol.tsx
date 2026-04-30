@@ -15,19 +15,24 @@ import { Image } from 'expo-image';
 import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { supabase } from '../lib/supabase';
 import { Palette, Radius, Space } from '../constants/theme';
-import { ENTITLEMENT_ID } from '../lib/revenuecat';
+import { useTema } from '../hooks/use-tema';
+import { ENTITLEMENT_ID, revenueCatInit, isRCReady } from '../lib/revenuecat';
 
 /* ═══════════════════════════════════════════
-   EKRAN 3: Paywall / Abonelik
+   Premium Abonelik Sayfasi — FREEMIUM MODEL
    ─────────────────────────────────────────
-   Deneme süresi biten kullanıcılara gösterilir.
-   Yeni metinler, ikon yok, temiz tipografi.
+   Premium ozelliklere (sohbet, canli durum,
+   etkinlikler, ulasim uyarilari) erisim icin
+   IAP abonelik sayfasi.
+   Temel ozellikler ucretsiz, burasi sadece
+   premium'a yukseltme icin.
    ═══════════════════════════════════════════ */
 
 type Plan = 'aylik' | 'yillik';
 
 export default function AboneOl() {
   const insets = useSafeAreaInsets();
+  const { t, isDark } = useTema();
   const [secilenPlan, setSecilenPlan] = useState<Plan>('yillik');
   const [yukleniyor, setYukleniyor] = useState(false);
   const [paketler, setPaketler] = useState<{
@@ -44,6 +49,10 @@ export default function AboneOl() {
   useEffect(() => {
     const fiyatlariCek = async () => {
       try {
+        // RevenueCat hazir degilse bekle ve baslat
+        if (!isRCReady()) await revenueCatInit();
+        if (!isRCReady()) return; // Hala hazir degilse hardcoded fiyatlarla devam
+
         const offerings = await Purchases.getOfferings();
         const current = offerings.current;
         if (!current) return;
@@ -82,49 +91,109 @@ export default function AboneOl() {
   const satinAl = async () => {
     setYukleniyor(true);
     try {
-      const paket = secilenPlan === 'yillik' ? paketler.yillik : paketler.aylik;
-
-      if (!paket) {
-        // RevenueCat henuz hazir degil (API key eksik veya store'da urun yok)
-        Alert.alert(
-          'Bilgi',
-          'Odeme sistemi henuz hazirlanıyor. Lutfen daha sonra tekrar deneyin.',
-          [{ text: 'Tamam' }],
-        );
+      // RevenueCat hazir degilse once baslat
+      if (!isRCReady()) await revenueCatInit();
+      if (!isRCReady()) {
+        Alert.alert('Hata', 'Ödeme sistemi başlatılamadı. Lütfen uygulamayı kapatıp yeniden açın.');
         return;
       }
 
-      // RevenueCat ile satin alma
-      const { customerInfo } = await Purchases.purchasePackage(paket);
+      const paket = secilenPlan === 'yillik' ? paketler.yillik : paketler.aylik;
+
+      let customerInfo;
+
+      if (paket) {
+        // RevenueCat paketi varsa paket ile satin al
+        const sonuc = await Purchases.purchasePackage(paket);
+        customerInfo = sonuc.customerInfo;
+      } else {
+        // Paket yuklenemedi — dogrudan urun ID ile satin al (fallback)
+        const urunId = secilenPlan === 'yillik'
+          ? 'com.pusulaistanbul.app.yillik'
+          : 'com.pusulaistanbul.app.aylik';
+        const products = await Purchases.getProducts([urunId]);
+        if (!products || products.length === 0) {
+          throw new Error('Abonelik ürünleri yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.');
+        }
+        const sonuc = await Purchases.purchaseStoreProduct(products[0]);
+        customerInfo = sonuc.customerInfo;
+      }
+      let aktif = !!customerInfo?.entitlements?.active?.[ENTITLEMENT_ID];
+
+      // Entitlement hemen gorunmeyebilir — restore ile tekrar dene
+      if (!aktif) {
+        console.warn('Satin alma sonrasi entitlement bulunamadi, restore deneniyor...');
+        try {
+          const restoreInfo = await Purchases.restorePurchases();
+          aktif = !!restoreInfo?.entitlements?.active?.[ENTITLEMENT_ID];
+        } catch (restoreErr) {
+          console.warn('Restore denemesi basarisiz:', restoreErr);
+        }
+      }
+
+      // Supabase'i her durumda guncelle (fallback olarak calisir)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('profiles').update({
+          abonelik_durumu: 'aktif',
+          abonelik_plani: secilenPlan,
+          abonelik_bitis: new Date(Date.now() + (secilenPlan === 'yillik' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString(),
+        }).eq('id', user.id);
+      }
+
+      Alert.alert(
+        'Başarılı',
+        'Pusula İstanbul aboneliğiniz aktif edildi. Hoş geldiniz!',
+        [{ text: 'Başla', onPress: () => router.replace('/(tabs)') }],
+      );
+    } catch (e: any) {
+      // Kullanici iptal ettiyse sessizce gec
+      if (e?.userCancelled) return;
+      Alert.alert('Hata', e?.message || 'Satın alma başarısız. Lütfen tekrar deneyin.');
+    } finally {
+      setYukleniyor(false);
+    }
+  };
+
+  // ─── Satın Almaları Geri Yükle (Restore Purchases) ───
+  // Apple App Store zorunluluğu: farklı cihaza giriş yapan kullanıcı
+  // mevcut aboneliğini geri yükleyebilmeli
+  const satinAlmalariGeriYukle = async () => {
+    setYukleniyor(true);
+    try {
+      if (!isRCReady()) await revenueCatInit();
+      const customerInfo = await Purchases.restorePurchases();
       const aktif = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
 
       if (aktif) {
-        // Supabase'de de guncelle
+        // Supabase'de de güncelle
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           await supabase.from('profiles').update({
             abonelik_durumu: 'aktif',
-            abonelik_plani: secilenPlan,
           }).eq('id', user.id);
         }
 
         Alert.alert(
-          'Basarili',
-          'Pusula Istanbul aboneliginiz aktif edildi. Hos geldiniz!',
-          [{ text: 'Basla', onPress: () => router.replace('/(tabs)') }],
+          'Başarılı',
+          'Aboneliğiniz geri yüklendi. Hoş geldiniz!',
+          [{ text: 'Devam', onPress: () => router.replace('/(tabs)') }],
+        );
+      } else {
+        Alert.alert(
+          'Aktif Abonelik Bulunamadı',
+          'Bu Apple ID ile ilişkili aktif bir abonelik bulunamadı. Yeni bir plan seçerek satın alma yapabilirsiniz.',
         );
       }
     } catch (e: any) {
-      // Kullanici iptal ettiyse sessizce gec
-      if (e?.userCancelled) return;
-      Alert.alert('Hata', e?.message || 'Satin alma basarisiz. Lutfen tekrar deneyin.');
+      Alert.alert('Hata', e?.message || 'Geri yükleme başarısız. Lütfen tekrar deneyin.');
     } finally {
       setYukleniyor(false);
     }
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
       {/* ── Gradient Header ── */}
       <LinearGradient
         colors={['#005A8D', '#0077B6', '#0096C7']}
@@ -149,13 +218,13 @@ export default function AboneOl() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Başlık ── */}
-        <Text style={styles.anaBaslik}>
-          Profesyonel Pusulanızı{'\n'}Kesintisiz Kullanın
+        <Text style={[styles.anaBaslik, { color: t.text }]}>
+          Dijital Asistanınızı{'\n'}Kesintisiz Kullanın
         </Text>
-        <Text style={styles.altBaslik}>
-          7 günlük ücretsiz keşif süreniz sona erdi.
-          İstanbul operasyonunuzu hızlandırmaya devam etmek için
-          size en uygun planı seçin.
+        <Text style={[styles.altBaslik, { color: t.textSecondary }]}>
+          Cami ve müze ziyaret saatleri, canlı saha durumu, ulaşım
+          uyarıları, döviz çevirici ve kent etkinlikleri gibi premium
+          özelliklere erişmek için size en uygun planı seçin.
         </Text>
 
         {/* ── Plan Kartları ── */}
@@ -164,22 +233,23 @@ export default function AboneOl() {
           <TouchableOpacity
             style={[
               styles.planKart,
-              secilenPlan === 'aylik' && styles.planKartAktif,
+              { backgroundColor: t.bgCard, borderColor: t.kartBorder },
+              secilenPlan === 'aylik' && [styles.planKartAktif, { backgroundColor: isDark ? '#0E2A40' : '#F0F9FF' }],
             ]}
             onPress={() => setSecilenPlan('aylik')}
             activeOpacity={0.7}
           >
-            <View style={[styles.planRadio, secilenPlan === 'aylik' && styles.planRadioAktif]}>
+            <View style={[styles.planRadio, { borderColor: isDark ? '#506070' : '#CBD5E1' }, secilenPlan === 'aylik' && styles.planRadioAktif]}>
               {secilenPlan === 'aylik' && <View style={styles.planRadioIc} />}
             </View>
-            <Text style={[styles.planEtiket, secilenPlan === 'aylik' && styles.planEtiketAktif]}>
+            <Text style={[styles.planEtiket, { color: t.textSecondary }, secilenPlan === 'aylik' && { color: t.text }]}>
               Aylık
             </Text>
             <View style={styles.planFiyatSatir}>
-              <Text style={[styles.planFiyat, secilenPlan === 'aylik' && styles.planFiyatAktif]}>
+              <Text style={[styles.planFiyat, { color: t.textSecondary }, secilenPlan === 'aylik' && styles.planFiyatAktif]} numberOfLines={1} adjustsFontSizeToFit>
                 {fiyatlar.aylik}
               </Text>
-              <Text style={[styles.planPeriyot, secilenPlan === 'aylik' && styles.planPeriyotAktif]}>
+              <Text style={[styles.planPeriyot, { color: t.textMuted }, secilenPlan === 'aylik' && { color: t.textSecondary }]}>
                 /ay
               </Text>
             </View>
@@ -189,6 +259,7 @@ export default function AboneOl() {
           <TouchableOpacity
             style={[
               styles.planKart,
+              { backgroundColor: t.bgCard, borderColor: t.kartBorder },
               secilenPlan === 'yillik' && styles.planKartVurgulu,
             ]}
             onPress={() => setSecilenPlan('yillik')}
@@ -204,40 +275,41 @@ export default function AboneOl() {
                 <View style={styles.tasarrufBadge}>
                   <Text style={styles.tasarrufYazi}>%41 Tasarruf</Text>
                 </View>
-                <Text style={styles.planEtiketBeyaz}>Avantajlı Yıllık</Text>
+                <Text style={styles.planEtiketBeyaz}>Avantajlı{'\n'}Yıllık</Text>
                 <View style={styles.planFiyatSatir}>
-                  <Text style={styles.planFiyatBeyaz}>{fiyatlar.yillik}</Text>
+                  <Text style={styles.planFiyatBeyaz} numberOfLines={1} adjustsFontSizeToFit>{fiyatlar.yillik}</Text>
                   <Text style={styles.planPeriyotBeyaz}>/yıl</Text>
                 </View>
                 <Text style={styles.planAylikBeyaz}>{fiyatlar.aylikBirimYillik}/ay</Text>
               </LinearGradient>
             ) : (
               <>
-                <View style={[styles.planRadio, styles.planRadioAktif]}>
-                  <View style={styles.planRadioIc} />
-                </View>
-                <Text style={styles.planEtiket}>Avantajlı Yıllık</Text>
+                <View style={[styles.planRadio, { borderColor: isDark ? '#506070' : '#CBD5E1' }]} />
+                <Text style={[styles.planEtiket, { color: t.textSecondary }]}>Avantajlı{'\n'}Yıllık</Text>
                 <View style={styles.planFiyatSatir}>
-                  <Text style={styles.planFiyat}>{fiyatlar.yillik}</Text>
-                  <Text style={styles.planPeriyot}>/yıl</Text>
+                  <Text style={[styles.planFiyat, { color: t.textSecondary }]} numberOfLines={1} adjustsFontSizeToFit>{fiyatlar.yillik}</Text>
+                  <Text style={[styles.planPeriyot, { color: t.textMuted }]}>/yıl</Text>
                 </View>
-                <Text style={styles.planAylik}>{fiyatlar.aylikBirimYillik}/ay</Text>
+                <Text style={[styles.planAylik, { color: t.textMuted }]}>{fiyatlar.aylikBirimYillik}/ay</Text>
               </>
             )}
           </TouchableOpacity>
         </View>
 
         {/* ── Alt Bilgi ── */}
-        <Text style={styles.guvenMetni}>
-          Sadece 7 günlük ücretsiz süreniz bittikten sonra karar verirsiniz.
-          Öncesinde hiçbir ücret alınmaz.
+        <Text style={[styles.guvenMetni, { color: t.textMuted }]}>
+          Temel özellikler (müze saatleri, ulaşım bilgileri, acil rehber)
+          her zaman ücretsizdir. Premium özellikler için abonelik gerekir.
+        </Text>
+        <Text style={[styles.yasalMetni, { color: t.textMuted }]}>
+          Abone olarak Gizlilik Politikası'nı ve Kullanım Koşulları'nı kabul etmiş olursunuz.
         </Text>
 
         <View style={{ height: insets.bottom + 90 }} />
       </ScrollView>
 
       {/* ── Sticky Footer ── */}
-      <View style={[styles.footerWrap, { paddingBottom: insets.bottom + 12 }]}>
+      <View style={[styles.footerWrap, { paddingBottom: insets.bottom + 12, backgroundColor: t.bg, borderTopColor: t.divider }]}>
         <TouchableOpacity
           style={styles.satinAlBtn}
           onPress={satinAl}
@@ -251,40 +323,33 @@ export default function AboneOl() {
             style={styles.satinAlGradient}
           >
             <Text style={styles.satinAlYazi}>
-              {yukleniyor ? 'İşleniyor...' : 'Pusulamı Aktifleştir'}
+              {yukleniyor ? 'İşleniyor...' : 'Pusula İstanbul\'u Aktifleştir'}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          onPress={satinAlmalariGeriYukle}
+          disabled={yukleniyor}
+          style={styles.geriYukleBtn}
+        >
+          <Text style={[styles.geriYukleYazi, { color: t.accent }]}>Satın Almaları Geri Yükle</Text>
+        </TouchableOpacity>
+
         <View style={styles.footerLinks}>
           <TouchableOpacity onPress={() => router.push('/gizlilik-politikasi' as any)}>
-            <Text style={styles.linkYazi}>Gizlilik Politikası</Text>
+            <Text style={[styles.linkYazi, { color: t.accent }]}>Gizlilik Politikası</Text>
           </TouchableOpacity>
-          <Text style={styles.linkAyrac}>|</Text>
+          <Text style={[styles.linkAyrac, { color: t.divider }]}>|</Text>
           <TouchableOpacity onPress={() => router.push('/kullanim-kosullari' as any)}>
-            <Text style={styles.linkYazi}>Kullanım Koşulları</Text>
+            <Text style={[styles.linkYazi, { color: t.accent }]}>Kullanım Koşulları</Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
-          onPress={() => {
-            Alert.alert(
-              'Çıkış',
-              'Abonelik olmadan uygulamayı kullanamazsınız. Çıkış yapmak istiyor musunuz?',
-              [
-                { text: 'İptal', style: 'cancel' },
-                {
-                  text: 'Çıkış Yap',
-                  style: 'destructive',
-                  onPress: async () => {
-                    await supabase.auth.signOut();
-                  },
-                },
-              ],
-            );
-          }}
+          onPress={() => router.back()}
         >
-          <Text style={styles.cikisYazi}>Çıkış Yap</Text>
+          <Text style={[styles.cikisYazi, { color: t.textMuted }]}>Geri Dön</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -366,6 +431,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E2E8F0',
     alignItems: 'center',
+    minHeight: 180,
+    justifyContent: 'center',
   },
   planKartAktif: {
     borderColor: Palette.istanbulMavi,
@@ -382,7 +449,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 18,
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: Radius.lg,
+    minHeight: 180,
   },
 
   // Radio
@@ -412,6 +481,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
     marginBottom: 6,
+    textAlign: 'center',
   },
   planEtiketAktif: {
     color: '#0F172A',
@@ -422,7 +492,7 @@ const styles = StyleSheet.create({
   },
   planFiyat: {
     fontFamily: 'Poppins_800ExtraBold',
-    fontSize: 28,
+    fontSize: 24,
     color: '#64748B',
   },
   planFiyatAktif: {
@@ -448,10 +518,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFFFFF',
     marginBottom: 6,
+    textAlign: 'center',
   },
   planFiyatBeyaz: {
     fontFamily: 'Poppins_800ExtraBold',
-    fontSize: 28,
+    fontSize: 24,
     color: '#FFFFFF',
   },
   planPeriyotBeyaz: {
@@ -489,6 +560,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     paddingHorizontal: 8,
+  },
+  yasalMetni: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 8,
+    marginTop: 12,
   },
 
   // Sticky footer
@@ -537,5 +617,16 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     textAlign: 'center',
     paddingVertical: 8,
+  },
+  geriYukleBtn: {
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  geriYukleYazi: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 13,
+    color: Palette.istanbulMavi,
+    textDecorationLine: 'underline',
   },
 });

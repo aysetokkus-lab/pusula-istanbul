@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAdmin } from '../hooks/use-admin';
 import { supabase } from '../lib/supabase';
+import { useTema } from '../hooks/use-tema';
+import type { TemaRenkleri } from '../constants/theme';
 
 interface Rapor {
   id: string;
@@ -31,6 +33,8 @@ const SEBEP_RENK: Record<string, string> = {
 
 export default function AdminModerasyon() {
   const insets = useSafeAreaInsets();
+  const { t } = useTema();
+  const s = createStyles(t);
   const { isYetkili, yukleniyor: adminYukleniyor } = useAdmin();
 
   const [raporlar, setRaporlar] = useState<Rapor[]>([]);
@@ -201,7 +205,7 @@ export default function AdminModerasyon() {
                     </Text>
                   </View>
                   {r.otomatik && (
-                    <View style={[s.etiket, { backgroundColor: '#EAF4FB' }]}>
+                    <View style={[s.etiket, { backgroundColor: t.bgSecondary }]}>
                       <Text style={[s.etiketYazi, { color: '#0077B6' }]}>Otomatik</Text>
                     </View>
                   )}
@@ -280,7 +284,7 @@ export default function AdminModerasyon() {
               value={banSebep}
               onChangeText={setBanSebep}
               placeholder="Ban sebebi"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={t.textMuted}
               multiline
             />
 
@@ -290,7 +294,7 @@ export default function AdminModerasyon() {
               value={banSure}
               onChangeText={setBanSure}
               placeholder="Boş bırakırsan kalıcı ban"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={t.textMuted}
               keyboardType="numeric"
             />
 
@@ -319,9 +323,9 @@ export default function AdminModerasyon() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' },
+const createStyles = (t: TemaRenkleri) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
 
   header: { paddingBottom: 16, paddingHorizontal: 16 },
   geriTus: { marginBottom: 8 },
@@ -333,35 +337,35 @@ const s = StyleSheet.create({
     flexDirection: 'row', padding: 16, paddingBottom: 8, gap: 8,
   },
   filtreBtn: {
-    backgroundColor: '#FFF', borderRadius: 10,
+    backgroundColor: t.bgCard, borderRadius: 10,
     paddingHorizontal: 16, paddingVertical: 10,
-    borderWidth: 1.5, borderColor: '#E2E8F0',
+    borderWidth: 1.5, borderColor: t.kartBorder,
   },
   filtreBtnAktif: { backgroundColor: '#0077B6', borderColor: '#0077B6' },
-  filtreBtnYazi: { fontSize: 13, fontWeight: '600', color: '#64748B' },
+  filtreBtnYazi: { fontSize: 13, fontWeight: '600', color: t.textSecondary },
   filtreBtnYaziAktif: { color: '#FFF' },
 
   liste: { flex: 1, paddingHorizontal: 16 },
   bosContainer: { paddingVertical: 60, alignItems: 'center' },
-  bosYazi: { color: '#94A3B8', fontSize: 15 },
+  bosYazi: { color: t.textMuted, fontSize: 15 },
 
   kart: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 16,
-    marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: t.bgCard, borderRadius: 14, padding: 16,
+    marginBottom: 12, borderWidth: 1, borderColor: t.kartBorder,
   },
   kartUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   kartBilgi: { flex: 1 },
-  kartIsim: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
-  kartTarih: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
+  kartIsim: { fontSize: 14, fontWeight: '700', color: t.text },
+  kartTarih: { fontSize: 11, color: t.textMuted, marginTop: 2 },
   kartEtiketler: { flexDirection: 'row', gap: 6 },
   etiket: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   etiketYazi: { fontSize: 10, fontWeight: '700' },
 
   mesajKutu: {
-    backgroundColor: '#F8FAFC', borderRadius: 10, padding: 12,
-    marginTop: 12, borderLeftWidth: 3, borderLeftColor: '#E2E8F0',
+    backgroundColor: t.bgInput, borderRadius: 10, padding: 12,
+    marginTop: 12, borderLeftWidth: 3, borderLeftColor: t.kartBorder,
   },
-  mesajMetni: { fontSize: 13, color: '#1E293B', lineHeight: 18 },
+  mesajMetni: { fontSize: 13, color: t.text, lineHeight: 18 },
 
   kartAlt: { flexDirection: 'row', marginTop: 12, gap: 8 },
   islemBtn: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
@@ -369,37 +373,37 @@ const s = StyleSheet.create({
   onayBtnYazi: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
   silBtn: { backgroundColor: '#FEE2E2' },
   silBtnYazi: { fontSize: 12, fontWeight: '700', color: '#D62828' },
-  banBtn: { backgroundColor: '#1E293B' },
-  banBtnYazi: { fontSize: 12, fontWeight: '700', color: '#FFF' },
+  banBtn: { backgroundColor: t.text },
+  banBtnYazi: { fontSize: 12, fontWeight: '700', color: t.bg },
 
   durumEtiket: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6 },
   durumEtiketYazi: { fontSize: 12, fontWeight: '700' },
 
   // Modal
-  modal: { flex: 1, backgroundColor: '#F5F7FA' },
+  modal: { flex: 1, backgroundColor: t.bg },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#FFF',
+    borderBottomWidth: 1, borderBottomColor: t.kartBorder, backgroundColor: t.bgCard,
   },
-  modalIptal: { color: '#64748B', fontSize: 15 },
-  modalBaslik: { fontSize: 16, fontWeight: '700', color: '#1E293B' },
+  modalIptal: { color: t.textSecondary, fontSize: 15 },
+  modalBaslik: { fontSize: 16, fontWeight: '700', color: t.text },
   modalKaydet: { color: '#D62828', fontSize: 15, fontWeight: '700' },
 
   formAlani: { padding: 16 },
-  label: { fontSize: 12, fontWeight: '600', color: '#8A9BAE', marginTop: 16, marginBottom: 6 },
-  banIsim: { fontSize: 16, fontWeight: '700', color: '#1E293B' },
+  label: { fontSize: 12, fontWeight: '600', color: t.textSecondary, marginTop: 16, marginBottom: 6 },
+  banIsim: { fontSize: 16, fontWeight: '700', color: t.text },
   input: {
-    backgroundColor: '#FFF', borderRadius: 10, padding: 14,
-    fontSize: 14, color: '#1E293B', borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: t.bgCard, borderRadius: 10, padding: 14,
+    fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder,
   },
   sureSec: { flexDirection: 'row', gap: 8, marginTop: 16 },
   sureBtn: {
-    backgroundColor: '#FFF', borderRadius: 8,
+    backgroundColor: t.bgCard, borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1.5, borderColor: '#E2E8F0',
+    borderWidth: 1.5, borderColor: t.kartBorder,
   },
   sureBtnAktif: { backgroundColor: '#0077B6', borderColor: '#0077B6' },
-  sureBtnYazi: { fontSize: 12, fontWeight: '600', color: '#64748B' },
+  sureBtnYazi: { fontSize: 12, fontWeight: '600', color: t.textSecondary },
   sureBtnYaziAktif: { color: '#FFF' },
 });

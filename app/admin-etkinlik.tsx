@@ -8,6 +8,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAdmin } from '../hooks/use-admin';
 import { supabase } from '../lib/supabase';
+import { TarihSaatSecici } from '../components/tarih-saat-secici';
+import { useTema } from '../hooks/use-tema';
+import type { TemaRenkleri } from '../constants/theme';
 
 interface Etkinlik {
   id: string;
@@ -48,6 +51,8 @@ const BOS_FORM = {
 
 export default function AdminEtkinlik() {
   const insets = useSafeAreaInsets();
+  const { t } = useTema();
+  const s = createStyles(t);
   const { isYetkili, yukleniyor: adminYukleniyor } = useAdmin();
 
   const [etkinlikler, setEtkinlikler] = useState<Etkinlik[]>([]);
@@ -277,7 +282,7 @@ export default function AdminEtkinlik() {
               value={form.baslik}
               onChangeText={v => setForm(f => ({ ...f, baslik: v }))}
               placeholder="Etkinlik adı"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={t.textMuted}
             />
 
             <Text style={s.label}>Açıklama</Text>
@@ -286,26 +291,21 @@ export default function AdminEtkinlik() {
               value={form.aciklama}
               onChangeText={v => setForm(f => ({ ...f, aciklama: v }))}
               placeholder="Detaylı açıklama"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={t.textMuted}
               multiline
             />
 
-            <Text style={s.label}>Tarih * (YYYY-MM-DD SS:DD)</Text>
-            <TextInput
-              style={s.input}
+            <TarihSaatSecici
+              label="Başlangıç Tarihi"
               value={form.tarih}
-              onChangeText={v => setForm(f => ({ ...f, tarih: v }))}
-              placeholder="2026-04-15 09:00"
-              placeholderTextColor="#94A3B8"
+              onChange={v => setForm(f => ({ ...f, tarih: v }))}
+              required
             />
 
-            <Text style={s.label}>Bitiş Tarihi (opsiyonel)</Text>
-            <TextInput
-              style={s.input}
+            <TarihSaatSecici
+              label="Bitiş Tarihi"
               value={form.bitis_tarih}
-              onChangeText={v => setForm(f => ({ ...f, bitis_tarih: v }))}
-              placeholder="2026-04-15 18:00"
-              placeholderTextColor="#94A3B8"
+              onChange={v => setForm(f => ({ ...f, bitis_tarih: v }))}
             />
 
             <Text style={s.label}>Konum</Text>
@@ -314,7 +314,7 @@ export default function AdminEtkinlik() {
               value={form.konum}
               onChangeText={v => setForm(f => ({ ...f, konum: v }))}
               placeholder="Sultanahmet Meydanı"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={t.textMuted}
             />
 
             <Text style={s.label}>Etki Tipi</Text>
@@ -353,7 +353,7 @@ export default function AdminEtkinlik() {
               value={form.etkilenen_yollar}
               onChangeText={v => setForm(f => ({ ...f, etkilenen_yollar: v }))}
               placeholder="Kennedy Cd, Sultanahmet çevresi..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={t.textMuted}
               multiline
             />
 
@@ -373,9 +373,9 @@ export default function AdminEtkinlik() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' },
+const createStyles = (t: TemaRenkleri) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
 
   header: { paddingBottom: 16, paddingHorizontal: 16 },
   geriTus: { marginBottom: 8 },
@@ -385,24 +385,24 @@ const s = StyleSheet.create({
 
   liste: { flex: 1, padding: 16 },
   kart: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 16,
-    marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: t.bgCard, borderRadius: 14, padding: 16,
+    marginBottom: 12, borderWidth: 1, borderColor: t.kartBorder,
   },
   kartPasif: { opacity: 0.5 },
   kartUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   kartBilgi: { flex: 1, marginRight: 12 },
-  kartBaslik: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
-  kartMeta: { fontSize: 12, color: '#64748B', marginTop: 3 },
+  kartBaslik: { fontSize: 15, fontWeight: '700', color: t.text },
+  kartMeta: { fontSize: 12, color: t.textSecondary, marginTop: 3 },
   kartTarih: { fontSize: 12, color: '#0077B6', marginTop: 2, fontWeight: '600' },
 
   durumBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  aktifBadge: { backgroundColor: '#EAF4FB' },
+  aktifBadge: { backgroundColor: t.bgSecondary },
   pasifBadge: { backgroundColor: '#FEE2E2' },
   durumBadgeYazi: { fontSize: 11, fontWeight: '700', color: '#0077B6' },
 
   kartAlt: { flexDirection: 'row', marginTop: 12, gap: 8 },
   islemBtn: {
-    backgroundColor: '#EAF4FB', borderRadius: 8,
+    backgroundColor: t.bgSecondary, borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 8,
   },
   islemBtnYazi: { fontSize: 12, fontWeight: '600', color: '#0077B6' },
@@ -419,43 +419,43 @@ const s = StyleSheet.create({
   fabYazi: { color: '#FFF', fontWeight: '700', fontSize: 14 },
 
   // Modal
-  modal: { flex: 1, backgroundColor: '#F5F7FA' },
+  modal: { flex: 1, backgroundColor: t.bg },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#FFF',
+    borderBottomWidth: 1, borderBottomColor: t.kartBorder, backgroundColor: t.bgCard,
   },
-  modalIptal: { color: '#64748B', fontSize: 15 },
-  modalBaslik: { fontSize: 16, fontWeight: '700', color: '#1E293B' },
+  modalIptal: { color: t.textSecondary, fontSize: 15 },
+  modalBaslik: { fontSize: 16, fontWeight: '700', color: t.text },
   modalKaydet: { color: '#0077B6', fontSize: 15, fontWeight: '700' },
 
   formAlani: { padding: 16 },
-  label: { fontSize: 12, fontWeight: '600', color: '#8A9BAE', marginTop: 16, marginBottom: 6 },
+  label: { fontSize: 12, fontWeight: '600', color: t.textSecondary, marginTop: 16, marginBottom: 6 },
   input: {
-    backgroundColor: '#FFF', borderRadius: 10, padding: 14,
-    fontSize: 14, color: '#1E293B', borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: t.bgCard, borderRadius: 10, padding: 14,
+    fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder,
   },
   inputCok: { minHeight: 80, textAlignVertical: 'top' },
 
   secimGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   secimBtn: {
-    backgroundColor: '#FFF', borderRadius: 8,
+    backgroundColor: t.bgCard, borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1.5, borderColor: '#E2E8F0',
+    borderWidth: 1.5, borderColor: t.kartBorder,
   },
   secimBtnAktif: { backgroundColor: '#0077B6', borderColor: '#0077B6' },
-  secimBtnYazi: { fontSize: 12, fontWeight: '600', color: '#64748B' },
+  secimBtnYazi: { fontSize: 12, fontWeight: '600', color: t.textSecondary },
   secimBtnYaziAktif: { color: '#FFF' },
 
   aktifToggle: {
     flexDirection: 'row', alignItems: 'center', marginTop: 20,
-    backgroundColor: '#FFF', borderRadius: 10, padding: 14,
-    borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: t.bgCard, borderRadius: 10, padding: 14,
+    borderWidth: 1, borderColor: t.kartBorder,
   },
   toggleDot: {
     width: 20, height: 20, borderRadius: 10,
-    backgroundColor: '#E2E8F0', marginRight: 10,
+    backgroundColor: t.kartBorder, marginRight: 10,
   },
   toggleDotAktif: { backgroundColor: '#0077B6' },
-  aktifToggleYazi: { fontSize: 14, fontWeight: '600', color: '#1E293B' },
+  aktifToggleYazi: { fontSize: 14, fontWeight: '600', color: t.text },
 });

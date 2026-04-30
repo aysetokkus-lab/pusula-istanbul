@@ -17,6 +17,7 @@ const HESAPLAR = [
   { id: '380813681',          kullanici: 'metroistanbul',    kaynak: 'x:metroistanbul' },
   { id: '768121108482629632', kullanici: 'TCDDTasimacilik', kaynak: 'x:TCDDTasimacilik' },
   { id: '2168117880',         kullanici: 'Marmaraytcdd',    kaynak: 'x:Marmaraytcdd' },
+  { id: '154653111',          kullanici: '4444154',          kaynak: 'x:IBBUlasim' },
 ];
 
 /* ═══════════════════════════════════════════
@@ -56,6 +57,24 @@ const HAT_REGEX = [
   { regex: /halkal[ıi].?bah[çc]e[şs]ehir/i, hat: 'Halkali-Bahcesehir' },
   // Gayrettepe-Havalimani
   { regex: /gayrettepe.{0,15}(havali|airport)/i, hat: 'M11' },
+  // Metrobus
+  { regex: /metrob[üu]s/i,            hat: 'Metrobus' },
+  { regex: /34[A-Z]?\s/i,             hat: 'Metrobus' },
+  // Kopruler
+  { regex: /15\s?temmuz/i,            hat: 'Kopru-15Temmuz' },
+  { regex: /FSM|fatih\s?sultan/i,     hat: 'Kopru-FSM' },
+  { regex: /yavuz\s?sultan/i,         hat: 'Kopru-YSS' },
+  { regex: /k[öo]pr[üu]/i,           hat: 'Kopru' },
+  // Otoyol ve ana arterler
+  { regex: /\bE-?5\b/i,              hat: 'E-5' },
+  { regex: /\bTEM\b/i,               hat: 'TEM' },
+  { regex: /\bO-?[1-7]\b/i,          hat: 'Otoyol' },
+  { regex: /\bD-?100\b/i,            hat: 'E-5' },
+  // Avrasya Tuneli
+  { regex: /avrasya\s?t[üu]nel/i,    hat: 'Avrasya-Tunel' },
+  // IBB genel trafik
+  { regex: /trafik\s?(yo[ğg]un|s[ıi]k[ıi][şs])/i, hat: 'Trafik' },
+  { regex: /yol\s?(kapan|[çc]al[ıi][şs]ma)/i,      hat: 'Yol-Calisma' },
   // Genel istasyon isimleri (fallback)
   { regex: /kabata[şs].?ba[ğg]c[ıi]lar/i,    hat: 'T1' },
   { regex: /emin[öo]n[üu].?alibey/i,          hat: 'T5' },
@@ -82,15 +101,23 @@ const TIP_KURALLAR: { regex: RegExp; tip: string }[] = [
   { regex: /durdu|durdurulmu/i,                   tip: 'kesinti' },
   { regex: /iptal/i,                              tip: 'kesinti' },
   { regex: /kapan/i,                              tip: 'kesinti' },
-  // Gecikme
+  { regex: /trafi[ğg]e kapat/i,                   tip: 'kesinti' },
+  // Gecikme / yogunluk (IBB Ulasim)
   { regex: /gecikme/i,                            tip: 'gecikme' },
   { regex: /gecikmeli/i,                          tip: 'gecikme' },
   { regex: /aksama|aksıyor/i,                     tip: 'gecikme' },
+  { regex: /yo[ğg]un\s?trafik/i,                 tip: 'gecikme' },
+  { regex: /s[ıi]k[ıi][şs][ıi]k/i,              tip: 'gecikme' },
+  { regex: /yava[şs]lama/i,                       tip: 'gecikme' },
   { regex: /tek hat/i,                            tip: 'gecikme' },
   { regex: /aras[ıi]nda yap[ıi]lmaktad[ıi]r/i,  tip: 'gecikme' },  // kismi sefer
   // Bilgi (cozuldu)
   { regex: /normale d[öo]nm[üu][şs]/i,           tip: 'bilgi' },
   { regex: /ba[şs]lanm[ıi][şs]t[ıi]r/i,         tip: 'bilgi' },
+  { regex: /ba[şs]lanm[ıi][şs]\s+olup/i,        tip: 'bilgi' },
+  { regex: /[çc]ift hat(tan)?\s+i[şs]let/i,      tip: 'bilgi' },
+  { regex: /sorun giderilmi[şs]/i,               tip: 'bilgi' },
+  { regex: /tekrar hizmete/i,                     tip: 'bilgi' },
   { regex: /a[çc][ıi]ld[ıi]/i,                   tip: 'bilgi' },
   // Duyuru (ek sefer, ucretsiz vb.)
   { regex: /ilave.*sefer/i,                       tip: 'duyuru' },
@@ -111,7 +138,14 @@ function tipTespit(metin: string): 'ariza' | 'kesinti' | 'gecikme' | 'bilgi' | '
 function cozulduMu(metin: string): boolean {
   return /normale d[öo]nm[üu][şs]/i.test(metin)
     || /ba[şs]lanm[ıi][şs]t[ıi]r/i.test(metin)
-    || /a[çc][ıi]ld[ıi]/i.test(metin);
+    || /ba[şs]lanm[ıi][şs]\s+olup/i.test(metin)
+    || /[çc]ift hat(tan)?\s+i[şs]let/i.test(metin)
+    || /seferler(i)?\s+normal/i.test(metin)
+    || /d[üu]zenleme [çc]al[ıi][şs]malar[ıi]\s+devam/i.test(metin)
+    || /a[çc][ıi]ld[ıi]/i.test(metin)
+    || /a[çc][ıi]lm[ıi][şs]t[ıi]r/i.test(metin)
+    || /sorun giderilmi[şs]/i.test(metin)
+    || /tekrar hizmete/i.test(metin);
 }
 
 /* ═══════════════════════════════════════════
@@ -148,13 +182,47 @@ async function hesaptanTweetCek(
 
 /* ═══════════════════════════════════════════
    Senkronizasyon: X → Supabase
+   ─────────────────────────────────────────
+   Deduplication: Birden fazla bilesen (ulasim-uyari,
+   trafik-uyari) ayni anda cagirabilir. Modul seviyesinde
+   kilit + minimum aralik ile cift API cagrisi onlenir.
    ═══════════════════════════════════════════ */
+let _sonSenkronZaman = 0;
+let _senkronKilidi = false;
+const MIN_SENKRON_ARALIK_MS = 30 * 1000; // 30 saniye icinde tekrar cagriyi atla
+
 async function tweetleriSenkronize(): Promise<{ yeni: number; guncellenen: number }> {
+  // Zaten calisan bir senkronizasyon varsa atla
+  if (_senkronKilidi) return { yeni: 0, guncellenen: 0 };
+
+  // Son senkrondan bu yana yeterli sure gecmediyse atla
+  const simdi = Date.now();
+  if (simdi - _sonSenkronZaman < MIN_SENKRON_ARALIK_MS) {
+    return { yeni: 0, guncellenen: 0 };
+  }
+
+  _senkronKilidi = true;
+  _sonSenkronZaman = simdi;
+
+  try {
+    return await _tweetleriSenkronizeIc();
+  } finally {
+    _senkronKilidi = false;
+  }
+}
+
+async function _tweetleriSenkronizeIc(): Promise<{ yeni: number; guncellenen: number }> {
   let yeniSayisi = 0;
   let guncellenenSayisi = 0;
 
   for (const hesap of HESAPLAR) {
-    const tweetler = await hesaptanTweetCek(hesap.id, 10);
+    const tweetlerRaw = await hesaptanTweetCek(hesap.id, 10);
+
+    // Eskiden yeniye sirala — "cozuldu" tespitinin dogru calismasi icin
+    // (once ariza tweet'i DB'ye yazilmali, sonra "normale dondu" onu kapatmali)
+    const tweetler = [...tweetlerRaw].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
 
     // Son 24 saat siniri
     const yirmidortSaatOnce = Date.now() - 24 * 60 * 60 * 1000;
@@ -165,7 +233,9 @@ async function tweetleriSenkronize(): Promise<{ yeni: number; guncellenen: numbe
       if (tweetZaman < yirmidortSaatOnce) continue;
 
       // Ulasim uyarisi degilse atla
-      if (!ulasimUyarisiMi(tweet.text)) continue;
+      // IBB Ulasim hesabi trafik odakli — tum tweet'leri al (filtre bypass)
+      const ibbHesabi = hesap.kaynak === 'x:IBBUlasim';
+      if (!ibbHesabi && !ulasimUyarisiMi(tweet.text)) continue;
 
       const hat = hatTespit(tweet.text);
       const tip = tipTespit(tweet.text);

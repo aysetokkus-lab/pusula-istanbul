@@ -31,10 +31,14 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # API keys & secrets
 # lib/config.ts artik env variable kullaniyor, gitignore'dan cikarildi
+google-service-account.json
+*-service-account.json
+service-account*.json
 
 # typescript
 *.tsbuildinfo
@@ -44,3 +48,13 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Otomatik uretilen rapor dosyalari (scheduled task ciktilari)
+muze-guncelleme-raporu-*.txt
+haftalik-tarife-raporu-*.md
+rapor-*.md
+test-kullanici-mail.html
+
+# Eski yedek dosyalar
+*.eski
+CLAUDE.md.eski

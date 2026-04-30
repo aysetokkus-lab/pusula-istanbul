@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAdmin } from '../hooks/use-admin';
 import { supabase } from '../lib/supabase';
+import { useTema } from '../hooks/use-tema';
+import type { TemaRenkleri } from '../constants/theme';
 
 interface KufurKelime {
   id: string;
@@ -18,6 +20,8 @@ interface KufurKelime {
 
 export default function AdminKufur() {
   const insets = useSafeAreaInsets();
+  const { t } = useTema();
+  const s = createStyles(t);
   const { isYetkili, yukleniyor: adminYukleniyor } = useAdmin();
 
   const [kelimeler, setKelimeler] = useState<KufurKelime[]>([]);
@@ -124,7 +128,7 @@ export default function AdminKufur() {
           value={yeniKelime}
           onChangeText={setYeniKelime}
           placeholder="Yeni kelime ekle..."
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={t.textMuted}
           autoCapitalize="none"
         />
         <TouchableOpacity
@@ -194,9 +198,9 @@ export default function AdminKufur() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' },
+const createStyles = (t: TemaRenkleri) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
 
   header: { paddingBottom: 16, paddingHorizontal: 16 },
   geriTus: { marginBottom: 8 },
@@ -208,15 +212,15 @@ const s = StyleSheet.create({
     flexDirection: 'row', padding: 16, gap: 8, alignItems: 'center',
   },
   ekleInput: {
-    flex: 1, backgroundColor: '#FFF', borderRadius: 10, padding: 12,
-    fontSize: 14, color: '#1E293B', borderWidth: 1, borderColor: '#E2E8F0',
+    flex: 1, backgroundColor: t.bgCard, borderRadius: 10, padding: 12,
+    fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder,
   },
   seviyeBtn: {
     borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12,
   },
   kesinBtn: { backgroundColor: '#FEE2E2' },
   supheBtn: { backgroundColor: '#FEF3C7' },
-  seviyeBtnYazi: { fontSize: 12, fontWeight: '700', color: '#1E293B' },
+  seviyeBtnYazi: { fontSize: 12, fontWeight: '700', color: t.text },
   ekleBtn: {
     backgroundColor: '#0077B6', borderRadius: 10,
     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
@@ -226,10 +230,10 @@ const s = StyleSheet.create({
   liste: { flex: 1, paddingHorizontal: 16 },
 
   bolumBaslik: {
-    fontSize: 14, fontWeight: '700', color: '#1E293B', marginBottom: 4,
+    fontSize: 14, fontWeight: '700', color: t.text, marginBottom: 4,
   },
   bolumAciklama: {
-    fontSize: 11, color: '#94A3B8', marginBottom: 12,
+    fontSize: 11, color: t.textMuted, marginBottom: 12,
   },
 
   kelimeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -248,5 +252,5 @@ const s = StyleSheet.create({
   ipucu: {
     marginTop: 32, alignItems: 'center',
   },
-  ipucuYazi: { fontSize: 11, color: '#94A3B8', fontStyle: 'italic' },
+  ipucuYazi: { fontSize: 11, color: t.textMuted, fontStyle: 'italic' },
 });

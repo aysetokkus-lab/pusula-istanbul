@@ -1,55 +1,39 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
-import Purchases, { CustomerInfo, LOG_LEVEL } from 'react-native-purchases';
-import { REVENUECAT_API_KEY, ENTITLEMENT_ID } from '../lib/revenuecat';
+import Purchases, { CustomerInfo } from 'react-native-purchases';
+import { ENTITLEMENT_ID, revenueCatLogin, isRCReady } from '../lib/revenuecat';
 
 /* ═══════════════════════════════════════════
-   Abonelik Durumu Hook'u
+   Abonelik Durumu Hook'u — FREEMIUM MODEL
    ─────────────────────────────────────────
-   RevenueCat + Supabase hibrit sistem:
-   - RevenueCat: Gercek satin alma durumu
-   - Supabase: Deneme suresi + admin/mod rolu
+   Uygulama ucretsiz indirilir, temel ozellikler
+   herkese acik. Premium ozellikler (sohbet, canli
+   durum, etkinlikler, ulasim uyarilari) icin
+   IAP abonelik gerekir.
+
+   RevenueCat: _layout.tsx'de anonim olarak baslatilir.
+   Kullanici giris yapinca revenueCatLogin() ile
+   eslestirilir. Gercek satin alma durumu (tek kaynak).
+   Supabase: Admin/mod rol kontrolu + fallback
+
+   Deneme suresi KALDIRILDI — Apple 3.1.1 uyumu icin
+   tum ucretli erisim IAP uzerinden saglanir.
    ═══════════════════════════════════════════ */
 
 export interface AbonelikDurumu {
   yukleniyor: boolean;
   aktifAbonelik: boolean;
-  denemeSuresi: boolean;
-  denemeBitis: Date | null;
-  kalanGun: number;
-  paywallGoster: boolean;
+  premiumMi: boolean;        // aktifAbonelik || admin/mod
+  denemeSuresi: boolean;     // Artik her zaman false (geriye uyumluluk)
+  denemeBitis: Date | null;  // Artik her zaman null
+  kalanGun: number;          // Artik her zaman 0
+  paywallGoster: boolean;    // Artik her zaman false (global paywall yok)
   yenile: () => Promise<void>;
-}
-
-const DENEME_GUN = 7;
-let rcBaslatildi = false;
-
-// RevenueCat'i baslat (uygulama basinda bir kez)
-async function revenueCatBaslat(userId: string): Promise<void> {
-  if (rcBaslatildi) return;
-  if (!REVENUECAT_API_KEY) {
-    console.warn('RevenueCat API key tanimli degil, atlanacak');
-    return;
-  }
-  try {
-    if (__DEV__) {
-      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-    }
-    await Purchases.configure({
-      apiKey: REVENUECAT_API_KEY,
-      appUserID: userId,
-    });
-    rcBaslatildi = true;
-    console.log('RevenueCat baslatildi, user:', userId);
-  } catch (e) {
-    console.warn('RevenueCat baslatilamadi:', e);
-  }
 }
 
 // RevenueCat'ten abonelik durumu sorgula
 async function rcAbonelikKontrol(): Promise<boolean> {
-  if (!rcBaslatildi) return false;
+  if (!isRCReady()) return false;
   try {
     const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
     const entitlement = customerInfo.entitlements.active[ENTITLEMENT_ID];
@@ -63,9 +47,7 @@ async function rcAbonelikKontrol(): Promise<boolean> {
 export function useAbonelik(): AbonelikDurumu {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [aktifAbonelik, setAktifAbonelik] = useState(false);
-  const [denemeSuresi, setDenemeSuresi] = useState(true); // Default: deneme aktif (engelleme)
-  const [denemeBitis, setDenemeBitis] = useState<Date | null>(null);
-  const [kalanGun, setKalanGun] = useState(7);
+  const [isAdminMod, setIsAdminMod] = useState(false);
   const [authDegisti, setAuthDegisti] = useState(0);
 
   const kontrolEt = useCallback(async () => {
@@ -74,16 +56,15 @@ export function useAbonelik(): AbonelikDurumu {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
+        // Oturumsuz kullanici — temel ozelliklere erisebilir, premium'a erisemez
         setAktifAbonelik(false);
-        setDenemeSuresi(false);
-        setKalanGun(0);
-        setDenemeBitis(null);
+        setIsAdminMod(false);
         setYukleniyor(false);
         return;
       }
 
-      // RevenueCat'i baslat (ilk seferde)
-      await revenueCatBaslat(user.id);
+      // Kullaniciyi RevenueCat'e tanimla (RC _layout'ta anonim baslatildi)
+      await revenueCatLogin(user.id);
 
       // Tek query ile hem rol hem abonelik durumunu cek
       const { data: profil, error } = await supabase
@@ -92,33 +73,28 @@ export function useAbonelik(): AbonelikDurumu {
         .eq('id', user.id)
         .single();
 
-      // Profil bulunamazsa (yeni kayit, henuz olusmamis olabilir)
+      // Profil bulunamazsa (yeni kayit)
       if (error || !profil) {
-        console.log('Profil bulunamadi, deneme suresi aktif sayiliyor');
+        console.log('Profil bulunamadi — premium degil');
         setAktifAbonelik(false);
-        setDenemeSuresi(true);
-        setKalanGun(DENEME_GUN);
-        setDenemeBitis(null);
+        setIsAdminMod(false);
         setYukleniyor(false);
         return;
       }
 
-      // Admin/moderator → abonelik gerekmez
+      // Admin/moderator → premium erisim (IAP gerekmez)
       if (profil.rol === 'admin' || profil.rol === 'moderator') {
         setAktifAbonelik(true);
-        setDenemeSuresi(false);
-        setKalanGun(999);
-        setDenemeBitis(null);
+        setIsAdminMod(true);
         setYukleniyor(false);
         return;
       }
 
-      // 1) RevenueCat'ten kontrol (gercek satin alma)
+      // 1) RevenueCat'ten kontrol (gercek IAP satin alma — tek kaynak)
       const rcAktif = await rcAbonelikKontrol();
       if (rcAktif) {
         setAktifAbonelik(true);
-        setDenemeSuresi(false);
-        setDenemeBitis(null);
+        setIsAdminMod(false);
         setYukleniyor(false);
 
         // Supabase'i de guncelle (senkronizasyon)
@@ -130,43 +106,25 @@ export function useAbonelik(): AbonelikDurumu {
         return;
       }
 
-      // 2) Supabase'den kontrol (fallback — ornegin web veya manual)
+      // 2) Supabase'den kontrol (fallback — manual abonelik veya demo hesap)
       if (profil.abonelik_durumu === 'aktif' && profil.abonelik_bitis) {
         const bitis = new Date(profil.abonelik_bitis);
         if (bitis > new Date()) {
           setAktifAbonelik(true);
-          setDenemeSuresi(false);
-          setDenemeBitis(bitis);
+          setIsAdminMod(false);
           setYukleniyor(false);
           return;
         }
       }
 
-      // 3) Deneme suresi kontrolu — kayit tarihinden 7 gun
-      const kayitTarihi = new Date(user.created_at);
-      const denemeBitisT = new Date(kayitTarihi);
-      denemeBitisT.setDate(denemeBitisT.getDate() + DENEME_GUN);
-
-      const simdi = new Date();
-      const kalanMs = denemeBitisT.getTime() - simdi.getTime();
-      const kalanGunHesap = Math.max(0, Math.ceil(kalanMs / (1000 * 60 * 60 * 24)));
-
-      setDenemeBitis(denemeBitisT);
-      setKalanGun(kalanGunHesap);
-
-      if (kalanGunHesap > 0) {
-        setDenemeSuresi(true);
-        setAktifAbonelik(false);
-      } else {
-        setDenemeSuresi(false);
-        setAktifAbonelik(false);
-      }
+      // Premium aktif degil
+      setAktifAbonelik(false);
+      setIsAdminMod(false);
     } catch (e) {
       console.warn('Abonelik kontrol hatasi:', e);
-      // Hata → kullaniciyi engelleme, deneme aktif say
+      // Hata → premium aktif sayma (IAP odakli model)
       setAktifAbonelik(false);
-      setDenemeSuresi(true);
-      setKalanGun(7);
+      setIsAdminMod(false);
     } finally {
       setYukleniyor(false);
     }
@@ -180,33 +138,86 @@ export function useAbonelik(): AbonelikDurumu {
     return () => subscription.unsubscribe();
   }, []);
 
-  // RevenueCat listener — satin alma sonrasi otomatik guncelle
+  // Supabase profiles tablosundaki abonelik degisikliklerini dinle
   useEffect(() => {
-    if (!rcBaslatildi) return undefined;
-    const listener = (customerInfo: CustomerInfo) => {
-      const aktif = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
-      if (aktif) {
-        setAktifAbonelik(true);
-        setDenemeSuresi(false);
-      }
+    const channel = supabase
+      .channel('abonelik-degisim')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+      }, (payload) => {
+        if (payload.new?.abonelik_durumu === 'aktif') {
+          setAktifAbonelik(true);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // RevenueCat listener — satin alma sonrasi otomatik guncelle
+  // RC hazir olana kadar polling ile bekle, hazir olunca listener ekle
+  useEffect(() => {
+    let iptal = false;
+    let cleanupListener: (() => void) | null = null;
+
+    const listenerEkle = () => {
+      if (iptal) return;
+      const listener = (customerInfo: CustomerInfo) => {
+        const aktif = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
+        if (aktif) {
+          setAktifAbonelik(true);
+          // Supabase'i de senkronize et
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+              supabase.from('profiles').update({
+                abonelik_durumu: 'aktif',
+              }).eq('id', user.id);
+            }
+          });
+        }
+      };
+      Purchases.addCustomerInfoUpdateListener(listener);
+      cleanupListener = () => { Purchases.removeCustomerInfoUpdateListener(listener); };
     };
-    Purchases.addCustomerInfoUpdateListener(listener);
-    return () => { Purchases.removeCustomerInfoUpdateListener(listener); };
-  }, [rcBaslatildi]);
+
+    if (isRCReady()) {
+      listenerEkle();
+    } else {
+      // RC henuz hazir degil — 2sn arayla kontrol et (max 30sn)
+      let deneme = 0;
+      const timer = setInterval(() => {
+        deneme++;
+        if (isRCReady()) {
+          clearInterval(timer);
+          listenerEkle();
+        } else if (deneme >= 15) {
+          clearInterval(timer);
+        }
+      }, 2000);
+      cleanupListener = () => { clearInterval(timer); };
+    }
+
+    return () => {
+      iptal = true;
+      if (cleanupListener) cleanupListener();
+    };
+  }, []);
 
   useEffect(() => {
     kontrolEt();
   }, [kontrolEt]);
 
-  const paywallGoster = !yukleniyor && !aktifAbonelik && !denemeSuresi;
+  const premiumMi = aktifAbonelik || isAdminMod;
 
   return {
     yukleniyor,
     aktifAbonelik,
-    denemeSuresi,
-    denemeBitis,
-    kalanGun,
-    paywallGoster,
+    premiumMi,
+    denemeSuresi: false,    // Geriye uyumluluk — freemium'da deneme yok
+    denemeBitis: null,
+    kalanGun: 0,
+    paywallGoster: false,   // Global paywall yok — ekran bazinda kontrol
     yenile: kontrolEt,
   };
 }

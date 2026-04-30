@@ -1,415 +1,212 @@
-# Pusula Istanbul - Proje Devam Dosyasi
+# Pusula Istanbul - Claude Oturum Indeksi
 
-Bu dosya, yeni bir Claude oturumunda projenin tam durumunu aktarmak icin hazirlanmistir.
-Yeni oturumda bu dosyayi Claude'a at, tam context ile devam edilsin.
-
----
-
-## 1. PROJE TANIMI
-
-**Pusula Istanbul** - Istanbul'daki profesyonel turist rehberleri icin gelistirilen mobil uygulama.
-Canli saha durumu, muze kuyruk bilgileri, ulasim verileri, rehber sohbeti, etkinlikler ve acil durum bilgileri sunar.
-
-**Gelistirici:** Ayse Tokkus (ayse.tokkus@gmail.com)
-**Durum:** Aktif gelistirme asamasinda, Expo Go ile test ediliyor
+**Tarih (son guncelleme):** 29 Nisan 2026
 
 ---
 
-## 2. TEKNIK YAPI
+## OKUMAN GEREKEN DOSYALAR — ZORUNLU, OPSIYONEL DEGIL
 
-### Platform & Framework
-- **React Native** + **Expo SDK 54** (Expo Go uzerinde test)
-- **Expo Router** (tab-based navigation + Stack screens)
-- **TypeScript**
-- Test cihazi: Samsung S22 5G Android
+Bu CLAUDE.md'yi gordugun anda HEMEN, kullaniciya tek soru sormadan once, sirasiyla SU IKI DOSYAYI DA OKU:
 
-### Backend
-- **Supabase** (Auth + PostgreSQL + Realtime + RLS)
-  - URL: `https://rzlfghjpsximthlolfxo.supabase.co`
-  - Auth: Email/Password (Email confirmation KAPALI)
-  - Tablolar: `profiles`, `sohbet_mesajlari`, `yogunluk`, `canli_durum`, `raporlanan_mesajlar`, `etkinlikler`, `kufur_listesi`
+1. `claude-context/STATE.md` — Su anki surum durumu, deploy durumu, aktif gorevler
+2. `claude-context/PROJECT.md` — Tum teknik yapi, dosya yapisi, is mantigi, tasarim kurallari
 
-### Onemli Kutuphaneler
-```json
-{
-  "expo": "~54.0.33",
-  "expo-router": "~6.0.23",
-  "expo-image": "~3.0.11",
-  "expo-linear-gradient": "~15.0.8",
-  "expo-notifications": "~0.32.16",
-  "expo-screen-capture": "~8.0.9",
-  "@supabase/supabase-js": "^2.99.0",
-  "@expo-google-fonts/poppins": "^0.4.1",
-  "react-native-svg": "15.12.1"
-}
-```
+Bu uc dosyayi (CLAUDE.md + STATE.md + PROJECT.md) okumadan kullaniciya cevap YAZMA. Toplam ~8k token, hepsi birden okunabilir, sorun degil.
 
-### Font Ailesi
-Poppins: 400Regular, 600SemiBold, 700Bold, 800ExtraBold
+Konu spesifikse asagidaki tabloya bak, **uygun moduli da hemen oku**. Birden fazla satira uyuyorsa hepsini oku.
 
-### Renk Paleti
-```
-Primary: #0077B6 (Istanbul Mavi)
-Medium:  #0096C7
-Light:   #48CAE4
-Bright:  #00A8E8
-Dark:    #005A8D
-Uyari:   #E09F3E (amber)
-Kapali:  #D62828 (kirmizi)
-Acik:    #0096C7 (mavi)
-```
+| Kullanici sunlardan bahsediyorsa... | Hemen oku |
+|---|---|
+| Auth, sifre sifirlama, kayit, deep link, recovery, oturum acma | `DECISIONS.md` (ozellikle "Pending Pattern" + "RLS Sessiz Reddedebilir") |
+| RevenueCat, IAP, satin alma, abonelik, premium gate, paywall | `DECISIONS.md` ("3 Katmanli Guvenlik Agi") + `INFRASTRUCTURE.md` ("RevenueCat") |
+| Supabase, RLS, SQL, migration, jsonb, realtime | `DECISIONS.md` ("RLS Sessiz Reddedebilir", "Service Role Key") + `INFRASTRUCTURE.md` ("Supabase") |
+| Email, SMTP, Resend, DKIM, DNS, template | `INFRASTRUCTURE.md` ("Email Altyapisi") |
+| Yeni surum cikarma, build, eas submit, release notes | `INFRASTRUCTURE.md` ("EAS") + `CHANGELOG.md` (release notes formati) |
+| Apple reject, App Store, EULA, subscription metadata | `DECISIONS.md` ("Paid Apps Agreement", "Subscription Group Localization") + `INFRASTRUCTURE.md` ("Apple") |
+| Google Play, manifest, publish, alpha, license testing | `INFRASTRUCTURE.md` ("Google Play") |
+| Bug, hata, "calismiyor", "olmuyor" — neyse | `ISSUES.md` (62 bug indeksli — benzer bir bug var mi diye once burada ara) |
+| X API, Twitter, ulasim uyarisi, trafik bandi | `DECISIONS.md` ("Cift X API'den Global Timer'a") |
+| Havalimani Ulasim, IST, SAW, Havaist, Havabus | `INFRASTRUCTURE.md` ("Havalimani Ulasim Veri Pipeline'i") |
+| Eski surum ne degisti? v1.0.x ne icindeydi? | `CHANGELOG.md` |
+| Tasarim kurali, emoji, renk, logo, font | `PROJECT.md` ("Tasarim Kurallari") |
+| "Bu nasil yapilirdi?" / mimari tartisma | `DECISIONS.md` (24 mimari karar) |
 
 ---
 
-## 3. DOSYA YAPISI
+## ASLA SORMAYACAGIN SORULAR
 
-### Ekranlar (app/)
-```
-app/
-  _layout.tsx          -- Root layout: auth + abonelik gating + routing
-  giris.tsx            -- Login/Register ekrani
-  hos-geldin.tsx       -- EKRAN 1: Onboarding (kayit sonrasi)
-  deneme-baslat.tsx    -- EKRAN 2: 7 gun ucretsiz deneme baslat
-  abone-ol.tsx         -- EKRAN 3: Paywall (deneme bittikten sonra)
-  gizlilik-politikasi.tsx -- KVKK uyumlu gizlilik politikasi
-  kullanim-kosullari.tsx  -- Kullanim kosullari (13 bolum)
-  admin.tsx            -- Admin panel ana ekrani
-  admin-etkinlik.tsx   -- Etkinlik yonetimi
-  admin-moderasyon.tsx -- Sohbet moderasyonu
-  admin-banlar.tsx     -- Ban yonetimi
-  admin-kufur.tsx      -- Kufur filtresi yonetimi
-  admin-saatler.tsx    -- Muze/saray/cami saat yonetimi (mevsim gecisi dahil)
-  admin-ulasim-tarife.tsx -- Havalimani seferleri + bogaz turlari yonetimi
-  admin-acil.tsx       -- Acil durum numaralari ve link yonetimi
-  modal.tsx            -- Genel modal
+Asagidaki sorulari kullaniciya **sorma** — cevaplar bu dosyada veya okuman gereken modullerde mevcut. Sormak Ayse'nin vaktini bosa harcar ve onu sinirlendirir.
 
-app/(tabs)/
-  _layout.tsx          -- Tab navigator (5 tab + 4 gizli)
-  index.tsx            -- Ana Sayfa (hava, namaz, gemi takvimi, canli durum, ulasim, etkinlikler)
-  acil.tsx             -- Acil durum numaralari
-  sohbet.tsx           -- Rehber sohbet odasi (realtime, kufur filtreli, screenshot korumalı)
-  ara.tsx              -- Arama
-  profil.tsx           -- Profil (abonelik durumu gosterir)
-  muzeler.tsx          -- Muze detaylari (gizli tab)
-  bogaz.tsx            -- Bogaz turlari (gizli tab)
-  ulasim.tsx           -- Ulasim detay (gizli tab)
-  muzeKart.tsx         -- Muze kart bilgileri (gizli tab)
-```
+- "React Native surumun kac?" — **0.81.5** (`package.json`)
+- "Expo SDK kac?" — **~54.0.33**
+- "TypeScript surumun kac?" — **~5.9.2**
+- "React surumun kac?" — **19.1.0**
+- "Expo Router var mi?" — **Evet, ~6.0.23**
+- "Hedef Android API/SDK kac?" — **Expo SDK 54'un getirdigi target = API 36 (Android 14)**, Expo prebuild ile yonetilir, app.json'da explicit yazmiyor
+- "newArchEnabled aktif mi?" — **Evet** (reanimated 4.x icin zorunlu)
+- "Bu uygulamayi tek basina mi gelistiriyorsun, ekiple mi?" — **Tek basina** (Ayse Tokkus Bayar — gelistirici, urun sahibi, profesyonel turist rehberi)
+- "Bir geliştirici/ajansla mi calisiyorsun?" — **Hayir, Ayse + Claude**
+- "Hangi backend kullaniyorsun?" — **Supabase** (URL: rzlfghjpsximthlolfxo.supabase.co)
+- "Auth nasil?" — **Supabase Email/Password, email confirmation acik, custom SMTP (Resend)**
+- "IAP nasil?" — **RevenueCat (entitlement: pro)** — App Store + Play Store
+- "Bundle ID nedir?" — **com.pusulaistanbul.app**
+- "Domain ne?" — **pusulaistanbul.app**
+- "Hangi Node surumu?" — **Node 20 zorunlu (v24 uyumsuz)**
+- "Expo Go calisir mi?" — **HAYIR**, native modules var (RC, expo-notifications, screen-capture). Custom dev client gerekir: `npx expo start --dev-client`
+- "Apple/Google hesap aktif mi?" — **Ikisi de aktif**, Paid Apps Agreement Active (5 Nis 2026 - 31 Mar 2027)
+- "Su an hangi surum yayinda?" — **STATE.md'ye bak, sorma. v1.0.8 App Store'da, v1.0.9 review'da.**
+- "Proje dizini nerede?" — **/Users/aysetokkus/istanbul-rehber** (her zaman bu, sorma)
 
-### Hook'lar (hooks/)
-```
-use-abonelik.ts       -- Abonelik durumu (deneme/aktif/paywall)
-use-admin.ts          -- Admin/moderator rol kontrolu
-use-canli-durum.ts    -- Canli muze kuyruk bilgileri
-use-kufur-filtre.ts   -- Sohbet kufur filtresi
-use-tema.ts           -- Light/Dark tema
-use-ulasim-bildirim.ts -- Ulasim ariza bildirimleri
-use-bildirim-tercihleri.ts -- 5 kategorili bildirim tercih yonetimi (ulasim, saha, etkinlik, sohbet, admin)
-use-okunmamis-mesaj.ts -- Sohbet okunmamis mesaj badge takibi (realtime)
-use-mekan-saatleri.ts  -- Muze/saray/cami saatleri (Supabase + realtime)
-use-bogaz-turlari.ts   -- Bogaz tur tarifeleri (Supabase + realtime)
-use-ulasim-tarife.ts   -- Havalimani sefer tarifeleri (Supabase + realtime)
-use-acil-rehber.ts     -- Acil durum numaralari ve linkler (Supabase + realtime)
-use-gemi-takvimi.ts    -- Galataport gemi takvimi (cruisetimetables.com'dan otomatik cekilir)
-use-x-ulasim.ts        -- X (Twitter) API'den ulasim uyarisi cekme ve Supabase'e senkronizasyon
-```
-
-### Bilesenler (components/)
-```
-canli-durum-panel.tsx  -- Muze yogunluk paneli
-etkinlikler.tsx        -- Etkinlik bandi
-ulasim-uyari.tsx       -- Ulasim uyari bandi
-tab-icons.tsx          -- SVG tab ikonlari
-```
-
-### Diger
-```
-lib/supabase.ts        -- Supabase client
-lib/config.ts          -- API anahtarlari ve konfigurasyonu (.gitignore'da)
-constants/theme.ts     -- Tema sistemi (light+dark, Palette, Typo, Space, Radius)
-assets/icons/logo.svg  -- Windrose (pusula) logo
-supabase-migration-abonelik.sql  -- Abonelik kolonlari migration'i (UYGULANMIS)
-supabase-migration-admin.sql     -- Admin sistemi migration'i (UYGULANMIS)
-supabase-migration-canli-durum.sql -- Canli durum migration'i (UYGULANMIS)
-supabase-migration-admin-saatler.sql -- Mekan saatleri + bogaz + havalimani + mevsim gecis (UYGULANMIS)
-supabase-migration-acil-rehber.sql   -- Acil durum rehberi tablosu + seed data (UYGULANMADI)
-supabase-migration-ulasim-uyarilari.sql -- X tweet ulasim uyarilari tablosu (UYGULANMADI)
-```
+Eger `package.json`'a, `app.json`'a, ya da `eas.json`'a bakman lazim olan basit bir teknik soru varsa **dosyaya kendin bak**, kullaniciya sorma.
 
 ---
 
-## 4. ABONELIK SISTEMI
+## KULLANICI: AYSE TOKKUS BAYAR
 
-### Is Mantigi
-- Uygulama **UCRETLI** (ucretsiz deneme ile)
-- Yeni kayit → 7 gun ucretsiz deneme (kredi karti GEREKMEZ)
-- Deneme suresi: `auth.users.created_at + 7 gun` uzerinden hesaplanir
-- Deneme bittikten sonra uygulama tamamen KILITLI (paywall)
-- Fiyatlar: Aylik 99 TL / Yillik 699 TL (%41 tasarruf)
-- Admin/moderator kullanicilar abonelik kontrolunden MUAF
+- **Tercih ettigi dil:** Türkçe (UI, kod yorumu, sohbet — hepsi)
+- **Bilimsel/kanitli bilgi odakli, ateist, bilime inanir**
+- **Iletisim tonu:** cesaret verici, konuskan, hossohbet, pratik, hemen konuya gir, kurumsal jargonla yaz
+- **Yanitlarda empatik ve anlayisli ol, ileri gorusluluk benimse, guclu fikirleri rahatlikla paylas**
+- **Uygun durumlarda hizli ve zekice esprilerle renklendir**
+- **Ilgi alanlari (proje disi):** Tarihi Istanbul'da sokak yasami, sosyal hayat, ticaret, uretim, emek gucu
+- **EMOJI YOK** (kesinlikle, kodda da, sohbette de — istemediginde kullanma)
+- **Iyi Fransizca, orta Ingilizce, az Ispanyolca**
+- 17 yasinda oglu var, evli
+- Tup mide ameliyatli (8 Ocak 2024)
+- **Iletisim:** info@pusulaistanbul.app — ayni zamanda app gelistiricisi
 
-### Akis
+---
+
+## PROJE OZETI — Hemen Anla
+
+### Bu Uygulama Nasil Yapiliyor
+**Pusula Istanbul, Claude Cowork ile gelistiriliyor.** Ayse Tokkus Bayar (profesyonel turist rehberi, 30 yillik marka emegi) urunun tek sahibi ve gelistiricisi — gelistirme partner'i olarak Claude'u (Cowork modu) kullaniyor. Klasik anlamda yazilim ekibi YOK, baska gelistirici/ajans YOK. Kararlari Ayse aliyor, kodu Claude yaziyor — ama kalite kontrol Ayse'de.
+
+### Ne Yapan Bir Uygulama
+**Pusula Istanbul** — Istanbul'daki profesyonel turist rehberleri icin **freemium** mobil uygulama. Hedef kullanici dar ve net: TUREB ruhsatli, sahada turla calisan rehber. Sundugu sey:
+
+- **Operasyonel veri:** muze/saray/cami ziyaret saatleri (mevsimsel), gise kapanislari, giris ucretleri, MuzeKart gecerlilik
+- **Anlik saha bilgisi:** muze yogunlugu/kuyruk durumu, ulasim arizalari (rayli sistem + IBB Ulasim trafigi), etkinlikler, gemi takvimi
+- **Rehberden rehbere iletisim:** canli sohbet, saha guncellemeleri, raporlama/engelleme
+- **Yardimcı:** havalimani transferleri (Havaist/Havabus), Bogaz turlari, doviz, namaz vakitleri (musterileri icin), acil durum (112)
+
+### Temel Altyapi
+- **Frontend:** React Native + Expo SDK 54 + TypeScript + Expo Router (tab + stack)
+- **Backend:** Supabase (Postgres + Auth + Realtime + RLS)
+- **Odeme:** RevenueCat (App Store + Play Store, entitlement: `pro`)
+- **Email:** Custom SMTP (Resend Pro → AWS SES Dublin → kullanici)
+- **Web:** GitHub Pages + custom domain (pusulaistanbul.app)
+- **Web scraping:** Firecrawl MCP (havabus, sehirhatlari, millisaraylar)
+- **CI/CD:** EAS Build + EAS Submit
+- **Yapay zeka destek:** Claude Cowork (kod + mimari + bu dosyalar)
+
+### Su An Hangi Asamadayiz (29 Nisan 2026)
+**Henuz lansman YAPILMADI** — kasitli olarak. Kalite > momentum. Ayse 30 yillik markasini bug'li bir ucretli urunle riske atmiyor. Sira:
+
+- **App Store:** v1.0.8 yayinda AMA **sifre sifirlama bug'i var** (ilk deneme tutmadi). v1.0.9 review'da, ~24-48 saat. Bu sefer **Manual release** secildi (v1.0.7 felaketi sonrasi karari).
+- **Google Play:** v1.0.9 Production review'da (3-7 gun). Alpha'da fix DOGRULANDI — Ayse v1.0.9'u kendi telefonuna tester olarak kurdu, sifre sifirlama akisinin sorunsuz calistigini bizzat gordu.
+- **6 Apple reject** atlatildi (Demo hesap, IAP Restore, iPad Design, EULA, Subscription Group Localization, Paid Apps Agreement). Hepsinin dersi `DECISIONS.md`'de.
+- **Custom SMTP** kuruldu (26 Nis), email akisi calisiyor, 5 markali Turkce template hazir.
+- **4 scheduled task** aktif (sehir hatlari iptal seferleri, havalimani tarife, muzeler, saraylar).
+- **v1.1.0 planlamasi:** push notification altyapisi, X API'yi scheduled task'a tasimak, ana ekran widget'i.
+
+Detayli surum durumu icin: `claude-context/STATE.md`
+
+---
+
+## CLAUDE-CONTEXT KLASORU YAPISI
+
 ```
-Yeni Kullanici:
-  Kayit Ol → hos-geldin.tsx → deneme-baslat.tsx → /(tabs) [7 gun deneme]
-
-Deneme Biten Kullanici:
-  Giris Yap → abone-ol.tsx (paywall, cikis haric hicbir yere gidemez)
-
-Abone Kullanici:
-  Giris Yap → /(tabs) [tam erisim]
-
-Admin/Moderator:
-  Giris Yap → /(tabs) [tam erisim + admin panel]
+istanbul-rehber/
+├── CLAUDE.md                          (BU DOSYA — yalin index, ~2.5k token)
+├── CLAUDE.md.eski                     (eski tek dosya, 31k token, yedek)
+└── claude-context/
+    ├── STATE.md                       (mevcut dinamik durum: surum, deploy, aktif gorevler)
+    ├── PROJECT.md                     (statik proje bilgisi: tech, dosya, is mantigi, tasarim)
+    ├── CHANGELOG.md                   (surum gecmisi, release notes, eski v1.0.x)
+    ├── DECISIONS.md                   (24 mimari karar + ders — SIK BAKILACAK!)
+    ├── ISSUES.md                      (bilinen sorunlar, 62 cozulmus bug)
+    └── INFRASTRUCTURE.md              (email, EAS, Apple, Google, RC, DNS, scheduled tasks, havalimani pipeline)
 ```
 
-### Routing Korumasi (_layout.tsx)
-- `hos-geldin` ve `deneme-baslat` ekranlari "korumali" — paywall yonlendirmesi bu ekranlardayken CALISMAZ
-- `gizlilik-politikasi` ve `kullanim-kosullari` da korumali
-- `admin*` ekranlari da korumali
-- Oturum yoksa → `initialRouteName='giris'` (ekstra replace YOK)
-- Oturum var + giris ekraninda → abonelik durumuna gore yonlendir
-- Oturum var + paywall gerekli + paywall'da degil → paywall'a yonlendir
+### Dosyalari Guncel Tutma Disiplini
+- **Yeni surum cikarinca:** `STATE.md` ve `CHANGELOG.md` guncellenir
+- **Yeni mimari karar / kalici ders:** `DECISIONS.md`'ye eklenir
+- **Yeni bug fix:** `ISSUES.md`'ye eklenir
+- **Yeni servis / DNS / EAS env:** `INFRASTRUCTURE.md` guncellenir
+- **Yeni hook / ekran / kategori:** `PROJECT.md` guncellenir
+- **Bu dosya (`CLAUDE.md`):** YALNIZCA "snapshot" + tablo guncellemesi gerekiyorsa
 
-### useAbonelik Hook'u
-- Auth state listener ile otomatik yenilenir (register/login sonrasi)
-- Default state: `denemeSuresi=true` (hata durumunda kullaniciyi ENGELLEME)
-- Profil bulunamazsa (yeni kayit) → deneme aktif say
-- Admin/moderator → aktif abonelik say
-- `paywallGoster = !yukleniyor && !aktifAbonelik && !denemeSuresi`
+---
 
-### Supabase Profiles Tablosu Abonelik Kolonlari
+## HIZLI KOMUT REFERANSI
+
+### Build & Submit
+```bash
+eas build --platform all --profile production
+eas submit --platform ios --latest
+eas submit --platform android --latest
+```
+
+### EAS Env (eski `eas secret:*` deprecated)
+```bash
+eas env:create --name <NAME> --value "..." --environment production --visibility sensitive
+eas env:list --environment production
+```
+
+### Mevsim Gecisi (Muzeler — 1 Mayis'ta calistirilacak)
 ```sql
-abonelik_durumu TEXT DEFAULT 'deneme' CHECK ('deneme','aktif','iptal','suresi_dolmus')
-abonelik_bitis  TIMESTAMPTZ
-abonelik_plani  TEXT CHECK ('aylik','yillik')
-revenuecat_id   TEXT
+UPDATE mekan_saatleri SET aktif_mevsim = 'yaz', guncelleme_tarihi = NOW()
+WHERE mevsimsel = true AND tip NOT IN ('saray', 'kasir');
+```
+
+### Demo Hesap Sifre Reset
+```sql
+UPDATE auth.users SET encrypted_password = crypt('123456', gen_salt('bf'))
+WHERE email = 'aysetokkus@hotmail.com';
+```
+
+### Node 20
+```bash
+export PATH="/opt/homebrew/opt/node@20/bin:$PATH"
+```
+
+### Development Build
+```bash
+npx expo start --dev-client
 ```
 
 ---
 
-## 5. TASARIM KURALLARI (COK ONEMLI)
+## TEMEL KIMLIKLER
 
-- **EMOJI YOK** — Hicbir ekranda emoji kullanilmayacak. "Sevmiyorum emoji, kullanma" (kullanici talimat)
-- **Kendi logosu kullanilacak** — `assets/icons/logo.svg` (windrose pusula), beyaz arkaplanda `tintColor="#0077B6"`
-- **Ozellik kartlarinda ikon YOK** — Sadece tipografi ve spacing ile hiyerarsi
-- **Ozellik kartlarinda sol mavi accent bar** (4px genislik, Palette.istanbulMavi)
-- **Sticky footer pattern** — CTA butonlari ekranin altinda sabit
-- **LinearGradient** header ve butonlarda: `['#005A8D', '#0077B6', '#0096C7']`
-- **Poppins font ailesi** tuam ekranlarda explicit kullanilir (fontFamily)
+| Servis | Bilgi |
+|--------|-------|
+| Apple Team ID | `7UJVL94SMJ` |
+| App Store App ID | `6761419678` |
+| Bundle/Package | `com.pusulaistanbul.app` |
+| Scheme | `pusulaistanbul` |
+| Supabase URL | `https://rzlfghjpsximthlolfxo.supabase.co` |
+| RC Entitlement | `pro` |
+| Demo (premium) | aysetokkus@hotmail.com / 123456 |
+| Demo (suresi dolmus) | demo.test@pusulaistanbul.app / 123456 |
+| Web | https://pusulaistanbul.app |
 
----
-
-## 6. GIRIS EKRANI (giris.tsx) DETAYLARI
-
-- Logo: `expo-image` ile `tintColor="#0077B6"` (beyaz arkaplan icin mavi)
-- Giriş/Kayıt tab'ları (sekme sistemi)
-- Kayit formunda: Isim, Soyisim, TUREB Ruhsat No, Email, Sifre, **Sifre Tekrar** (dogrulama var)
-- Sifre min 6 karakter, "Sifreler eslesmiyorsa" hata mesaji
-- "Misafir olarak devam" **KALDIRILDI** (uygulama ucretli)
-- Basarili kayit → `router.replace('/hos-geldin')`
-- Sifremi unuttum: `supabase.auth.resetPasswordForEmail`
+Detayli kimlikler, API anahtarlari ve servis konfigurasyonlari `INFRASTRUCTURE.md`'de.
 
 ---
 
-## 7. 3 OZEL EKRAN DETAYLARI
+## ERISIMLER (Yeni oturumda lazim olabilir)
 
-### EKRAN 1: hos-geldin.tsx (Onboarding)
-- Gradient header ile logo ve "Pusula Istanbul'a Hos Geldiniz!"
-- Alt metin: "Profesyonel turist rehberlerinin dijital yol arkadasi."
-- 5 ozellik karti (sadece tipografi, ikon yok, sol mavi accent bar):
-  1. Canli Saha Durumu — Muzelerdeki anlik kuyruk ve yogunluk bilgileri
-  2. Lojistik & Ulasim — Vapur, metro, tramvay ve Galataport kruvaziyer takvimi
-  3. Rehber Sohbeti — Meslektaslarinizla anlik iletisim ve saha guncellemeleri
-  4. Kent Etkinlikleri — Kapanan yollar, mitingler ve guzergah degisiklikleri
-  5. Kritik Bilgiler — Acil durum numaralari ve muze iletisim hatlari
-- Sticky footer: "Kesfetmeye Basla" butonu → `/deneme-baslat`
+Asagidaki linklere ihtiyacin olabilir, kullanici tarayicidan acabilir veya sana yapistirabilir:
 
-### EKRAN 2: deneme-baslat.tsx (Deneme Baslat)
-- Gradient ust alan ile logo ve "Pusula Istanbul"
-- Yesil gradient kart (#059669 → #10B981): "7 Gun Ucretsiz Deneme"
-- "Kredi karti gerekmez, aninda kullanmaya baslayin."
-- Alt bilgi: "Deneme suresi boyunca hicbir ozellik kisitlamasi yoktur."
-- Sticky footer: Yesil "7 Gunluk Ucretsiz Denememi Baslat" butonu → `/(tabs)`
-- Yasal not: "Devam ederek Kullanim Kosullarini ve Gizlilik Politikasini kabul etmis olursunuz."
-
-### EKRAN 3: abone-ol.tsx (Paywall)
-- Gradient header ile logo
-- Baslik: "Profesyonel Pusulanizi Kesintisiz Kullanin"
-- Alt baslik: "7 gunluk ucretsiz kesfif sureniz sona erdi..."
-- 2 plan karti yan yana:
-  - Aylik: 99 TL/ay (standart beyaz kart, radio button)
-  - Avantajli Yillik: 699 TL/yil = 58,25 TL/ay (%41 tasarruf badge, seciliyken LinearGradient kart)
-- Yillik plan default secili
-- Guven metni: "Sadece 7 gunluk ucretsiz sureniz bittikten sonra karar verirsiniz."
-- Sticky footer: "Pusulami Aktiflestir" butonu
-- Gizlilik Politikasi | Kullanim Kosullari linkleri
-- Cikis Yap (Alert confirmation ile)
-- TODO: RevenueCat entegrasyonu (simdilik Alert gosteriyor)
-
----
-
-## 8. ADMIN SISTEMI
-
-- `profiles.rol`: 'admin', 'moderator', 'user'
-- `useAdmin` hook'u: isAdmin, isMod, isYetkili
-- Admin panel butonu profil ekraninda sadece yetkililere gorunur
-- Admin ekranlari: etkinlik yonetimi, sohbet moderasyonu, ban yonetimi, kufur filtresi
-- Admin/moderator abonelik kontrolunden muaf
-
-### Moderator Sistemi
-- Admin panelden email ile moderator atama/kaldirma (admin.tsx)
-- Moderator yetkileri (sinirli erisim):
-  - Etkinlik yonetimi (admin-etkinlik.tsx — tam erisim)
-  - Sultanahmet Camii saat girisi (admin-saatler.tsx — sadece Sultanahmet karti ve modali)
-  - Saha durumu bildirim (canli-durum-panel — tum kullanicilar gibi)
-- Moderator GOREMEZ: Sohbet moderasyonu, ban yonetimi, kufur listesi, mevsim gecisi, mekan listesi/ekleme/duzenleme, ulasim tarifeleri, acil durum rehberi
-- admin-saatler.tsx'de mevsim gecis butonlari, kategori sekmeleri, mekan listesi ve duzenleme modali `{isAdmin && (...)}` ile sarili
-
----
-
-## 9. SOHBET SISTEMI
-
-- Realtime mesajlasma (Supabase Realtime subscription)
-- Kufur filtresi (veritabanindan yuklenir, hook ile)
-- Screenshot korunmasi (expo-screen-capture)
-- Mesaj raporlama
-- Admin moderasyon paneli
-
----
-
-## 10. ANA SAYFA ICERIKLERI (index.tsx)
-
-- Hava durumu (API'den)
-- Namaz vakitleri (Aladhan API)
-- Galataport gemi takvimi (cruisetimetables.com'dan otomatik cekilir, useGemiTakvimi hook'u)
-- Canli muze kuyruk durumu (canli-durum-panel component)
-- Ulasim uyari bandi
-- Etkinlikler bandi
-- Grid ikonlar: Muzeler, Bogaz Turlari, Ulasim, MuzeKart vb.
-
----
-
-## 11. TAMAMLANAN ISLER
-
-- [x] Temel uygulama yapisi (tabs, navigation, tema)
-- [x] Supabase entegrasyonu (auth, profiles, realtime)
-- [x] Muze canli durum sistemi
-- [x] Rehber sohbet odasi (realtime + kufur filtre + screenshot koruma)
-- [x] Admin panel (etkinlik, moderasyon, ban, kufur yonetimi)
-- [x] Ulasim bildirim sistemi
-- [x] Abonelik altyapisi (Supabase migration uygulanmis)
-- [x] useAbonelik hook'u (auth state listener, race condition fix)
-- [x] Onboarding akisi (3 ekran: hos-geldin, deneme-baslat, abone-ol)
-- [x] Giris ekrani: logo degisikligi, sifre tekrar, misafir girisi kaldirildi
-- [x] KVKK gizlilik politikasi ve kullanim kosullari ekranlari
-- [x] _layout.tsx routing korumasi (deneme-baslat dahil)
-- [x] Profil ekraninda abonelik durumu gosterimi
-- [x] Emoji temizligi (tum ekranlardan kaldirildi)
-- [x] Logo degisikligi (kendi windrose logosu, mavi tint beyaz arkaplanda)
-- [x] Admin mekan saatleri sistemi (muze/saray/cami — Supabase tablosu + admin ekrani)
-- [x] Admin ulasim tarife sistemi (havalimani seferleri + bogaz turlari — Supabase + admin ekrani)
-- [x] Mevsim gecis sistemi (yaz/kis toplu saat gecisi — tek tusla)
-- [x] useMekanSaatleri, useBogazTurlari, useUlasimTarife hook'lari (realtime)
-- [x] 32 muze/saray + Sultanahmet Camii + 3 bogaz sirketi + 6 havalimani duragi seed data olarak hazir
-- [x] Bildirim tercihleri sistemi (5 kategori: ulasim, saha durumu, etkinlikler, sohbet, admin)
-- [x] Sohbet okunmamis mesaj badge'i (kirmizi nokta, realtime)
-- [x] Expo web destegi (react-dom, react-native-web, platform-uyumlu storage)
-- [x] Admin panelden yeni mekan/muze/saray/cami ekleme
-- [x] Admin panelden yeni havalimani guzergahi ve bogaz turu ekleme
-- [x] Acil durum sayfasi dinamik Supabase verisi + admin yonetim ekrani
-- [x] Acil durum rehberine yeni numara, kurum ve link ekleme/duzenleme/silme
-- [x] Galataport gemi takvimi dinamik (cruisetimetables.com'dan otomatik cekilir, hardcoded veri kaldirildi)
-- [x] Arama sayfasi (ara.tsx) tamamen dinamik — Supabase hook'larindan otomatik index olusturur
-- [x] MuzeKart sayfasi dinamik — mekan_saatleri'ndeki muzekart alanindan gecen/gecmeyen filtresi
-- [x] X (Twitter) API entegrasyonu — 3 ulasim hesabindan otomatik tweet cekme ve filtreleme
-- [x] ulasim_uyarilari tablosu ve senkronizasyon hook'u (use-x-ulasim.ts)
-- [x] Hat tespiti (M1-M14, T1-T5, F1-F4, TF1-TF2, Marmaray) ve tip tespiti (ariza/kesinti/gecikme/bilgi/duyuru)
-- [x] Cozuldu tespiti — "normale donmustur" tweet'i gelince ilgili hattaki uyarilar otomatik kapatilir
-- [x] Moderator atama sistemi — admin panelden email ile moderator ata/kaldir (admin.tsx)
-- [x] Moderator yetki kisitlamasi — admin-saatler.tsx'de mevsim gecis, kategori, mekan listesi ve duzenleme sadece admin'e acik
-- [x] Galataport gemi takvimi Supabase'e tasindi (brotli sorunu cozuldu, haftalik gorunum eklendi)
-- [x] Kapsamli Turkce karakter duzeltmesi (ara.tsx, admin.tsx, index.tsx, acil.tsx, muzeKart.tsx, profil.tsx)
-- [x] Header gradient tutarliligi (sohbet dahil tum sekmeler ayni gradient)
-- [x] Profil hakkinda metni guncellendi (Gelistirici: Ayse Tokkus Bayar)
-- [x] Birlesik bildirim sistemi (use-bildirimler.ts) — 5 kategori tek hook'ta: ulasim, saha durumu, etkinlikler, sohbet, sistem
-- [x] Bildirim tercihleri senkronizasyonu (in-memory listener ile coklu hook instance destegi)
-- [x] EAS Build yapilandirmasi (app.json + eas.json hazir — development/preview/production profilleri)
-- [x] Store yayin rehberi dokumani (STORE-YAYIN-REHBERI.md)
-- [x] Android development build basarili (EAS Build — Samsung S22 + tablet test edildi)
-- [x] Custom config plugin: plugins/fix-buildconfig.js (package declaration mismatch fix)
-- [x] Sohbet realtime iki yonlu calisiyor (polling yedegi + Supabase Realtime)
-- [x] sohbet_mesajlari Supabase Realtime publication'a eklendi
-- [x] supabase-migration-acil-rehber.sql UYGULANMIS (12 kayit seed data)
-- [x] supabase-migration-ulasim-uyarilari.sql UYGULANMIS (tablo + RLS + Realtime)
-
----
-
-## 12. BEKLEYEN GOREVLER (SIRADAKI)
-
-### Yuksek Oncelik — Store Yayini
-1. **Store gelistirici hesaplari** — Google Play Console ($25) + Apple Developer ($99/yil)
-2. **RevenueCat entegrasyonu** — Gercek abonelik odeme islemleri (development build GEREKLI)
-3. **Store listing materyalleri** — Ekran goruntuleri, aciklamalar, featured graphic, 1024x1024 ikon
-4. **Gizlilik politikasi web sayfasi** — Store review icin erislebilir URL gerekli
-5. **Preview/production build** — Standalone APK/AAB (dev server gerektirmeyen)
-
-### Orta Oncelik
-6. **Splash screen ozellestirme** — Development build'de kendi splash'ini kullan
-7. **Farkli cihaz/ekran boyutu testleri**
-8. **Dark mode tam uyumluluk kontrolu** (3 ozel ekran simdilik light tema)
-
-### Dusuk Oncelik
-9. **Performans optimizasyonu**
-10. **Circular dependency fix** (components/ulasim-uyari.tsx <-> hooks/use-x-ulasim.ts)
-
----
-
-## 13. BILINEN SORUNLAR & COZUMLERI
-
-### Cozulmus Sorunlar
-1. **Paywall race condition**: Yeni kayit olan kullaniciya paywall gosteriliyordu → useAbonelik'e auth state listener eklendi
-2. **Console error "REPLACE giris not handled"**: `router.replace('/giris')` navigator hazir olmadan cagiriliyordu → Gereksiz replace kaldirildi, initialRouteName kullanildi
-3. **Foreign key constraint (kullanici silme)**: `sohbet_mesajlari` referansi → Sirasiyla sohbet_mesajlari > profiles > auth.users silinmeli
-4. **SQL migration syntax error**: Dosya adi yapistirilmis icerik yerine → Gercek SQL kodu verildi
-5. **EAS Build BuildConfig hatasi**: expo prebuild package declaration mismatch → plugins/fix-buildconfig.js config plugin ile cozuldu
-6. **Sohbet realtime tek yonlu**: Supabase Realtime event aliyor ama FlatList guncellenmiyor → setTimeout + setGuncelSayac + extraData + 5sn polling yedegi ile cozuldu
-7. **sohbet_mesajlari Realtime yok**: Tablo supabase_realtime publication'da degil → ALTER PUBLICATION ile eklendi
-
-### Dikkat Edilecekler
-- Expo Go'da SVG `tintColor` calisiyor (expo-image ile)
-- `react-native-svg-transformer` yuklenmis ama metro.config.js gerekebilir
-- Supabase email confirmation KAPALI (test kolayligi icin)
-- 3 ozel ekran (hos-geldin, deneme-baslat, abone-ol) simdilik sadece LIGHT tema
-- Node 20 GEREKLI (v24 uyumsuz) — `export PATH="/opt/homebrew/opt/node@20/bin:$PATH"`
-- Development build icin Metro gerekli: `npx expo start --dev-client`
-- app.json: newArchEnabled: true (reanimated 4.x zorunlu), reactCompiler KALDIRILDI
-- expo-screen-capture plugins'den CIKARILDI (plugin.js yok)
-
----
-
-## 14. KULLANICI TERCIHLERI
-
-- Emoji KULLANMA (kesinlikle)
-- Turkce arayuz (tum metinler Turkce)
-- Bilimsel/kanitli bilgi odakli
-- Ateist, bilime inanir
-- Cesaret verici ton, konuskan ve hossohbet
-- Pratik ve hemen konuya giren yaklasim
-- Ilgi alanlari: Tarihi Istanbul'da sokak yasami, sosyal hayat, ticaret, uretim, emek gucu
-
----
-
-## 15. ONEMLI NOTLAR
-
-- Uygulama adi: **Pusula Istanbul** (store'da boyle gorunecek)
-- Package name: `pusula-istanbul`
-- Bundle ID (iOS + Android): `com.pusulaistanbul.app`
-- Scheme: `pusulaistanbul`
-- Version: 1.0.0
-- app.json'da newArchEnabled: true
-- typedRoutes experiment aktif (reactCompiler kaldirildi)
-- Ana Sayfa'daki namaz vakitleri sadece rehberlerin turlarini planlamasi icin (kullanici ateist, ama musteriler icin bilgi gerekli)
-- EAS Build yapilandirmasi hazir (eas.json: development/preview/production profilleri)
-- Store yayin rehberi: `STORE-YAYIN-REHBERI.md`
-- Gelistirici: Ayse Tokkus Bayar (ayse.tokkus@gmail.com)
+- Supabase Dashboard: https://supabase.com/dashboard/project/rzlfghjpsximthlolfxo
+- App Store Connect: https://appstoreconnect.apple.com
+- Google Play Console: https://play.google.com/console
+- EAS Build: https://expo.dev/accounts/pusula-istanbul-app/projects/pusula-istanbul/builds
+- RevenueCat: https://app.revenuecat.com
+- Resend: https://resend.com
+- GoDaddy DNS: https://dcc.godaddy.com/manage/dns
+- Web Sayfasi: https://pusulaistanbul.app
+- Scheduled Task Klasoru (Mac): `/Users/aysetokkus/Documents/Claude/Scheduled`
+- Firecrawl MCP: Web scraping (Hobby plan, ~3000 kredi/ay)

@@ -9,18 +9,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAdmin } from '../hooks/use-admin';
 import { supabase } from '../lib/supabase';
 import type { AcilKayit } from '../hooks/use-acil-rehber';
+import { useTema } from '../hooks/use-tema';
+import type { TemaRenkleri } from '../constants/theme';
 
 const KATEGORILER = [
   { id: 'turizm_polisi', baslik: 'Turizm Polisi' },
   { id: 'acil_numara', baslik: 'Acil Numaralar' },
-  { id: 'meslek_kurulusu', baslik: 'Meslek Kuruluslari' },
-  { id: 'faydali_link', baslik: 'Faydali Linkler' },
+  { id: 'meslek_kurulusu', baslik: 'Meslek Kuruluşları' },
+  { id: 'faydali_link', baslik: 'Faydalı Linkler' },
 ];
 
 type Kategori = 'turizm_polisi' | 'acil_numara' | 'meslek_kurulusu' | 'faydali_link';
 
 export default function AdminAcil() {
   const insets = useSafeAreaInsets();
+  const { t } = useTema();
+  const s = createStyles(t);
   const { isYetkili, yukleniyor: adminYukleniyor } = useAdmin();
   const [sekme, setSekme] = useState<Kategori>('acil_numara');
   const [kayitlar, setKayitlar] = useState<AcilKayit[]>([]);
@@ -78,7 +82,7 @@ export default function AdminAcil() {
 
   const kaydet = async () => {
     if (!formIsim.trim()) {
-      Alert.alert('Hata', 'Isim bos olamaz.');
+      Alert.alert('Hata', 'İsim boş olamaz.');
       return;
     }
 
@@ -103,7 +107,7 @@ export default function AdminAcil() {
       if (error) {
         Alert.alert('Hata', error.message);
       } else {
-        Alert.alert('Basarili', `${formIsim.trim()} eklendi.`);
+        Alert.alert('Başarılı', `${formIsim.trim()} eklendi.`);
         setModalAcik(false);
         veriCek();
       }
@@ -116,7 +120,7 @@ export default function AdminAcil() {
       if (error) {
         Alert.alert('Hata', error.message);
       } else {
-        Alert.alert('Basarili', `${formIsim.trim()} guncellendi.`);
+        Alert.alert('Başarılı', `${formIsim.trim()} güncellendi.`);
         setModalAcik(false);
         veriCek();
       }
@@ -125,8 +129,8 @@ export default function AdminAcil() {
 
   const sil = () => {
     if (!secili) return;
-    Alert.alert('Kaydi Sil', `"${secili.isim}" silinecek. Emin misiniz?`, [
-      { text: 'Iptal', style: 'cancel' },
+    Alert.alert('Kaydı Sil', `"${secili.isim}" silinecek. Emin misiniz?`, [
+      { text: 'İptal', style: 'cancel' },
       {
         text: 'Sil', style: 'destructive', onPress: async () => {
           const { error } = await supabase
@@ -136,7 +140,7 @@ export default function AdminAcil() {
           if (error) {
             Alert.alert('Hata', error.message);
           } else {
-            Alert.alert('Silindi', `${secili.isim} kaldirildi.`);
+            Alert.alert('Silindi', `${secili.isim} kaldırıldı.`);
             setModalAcik(false);
             veriCek();
           }
@@ -151,9 +155,9 @@ export default function AdminAcil() {
   if (!isYetkili) {
     return (
       <View style={s.yukle}>
-        <Text style={s.yetkisiz}>Erisim Engellendi</Text>
+        <Text style={s.yetkisiz}>Erişim Engellendi</Text>
         <TouchableOpacity style={s.geriBtn} onPress={() => router.back()}>
-          <Text style={s.geriBtnYazi}>Geri Don</Text>
+          <Text style={s.geriBtnYazi}>Geri Dön</Text>
         </TouchableOpacity>
       </View>
     );
@@ -167,8 +171,7 @@ export default function AdminAcil() {
         <TouchableOpacity onPress={() => router.back()} style={s.geriTus}>
           <Text style={s.geriTusYazi}>{'<'} Geri</Text>
         </TouchableOpacity>
-        <Text style={s.headerBaslik}>Acil Durum Yonetimi</Text>
-        <Text style={s.headerAlt}>Numara, kurum ve link yonetimi</Text>
+        <Text style={s.headerBaslik}>Acil Durum Yönetimi</Text>
       </LinearGradient>
 
       {/* Sekmeler */}
@@ -191,7 +194,7 @@ export default function AdminAcil() {
         {yukleniyor ? (
           <ActivityIndicator size="large" color="#0077B6" style={{ marginTop: 40 }} />
         ) : kayitlar.length === 0 ? (
-          <Text style={s.bosYazi}>Bu kategoride kayit bulunamadi.</Text>
+          <Text style={s.bosYazi}>Bu kategoride kayıt bulunamadı.</Text>
         ) : (
           kayitlar.map(k => (
             <TouchableOpacity key={k.id} style={s.kartKutu} onPress={() => duzenleAc(k)} activeOpacity={0.7}>
@@ -214,23 +217,23 @@ export default function AdminAcil() {
         <View style={s.modalArka}>
           <View style={s.modalKutu}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={s.modalBaslik}>{yeniModu ? `Yeni ${linkKategorisi ? 'Link' : 'Kayit'} Ekle` : secili?.isim}</Text>
+              <Text style={s.modalBaslik}>{yeniModu ? `Yeni ${linkKategorisi ? 'Link' : 'Kayıt'} Ekle` : secili?.isim}</Text>
               <Text style={s.modalAlt}>{KATEGORILER.find(k => k.id === sekme)?.baslik}</Text>
 
               <View style={s.inputGrup}>
-                <Text style={s.inputLabel}>Isim *</Text>
-                <TextInput style={s.input} value={formIsim} onChangeText={setFormIsim} placeholder="Ornek: Ambulans" />
+                <Text style={s.inputLabel}>İsim *</Text>
+                <TextInput style={s.input} value={formIsim} onChangeText={setFormIsim} placeholder="Örnek: Ambulans" placeholderTextColor={t.textMuted} />
               </View>
 
               {!linkKategorisi && (
                 <View style={s.satirKutu}>
                   <View style={s.inputGrup}>
                     <Text style={s.inputLabel}>Numara</Text>
-                    <TextInput style={s.input} value={formNumara} onChangeText={setFormNumara} placeholder="02125274503" keyboardType="phone-pad" />
+                    <TextInput style={s.input} value={formNumara} onChangeText={setFormNumara} placeholder="02125274503" keyboardType="phone-pad" placeholderTextColor={t.textMuted} />
                   </View>
                   <View style={s.inputGrup}>
-                    <Text style={s.inputLabel}>Goruntu</Text>
-                    <TextInput style={s.input} value={formGoruntu} onChangeText={setFormGoruntu} placeholder="0212 527 45 03" />
+                    <Text style={s.inputLabel}>Görüntü</Text>
+                    <TextInput style={s.input} value={formGoruntu} onChangeText={setFormGoruntu} placeholder="0212 527 45 03" placeholderTextColor={t.textMuted} />
                   </View>
                 </View>
               )}
@@ -238,18 +241,18 @@ export default function AdminAcil() {
               {linkKategorisi && (
                 <View style={s.inputGrup}>
                   <Text style={s.inputLabel}>URL</Text>
-                  <TextInput style={s.input} value={formUrl} onChangeText={setFormUrl} placeholder="https://..." autoCapitalize="none" />
+                  <TextInput style={s.input} value={formUrl} onChangeText={setFormUrl} placeholder="https://..." autoCapitalize="none" placeholderTextColor={t.textMuted} />
                 </View>
               )}
 
               <View style={s.satirKutu}>
                 <View style={[s.inputGrup, { flex: 2 }]}>
-                  <Text style={s.inputLabel}>Aciklama</Text>
-                  <TextInput style={s.input} value={formAciklama} onChangeText={setFormAciklama} placeholder="Kisa aciklama..." />
+                  <Text style={s.inputLabel}>Açıklama</Text>
+                  <TextInput style={s.input} value={formAciklama} onChangeText={setFormAciklama} placeholder="Kısa açıklama..." placeholderTextColor={t.textMuted} />
                 </View>
                 <View style={[s.inputGrup, { flex: 1 }]}>
                   <Text style={s.inputLabel}>Sira</Text>
-                  <TextInput style={s.input} value={formSira} onChangeText={setFormSira} placeholder="1" keyboardType="numeric" />
+                  <TextInput style={s.input} value={formSira} onChangeText={setFormSira} placeholder="1" keyboardType="numeric" placeholderTextColor={t.textMuted} />
                 </View>
               </View>
 
@@ -259,12 +262,12 @@ export default function AdminAcil() {
 
               {!yeniModu && (
                 <TouchableOpacity style={s.silBtn} onPress={sil}>
-                  <Text style={s.silBtnYazi}>Kaydi Kaldir</Text>
+                  <Text style={s.silBtnYazi}>Kaydı Kaldır</Text>
                 </TouchableOpacity>
               )}
 
               <TouchableOpacity style={s.iptalBtn} onPress={() => setModalAcik(false)}>
-                <Text style={s.iptalBtnYazi}>Iptal</Text>
+                <Text style={s.iptalBtnYazi}>İptal</Text>
               </TouchableOpacity>
 
               <View style={{ height: 30 }} />
@@ -276,10 +279,10 @@ export default function AdminAcil() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  yukle: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' },
-  yetkisiz: { fontSize: 18, fontWeight: '700', color: '#1E293B', marginBottom: 16 },
+const createStyles = (t: TemaRenkleri) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  yukle: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
+  yetkisiz: { fontSize: 18, fontWeight: '700', color: t.text, marginBottom: 16 },
   geriBtn: { backgroundColor: '#0077B6', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
   geriBtnYazi: { color: '#FFF', fontWeight: '700' },
 
@@ -291,39 +294,39 @@ const s = StyleSheet.create({
 
   sekmeScroll: { maxHeight: 48, marginTop: 12 },
   sekmeContainer: { paddingHorizontal: 16, gap: 8 },
-  sekmeBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#E2E8F0' },
+  sekmeBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: t.kartBorder },
   sekmeBtnAktif: { backgroundColor: '#0077B6' },
-  sekmeYazi: { color: '#64748B', fontSize: 12, fontWeight: '600' },
+  sekmeYazi: { color: t.textSecondary, fontSize: 12, fontWeight: '600' },
   sekmeYaziAktif: { color: '#FFF' },
 
   liste: { flex: 1, paddingHorizontal: 16, marginTop: 12 },
-  bosYazi: { textAlign: 'center', color: '#94A3B8', marginTop: 40, fontSize: 14 },
+  bosYazi: { textAlign: 'center', color: t.textMuted, marginTop: 40, fontSize: 14 },
 
-  kartKutu: { backgroundColor: '#FFF', borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' },
+  kartKutu: { backgroundColor: t.bgCard, borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: t.kartBorder },
   kartRenk: { width: 5, alignSelf: 'stretch' },
   kartBilgi: { flex: 1, padding: 14 },
-  kartIsim: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
+  kartIsim: { fontSize: 14, fontWeight: '700', color: t.text },
   kartAlt: { fontSize: 12, color: '#0077B6', marginTop: 3, fontWeight: '500' },
-  kartAciklama: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  kartSira: { color: '#94A3B8', fontSize: 11, marginRight: 8 },
-  kartOk: { color: '#94A3B8', fontSize: 20, marginRight: 16 },
+  kartAciklama: { fontSize: 11, color: t.textSecondary, marginTop: 2 },
+  kartSira: { color: t.textMuted, fontSize: 11, marginRight: 8 },
+  kartOk: { color: t.textMuted, fontSize: 20, marginRight: 16 },
 
-  yeniEkleBtn: { backgroundColor: '#FFF', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10, padding: 14, borderWidth: 1.5, borderColor: '#0077B6', borderStyle: 'dashed' },
+  yeniEkleBtn: { backgroundColor: t.bgCard, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10, padding: 14, borderWidth: 1.5, borderColor: '#0077B6', borderStyle: 'dashed' },
   yeniEklePlus: { color: '#0077B6', fontSize: 22, fontWeight: '700', marginRight: 8 },
   yeniEkleYazi: { color: '#0077B6', fontSize: 14, fontWeight: '700' },
 
-  modalArka: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalKutu: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
+  modalArka: { flex: 1, backgroundColor: t.modalOverlay, justifyContent: 'flex-end' },
+  modalKutu: { backgroundColor: t.modalBg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
   modalBaslik: { color: '#0077B6', fontSize: 20, fontWeight: '800' },
-  modalAlt: { color: '#64748B', fontSize: 12, marginBottom: 16 },
+  modalAlt: { color: t.textSecondary, fontSize: 12, marginBottom: 16 },
   satirKutu: { flexDirection: 'row', gap: 10, marginTop: 8 },
   inputGrup: { flex: 1, marginTop: 8 },
-  inputLabel: { color: '#64748B', fontSize: 11, marginBottom: 4 },
-  input: { backgroundColor: '#F5F7FA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#1E293B', borderWidth: 1, borderColor: '#E2E8F0' },
+  inputLabel: { color: t.textSecondary, fontSize: 11, marginBottom: 4 },
+  input: { backgroundColor: t.bgInput, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder },
   kaydetBtn: { backgroundColor: '#0077B6', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 20 },
   kaydetBtnYazi: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   silBtn: { backgroundColor: '#D62828', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 10 },
   silBtnYazi: { color: '#FFF', fontSize: 14, fontWeight: '700' },
-  iptalBtn: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 10 },
-  iptalBtnYazi: { color: '#64748B', fontSize: 14, fontWeight: '600' },
+  iptalBtn: { borderWidth: 1, borderColor: t.kartBorder, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 10 },
+  iptalBtnYazi: { color: t.textSecondary, fontSize: 14, fontWeight: '600' },
 });

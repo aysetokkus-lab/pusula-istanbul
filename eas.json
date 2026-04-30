@@ -43,12 +43,13 @@
     "production": {
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "internal"
+        "track": "production",
+        "releaseStatus": "draft"
       },
       "ios": {
         "appleId": "ayse.tokkus@gmail.com",
-        "ascAppId": "BURAYA_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "BURAYA_APPLE_TEAM_ID"
+        "ascAppId": "6761419678",
+        "appleTeamId": "7UJVL94SMJ"
       }
     }
   }

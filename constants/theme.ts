@@ -27,6 +27,10 @@ export const Palette = {
   restorasyon: '#7B8FA1',     // gri-mavi (restorasyon)
   yogun: '#D62828',           // kırmızı (yoğun kuyruk)
 
+  // Ek vurgu renkleri
+  murdum: '#7B2D8E',          // müzeler için mor
+  altin: '#C77A15',           // saraylar / uyarı vurgusu için altın
+
   // Nötr tonlar
   beyaz: '#FFFFFF',
   siyah: '#000000',

@@ -30,7 +30,7 @@ function mekanlarDanArama(mekanlar: MekanSaat[]): AramaOgesi[] {
   return mekanlar.map((m) => {
     const kapali = kapaliGunYazi(m.kapali_gun);
     const fiyat = m.fiyat_yabanci ? `Yabancı: ${m.fiyat_yabanci}` : '';
-    const muzekart = m.muzekart === 'gecerli' ? 'Müzekart geçerli' : m.muzekart === 'gecmez' ? 'Müzekart geçmez' : '';
+    const muzekart = m.muzekart === 'gecerli' ? 'MüzeKart geçerli' : m.muzekart === 'gecmez' ? 'MüzeKart geçmez' : '';
     const altParts = [m.kategori, kapali, fiyat, muzekart].filter(Boolean);
 
     // Arama etiketleri olustur
@@ -96,7 +96,7 @@ function acilDenArama(kayitlar: AcilKayit[]): AramaOgesi[] {
 function sabitArama(): AramaOgesi[] {
   return [
     {
-      id: 'bilgi_muzekart', isim: 'Museum Pass / Müzekart', kategori: 'bilgi',
+      id: 'bilgi_muzekart', isim: 'Museum Pass / MüzeKart', kategori: 'bilgi',
       alt: 'Kart tipleri, satış noktaları', etiketler: ['museum pass', 'muzekart', 'müzekart', 'bilet', 'kart', 'satin al'],
       aksiyon: () => router.push('/(tabs)/muzeKart'),
     },

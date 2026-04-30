@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 // ═══ Tipler ═══
-export type DurumTipi = 'normal' | 'kuyruk' | 'yogun_kuyruk' | 'kismi_kapali' | 'kapali' | 'restorasyon';
+export type DurumTipi = 'normal' | 'kuyruk' | 'yogun_kuyruk' | 'kismi_kapali' | 'kapali' | 'restorasyon' | 'erken_kapanis' | 'gec_acilis' | 'serbest_not';
 
 export interface CanliDurumItem {
   id: string;
@@ -18,6 +18,7 @@ export interface CanliDurumItem {
   kullanici_id: string;
   rehber_isim: string | null;
   dakika_once: number;
+  sabitlendi: boolean;
 }
 
 export interface SahaNokta {
@@ -36,13 +37,16 @@ export interface DurumBildirPayload {
 }
 
 // ═══ Durum etiketleri ve renkleri ═══
-export const DURUM_SECENEKLERI: { key: DurumTipi; emoji: string; label: string; renk: string }[] = [
-  { key: 'normal', emoji: '🟢', label: 'Normal', renk: '#0096C7' },
-  { key: 'kuyruk', emoji: '🟡', label: 'Kuyruk Var', renk: '#E09F3E' },
-  { key: 'yogun_kuyruk', emoji: '🟠', label: 'Yoğun Kuyruk', renk: '#D62828' },
-  { key: 'kismi_kapali', emoji: '🔶', label: 'Kısmen Kapalı', renk: '#B0D4E8' },
-  { key: 'kapali', emoji: '🔴', label: 'Kapalı', renk: '#D62828' },
-  { key: 'restorasyon', emoji: '🔧', label: 'Restorasyon', renk: '#7B8FA1' },
+export const DURUM_SECENEKLERI: { key: DurumTipi; label: string; renk: string; simge: string }[] = [
+  { key: 'normal', label: 'Normal', renk: '#0096C7', simge: '●' },
+  { key: 'kuyruk', label: 'Kuyruk Var', renk: '#E09F3E', simge: '●' },
+  { key: 'yogun_kuyruk', label: 'Yoğun Kuyruk', renk: '#D62828', simge: '●' },
+  { key: 'kismi_kapali', label: 'Kısmen Kapalı', renk: '#B0D4E8', simge: '◐' },
+  { key: 'kapali', label: 'Kapalı', renk: '#D62828', simge: '✕' },
+  { key: 'restorasyon', label: 'Restorasyon', renk: '#7B8FA1', simge: '⚙' },
+  { key: 'erken_kapanis', label: 'Erken Kapanacak', renk: '#E07B3E', simge: '▼' },
+  { key: 'gec_acilis', label: 'Geç Açılacak', renk: '#7B5EA7', simge: '▲' },
+  { key: 'serbest_not', label: 'Genel Bildirim', renk: '#5B8C5A', simge: '✎' },
 ];
 
 export function durumBilgi(durum: DurumTipi) {
@@ -82,17 +86,37 @@ export function useCanliDurum() {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) {
-      // View yoksa düz sorgu yap
-      const { data: d2, error: e2 } = await supabase
+      // View yoksa düz sorgu yap (sabitlendi olmayabilir — ilk önce onu deneyelim, hata verirse onsuz)
+      let d2: any[] | null = null;
+      let e2: any = null;
+      const res1 = await supabase
         .from('canli_durum')
         .select(`
           id, nokta_id, durum, bekleme_dk, not_metni, kapali_bolum,
-          created_at, kullanici_id, gecerli_mi,
+          created_at, kullanici_id, gecerli_mi, sabitlendi,
           saha_noktalari(isim, emoji, kategori),
           profiles(isim)
         `)
         .eq('gecerli_mi', true)
         .order('created_at', { ascending: false });
+      if (res1.error) {
+        // sabitlendi kolonu yoksa onsuz dene
+        const res2 = await supabase
+          .from('canli_durum')
+          .select(`
+            id, nokta_id, durum, bekleme_dk, not_metni, kapali_bolum,
+            created_at, kullanici_id, gecerli_mi,
+            saha_noktalari(isim, emoji, kategori),
+            profiles(isim)
+          `)
+          .eq('gecerli_mi', true)
+          .order('created_at', { ascending: false });
+        d2 = res2.data;
+        e2 = res2.error;
+      } else {
+        d2 = res1.data;
+        e2 = res1.error;
+      }
       if (!e2 && d2) {
         // Distinct on nokta_id (en son bildirim)
         const seen = new Set<string>();
@@ -106,7 +130,7 @@ export function useCanliDurum() {
             id: row.id,
             nokta_id: row.nokta_id,
             nokta_isim: sn?.isim ?? row.nokta_id,
-            nokta_emoji: sn?.emoji ?? '📍',
+            nokta_emoji: sn?.emoji ?? '',
             nokta_kategori: sn?.kategori ?? 'genel',
             durum: row.durum as DurumTipi,
             bekleme_dk: row.bekleme_dk,
@@ -116,13 +140,15 @@ export function useCanliDurum() {
             kullanici_id: row.kullanici_id,
             rehber_isim: pr?.isim ?? null,
             dakika_once: (Date.now() - new Date(row.created_at).getTime()) / 60000,
+            sabitlendi: row.sabitlendi ?? false,
           });
         }
         setDurumlar(filtered);
       }
       return;
     }
-    setDurumlar((data ?? []) as CanliDurumItem[]);
+    // View'dan gelen veride sabitlendi yoksa default false
+    setDurumlar((data ?? []).map((d: any) => ({ ...d, sabitlendi: d.sabitlendi ?? false })) as CanliDurumItem[]);
   }, []);
 
   // İlk yükleme
@@ -187,6 +213,8 @@ export function useCanliDurum() {
         });
 
       if (error) { setHata('Bildirim gönderilemedi'); return false; }
+      // Hemen listeyi yenile — realtime gecikebilir
+      await durumlariCek();
       return true;
     } catch {
       setHata('Bağlantı hatası');
@@ -194,16 +222,40 @@ export function useCanliDurum() {
     } finally {
       setGonderiyor(false);
     }
-  }, []);
+  }, [durumlariCek]);
 
   // Bildirimi geçersiz kıl (admin/moderator silme)
+  // .select() eklendi: RLS policy'si UPDATE'i sessizce reddetse bile
+  // (zero rows affected) durumu yakalayabilelim (Supabase RLS hatası
+  // bazen error dönmüyor, sadece data.length=0 dönüyor)
   const durumKaldir = useCallback(async (bildirimId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('canli_durum')
+        .update({ gecerli_mi: false })
+        .eq('id', bildirimId)
+        .select();
+      if (error) { setHata('Bildirim kaldırılamadı: ' + error.message); return false; }
+      if (!data || data.length === 0) {
+        setHata('Bildirim kaldırılamadı (yetki sorunu olabilir)');
+        return false;
+      }
+      await durumlariCek();
+      return true;
+    } catch {
+      setHata('Bağlantı hatası');
+      return false;
+    }
+  }, [durumlariCek]);
+
+  // Bildirimi sabitle / sabitlemeden çıkar (admin)
+  const sabitlemeDegistir = useCallback(async (bildirimId: string, sabitle: boolean): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('canli_durum')
-        .update({ gecerli_mi: false })
+        .update({ sabitlendi: sabitle })
         .eq('id', bildirimId);
-      if (error) { setHata('Bildirim kaldırılamadı'); return false; }
+      if (error) { setHata(sabitle ? 'Sabitleme başarısız' : 'Sabitleme kaldırılamadı'); return false; }
       await durumlariCek();
       return true;
     } catch {
@@ -243,6 +295,7 @@ export function useCanliDurum() {
     hata,
     durumBildir,
     durumKaldir,
+    sabitlemeDegistir,
     tumunuTemizle,
     yenile,
   };

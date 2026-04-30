@@ -9,13 +9,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAdmin } from '../hooks/use-admin';
 import { supabase } from '../lib/supabase';
 import type { MekanSaat } from '../hooks/use-mekan-saatleri';
+import { useTema } from '../hooks/use-tema';
+import type { TemaRenkleri } from '../constants/theme';
 
 const GUNLER = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
 
 const KATEGORILER = [
   { id: 'milli_saraylar', baslik: 'Milli Saraylar' },
-  { id: 'muzeler', baslik: 'Muzeler' },
-  { id: 'ozel_muzeler', baslik: 'Ozel Muzeler' },
+  { id: 'muzeler', baslik: 'Müzeler' },
+  { id: 'ozel_muzeler', baslik: 'Özel Müzeler' },
   { id: 'camiler', baslik: 'Camiler' },
 ];
 
@@ -70,6 +72,8 @@ function sultDurumRenk(ekstra: SultanahmetEkstra): string {
 
 export default function AdminSaatler() {
   const insets = useSafeAreaInsets();
+  const { t } = useTema();
+  const s = createStyles(t);
   const { isAdmin, isYetkili, yukleniyor: adminYukleniyor } = useAdmin();
   const [sekme, setSekme] = useState<Sekme>('milli_saraylar');
   const [mekanlar, setMekanlar] = useState<MekanSaat[]>([]);
@@ -119,7 +123,7 @@ export default function AdminSaatler() {
     if (error) {
       Alert.alert('Hata', error.message);
     } else {
-      Alert.alert('Basarili', 'Sultanahmet Camii ziyaret pencereleri guncellendi.');
+      Alert.alert('Başarılı', 'Sultanahmet Camii ziyaret pencereleri güncellendi.');
       setSultModal(false);
       sultanahmetCek();
     }
@@ -155,6 +159,7 @@ export default function AdminSaatler() {
   const [yeniEkleModu, setYeniEkleModu] = useState(false);
   const [yeniIsim, setYeniIsim] = useState('');
   const [yeniMekanId, setYeniMekanId] = useState('');
+  const [duzenleIsim, setDuzenleIsim] = useState('');
   const [yeniTip, setYeniTip] = useState('muze');
   const [yeniRenk, setYeniRenk] = useState('#0077B6');
   const [yeniKapaliGun, setYeniKapaliGun] = useState('');
@@ -162,10 +167,11 @@ export default function AdminSaatler() {
   // Form state
   const [form, setForm] = useState({
     acilis: '', kapanis: '', gise_kapanis: '',
-    yaz_acilis: '', yaz_kapanis: '', kis_acilis: '', kis_kapanis: '',
+    yaz_acilis: '', yaz_kapanis: '', yaz_gise_kapanis: '', kis_acilis: '', kis_kapanis: '', kis_gise_kapanis: '',
     haftasonu_acilis: '', haftasonu_kapanis: '',
     fiyat_yerli: '', fiyat_yabanci: '', fiyat_indirimli: '',
     ozel_not: '',
+    muzekart: '' as string,
     mevsimsel: false,
     restorasyon: false,
     restorasyon_notu: '',
@@ -194,10 +200,11 @@ export default function AdminSaatler() {
     setYeniKapaliGun('');
     setForm({
       acilis: '09:00', kapanis: '17:00', gise_kapanis: '',
-      yaz_acilis: '', yaz_kapanis: '', kis_acilis: '', kis_kapanis: '',
+      yaz_acilis: '', yaz_kapanis: '', yaz_gise_kapanis: '', kis_acilis: '', kis_kapanis: '', kis_gise_kapanis: '',
       haftasonu_acilis: '', haftasonu_kapanis: '',
       fiyat_yerli: '', fiyat_yabanci: '', fiyat_indirimli: '',
       ozel_not: '',
+      muzekart: '',
       mevsimsel: false,
       restorasyon: false,
       restorasyon_notu: '',
@@ -208,14 +215,16 @@ export default function AdminSaatler() {
   const duzenleAc = (m: MekanSaat) => {
     setYeniEkleModu(false);
     setSeciliMekan(m);
+    setDuzenleIsim(m.isim);
     setForm({
       acilis: m.acilis, kapanis: m.kapanis, gise_kapanis: m.gise_kapanis || '',
-      yaz_acilis: m.yaz_acilis || '', yaz_kapanis: m.yaz_kapanis || '',
-      kis_acilis: m.kis_acilis || '', kis_kapanis: m.kis_kapanis || '',
+      yaz_acilis: m.yaz_acilis || '', yaz_kapanis: m.yaz_kapanis || '', yaz_gise_kapanis: m.yaz_gise_kapanis || '',
+      kis_acilis: m.kis_acilis || '', kis_kapanis: m.kis_kapanis || '', kis_gise_kapanis: m.kis_gise_kapanis || '',
       haftasonu_acilis: m.haftasonu_acilis || '', haftasonu_kapanis: m.haftasonu_kapanis || '',
       fiyat_yerli: m.fiyat_yerli || '', fiyat_yabanci: m.fiyat_yabanci || '',
       fiyat_indirimli: m.fiyat_indirimli || '',
       ozel_not: m.ozel_not || '',
+      muzekart: m.muzekart || '',
       mevsimsel: m.mevsimsel,
       restorasyon: m.restorasyon,
       restorasyon_notu: m.restorasyon_notu || '',
@@ -231,14 +240,17 @@ export default function AdminSaatler() {
       gise_kapanis: form.gise_kapanis || null,
       yaz_acilis: form.yaz_acilis || null,
       yaz_kapanis: form.yaz_kapanis || null,
+      yaz_gise_kapanis: form.yaz_gise_kapanis || null,
       kis_acilis: form.kis_acilis || null,
       kis_kapanis: form.kis_kapanis || null,
+      kis_gise_kapanis: form.kis_gise_kapanis || null,
       haftasonu_acilis: form.haftasonu_acilis || null,
       haftasonu_kapanis: form.haftasonu_kapanis || null,
       fiyat_yerli: form.fiyat_yerli || null,
       fiyat_yabanci: form.fiyat_yabanci || null,
       fiyat_indirimli: form.fiyat_indirimli || null,
       ozel_not: form.ozel_not || null,
+      muzekart: form.muzekart || null,
       mevsimsel: form.mevsimsel,
       restorasyon: form.restorasyon,
       restorasyon_notu: form.restorasyon_notu || null,
@@ -249,7 +261,7 @@ export default function AdminSaatler() {
     if (yeniEkleModu) {
       // Yeni mekan ekleme
       if (!yeniIsim.trim()) {
-        Alert.alert('Hata', 'Mekan adi bos olamaz.');
+        Alert.alert('Hata', 'Mekan adı boş olamaz.');
         return;
       }
       const mekanId = yeniMekanId.trim() || yeniIsim.trim().toLowerCase().replace(/[^a-z0-9ğüşıöç]/gi, '_').replace(/_+/g, '_');
@@ -268,7 +280,7 @@ export default function AdminSaatler() {
       if (error) {
         Alert.alert('Hata', error.message);
       } else {
-        Alert.alert('Basarili', `${yeniIsim.trim()} eklendi.`);
+        Alert.alert('Başarılı', `${yeniIsim.trim()} eklendi.`);
         setDuzenleModal(false);
         veriCek();
       }
@@ -277,28 +289,54 @@ export default function AdminSaatler() {
       if (!seciliMekan) return;
       const { error } = await supabase
         .from('mekan_saatleri')
-        .update(ortakVeri)
+        .update({ ...ortakVeri, isim: duzenleIsim.trim() || seciliMekan.isim })
         .eq('id', seciliMekan.id);
 
       if (error) {
         Alert.alert('Hata', error.message);
       } else {
-        Alert.alert('Basarili', `${seciliMekan.isim} guncellendi.`);
+        Alert.alert('Başarılı', `${seciliMekan.isim} güncellendi.`);
         setDuzenleModal(false);
         veriCek();
       }
     }
   };
 
-  const mevsimGecisi = async (hedefMevsim: 'yaz' | 'kis') => {
-    const mevsimAdi = hedefMevsim === 'yaz' ? 'Yaz' : 'Kis';
+  const mekanSil = async () => {
+    if (!seciliMekan) return;
     Alert.alert(
-      `${mevsimAdi} Saatine Gec`,
-      `Tum mevsimsel mekanlarin saatleri ${mevsimAdi.toLowerCase()} tarifesine guncellenecek. Devam edilsin mi?`,
+      'Mekan Sil',
+      `"${seciliMekan.isim}" kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam edilsin mi?`,
       [
-        { text: 'Iptal', style: 'cancel' },
+        { text: 'İptal', style: 'cancel' },
         {
-          text: `${mevsimAdi} Saatine Gec`,
+          text: 'Sil', style: 'destructive', onPress: async () => {
+            const { error } = await supabase
+              .from('mekan_saatleri')
+              .delete()
+              .eq('id', seciliMekan.id);
+            if (error) {
+              Alert.alert('Hata', error.message);
+            } else {
+              Alert.alert('Silindi', `${seciliMekan.isim} başarıyla silindi.`);
+              setDuzenleModal(false);
+              veriCek();
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const mevsimGecisi = async (hedefMevsim: 'yaz' | 'kis') => {
+    const mevsimAdi = hedefMevsim === 'yaz' ? 'Yaz' : 'Kış';
+    Alert.alert(
+      `${mevsimAdi} Saatine Geç`,
+      `Tüm mevsimsel mekanların saatleri ${mevsimAdi.toLowerCase()} tarifesine güncellenecek. Devam edilsin mi?`,
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: `${mevsimAdi} Saatine Geç`,
           style: 'destructive',
           onPress: async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -335,10 +373,10 @@ export default function AdminSaatler() {
               mevsim: hedefMevsim,
               yapan: user?.id,
               etkilenen_mekan_sayisi: data?.length || 0,
-              notlar: `${mevsimAdi} saatine toplu gecis yapildi`,
+              notlar: `${mevsimAdi} saatine toplu geçiş yapıldı`,
             });
 
-            Alert.alert('Basarili', `${data?.length || 0} mekan ${mevsimAdi.toLowerCase()} saatine gecirildi.`);
+            Alert.alert('Başarılı', `${data?.length || 0} mekan ${mevsimAdi.toLowerCase()} saatine geçirildi.`);
             veriCek();
           },
         },
@@ -352,9 +390,9 @@ export default function AdminSaatler() {
   if (!isYetkili) {
     return (
       <View style={s.yukle}>
-        <Text style={s.yetkisiz}>Erisim Engellendi</Text>
+        <Text style={s.yetkisiz}>Erişim Engellendi</Text>
         <TouchableOpacity style={s.geriBtn} onPress={() => router.back()}>
-          <Text style={s.geriBtnYazi}>Geri Don</Text>
+          <Text style={s.geriBtnYazi}>Geri Dön</Text>
         </TouchableOpacity>
       </View>
     );
@@ -367,17 +405,17 @@ export default function AdminSaatler() {
           <Text style={s.geriTusYazi}>{'<'} Geri</Text>
         </TouchableOpacity>
         <Text style={s.headerBaslik}>Mekan Saatleri</Text>
-        <Text style={s.headerAlt}>Muze, saray, cami saatlerini yonet</Text>
+        <Text style={s.headerAlt}>Müze, saray, cami saatlerini yönet</Text>
       </LinearGradient>
 
       {/* Mevsim Gecis Butonlari (sadece admin) */}
       {isAdmin && (
         <View style={s.mevsimKutu}>
           <TouchableOpacity style={[s.mevsimBtn, s.mevsimYaz]} onPress={() => mevsimGecisi('yaz')}>
-            <Text style={s.mevsimBtnYazi}>Yaz Saatine Gec</Text>
+            <Text style={s.mevsimBtnYazi}>Yaz Saatine Geç</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[s.mevsimBtn, s.mevsimKis]} onPress={() => mevsimGecisi('kis')}>
-            <Text style={s.mevsimBtnYazi}>Kis Saatine Gec</Text>
+            <Text style={s.mevsimBtnYazi}>Kış Saatine Geç</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -422,7 +460,7 @@ export default function AdminSaatler() {
         {yukleniyor ? (
           <ActivityIndicator size="large" color="#0077B6" style={{ marginTop: 40 }} />
         ) : mekanlar.length === 0 ? (
-          <Text style={s.bosYazi}>Bu kategoride mekan bulunamadi.</Text>
+          <Text style={s.bosYazi}>Bu kategoride mekan bulunamadı.</Text>
         ) : (
           mekanlar.map(m => (
             <TouchableOpacity key={m.id} style={[s.mekanKart, m.restorasyon && s.mekanKartRestorasyon]}
@@ -432,15 +470,15 @@ export default function AdminSaatler() {
                 <Text style={s.mekanIsim}>{m.isim}</Text>
                 <Text style={s.mekanSaat}>
                   {m.acilis} - {m.kapanis}
-                  {m.kapali_gun !== null ? ` (${GUNLER[m.kapali_gun]} kapali)` : ''}
+                  {m.kapali_gun !== null ? ` (${GUNLER[m.kapali_gun]} kapalı)` : ''}
                 </Text>
                 {m.mevsimsel && (
                   <Text style={s.mekanMevsim}>
-                    Mevsimsel: Yaz {m.yaz_acilis}-{m.yaz_kapanis} / Kis {m.kis_acilis}-{m.kis_kapanis}
+                    Mevsimsel: Yaz {m.yaz_acilis}-{m.yaz_kapanis} / Kış {m.kis_acilis}-{m.kis_kapanis}
                   </Text>
                 )}
                 {m.restorasyon && <Text style={s.restorasyonYazi}>RESTORASYON</Text>}
-                {m.fiyat_yabanci && <Text style={s.mekanFiyat}>Yabanci: {m.fiyat_yabanci}</Text>}
+                {m.fiyat_yabanci && <Text style={s.mekanFiyat}>Yabancı: {m.fiyat_yabanci}</Text>}
               </View>
               <Text style={s.duzenleOk}>{'>'}</Text>
             </TouchableOpacity>
@@ -455,15 +493,15 @@ export default function AdminSaatler() {
           <View style={s.modalKutu}>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={s.modalBaslik}>Sultanahmet Camii</Text>
-              <Text style={s.modalAlt}>Ziyaret pencerelerini elle duzenle</Text>
+              <Text style={s.modalAlt}>Ziyaret pencerelerini elle düzenle</Text>
 
               <View style={s.inputGrup}>
-                <Text style={s.inputLabel}>Genel Kapanis Saati</Text>
+                <Text style={s.inputLabel}>Genel Kapanış Saati</Text>
                 <TextInput style={s.input} value={sultKapanis} onChangeText={setSultKapanis} placeholder="19:00" />
               </View>
 
               {/* Hafta Ici Pencereleri */}
-              <Text style={s.bolumBaslik}>Hafta Ici Ziyaret Pencereleri</Text>
+              <Text style={s.bolumBaslik}>Hafta İçi Ziyaret Pencereleri</Text>
               {sultEkstra.pencereler.map((p, i) => (
                 <View key={`hi-${i}`} style={s.pencereKart}>
                   <View style={s.satirKutu}>
@@ -477,11 +515,11 @@ export default function AdminSaatler() {
                   </View>
                   <View style={s.satirKutu}>
                     <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Acilis</Text>
+                      <Text style={s.inputLabel}>Açılış</Text>
                       <TextInput style={s.input} value={p.acilis} onChangeText={v => pencereGuncelle('pencereler', i, 'acilis', v)} placeholder="08:30" />
                     </View>
                     <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Kapanis</Text>
+                      <Text style={s.inputLabel}>Kapanış</Text>
                       <TextInput style={s.input} value={p.kapanis} onChangeText={v => pencereGuncelle('pencereler', i, 'kapanis', v)} placeholder="11:30" />
                     </View>
                   </View>
@@ -492,7 +530,7 @@ export default function AdminSaatler() {
               </TouchableOpacity>
 
               {/* Cuma Pencereleri */}
-              <Text style={s.bolumBaslik}>Cuma Gunu Ziyaret Pencereleri</Text>
+              <Text style={s.bolumBaslik}>Cuma Günü Ziyaret Pencereleri</Text>
               {sultEkstra.cuma_pencereler.map((p, i) => (
                 <View key={`cm-${i}`} style={s.pencereKart}>
                   <View style={s.satirKutu}>
@@ -506,11 +544,11 @@ export default function AdminSaatler() {
                   </View>
                   <View style={s.satirKutu}>
                     <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Acilis</Text>
+                      <Text style={s.inputLabel}>Açılış</Text>
                       <TextInput style={s.input} value={p.acilis} onChangeText={v => pencereGuncelle('cuma_pencereler', i, 'acilis', v)} placeholder="14:30" />
                     </View>
                     <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Kapanis</Text>
+                      <Text style={s.inputLabel}>Kapanış</Text>
                       <TextInput style={s.input} value={p.kapanis} onChangeText={v => pencereGuncelle('cuma_pencereler', i, 'kapanis', v)} placeholder="14:55" />
                     </View>
                   </View>
@@ -524,7 +562,7 @@ export default function AdminSaatler() {
                 <Text style={s.kaydetBtnYazi}>Kaydet</Text>
               </TouchableOpacity>
               <TouchableOpacity style={s.iptalBtn} onPress={() => setSultModal(false)}>
-                <Text style={s.iptalBtnYazi}>Iptal</Text>
+                <Text style={s.iptalBtnYazi}>İptal</Text>
               </TouchableOpacity>
               <View style={{ height: 30 }} />
             </ScrollView>
@@ -538,30 +576,58 @@ export default function AdminSaatler() {
         <View style={s.modalArka}>
           <View style={s.modalKutu}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={s.modalBaslik}>{yeniEkleModu ? 'Yeni Mekan Ekle' : seciliMekan?.isim}</Text>
+              <Text style={s.modalBaslik}>{yeniEkleModu ? 'Yeni Mekan Ekle' : 'Mekan Düzenle'}</Text>
               <Text style={s.modalAlt}>{yeniEkleModu ? KATEGORILER.find(k => k.id === sekme)?.baslik : `${seciliMekan?.tip} — ${seciliMekan?.kategori}`}</Text>
+
+              {/* Mevcut mekan isim duzenleme */}
+              {!yeniEkleModu && seciliMekan && (
+                <View style={s.inputGrup}>
+                  <Text style={s.inputLabel}>Mekan Adı</Text>
+                  <TextInput style={s.input} value={duzenleIsim} onChangeText={setDuzenleIsim} placeholder="Mekan adı" />
+                </View>
+              )}
 
               {/* Yeni mekan bilgileri */}
               {yeniEkleModu && (
                 <>
                   <Text style={s.bolumBaslik}>Mekan Bilgileri</Text>
                   <View style={s.inputGrup}>
-                    <Text style={s.inputLabel}>Mekan Adi *</Text>
-                    <TextInput style={s.input} value={yeniIsim} onChangeText={setYeniIsim} placeholder="Ornek: Topkapi Sarayi" />
+                    <Text style={s.inputLabel}>Mekan Adı *</Text>
+                    <TextInput style={s.input} value={yeniIsim} onChangeText={setYeniIsim} placeholder="Örnek: Topkapı Sarayı" />
                   </View>
-                  <View style={s.satirKutu}>
-                    <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Tip</Text>
-                      <TextInput style={s.input} value={yeniTip} onChangeText={setYeniTip} placeholder="muze/saray/cami" />
+                  {/* Tip secici */}
+                  <View style={s.inputGrup}>
+                    <Text style={s.inputLabel}>Tip</Text>
+                    <View style={s.gunSecKutu}>
+                      {['muze','saray','cami','kule','sarnic','hisar','ozel_muze','kasir','kultur_merkezi','acik_hava'].map(t => (
+                        <TouchableOpacity key={t} style={[s.gunSecBtn, yeniTip === t && s.gunSecAktif]}
+                          onPress={() => setYeniTip(t)}>
+                          <Text style={[s.gunSecYazi, yeniTip === t && s.gunSecYaziAktif]}>{t}</Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Kapali Gun (0-6)</Text>
-                      <TextInput style={s.input} value={yeniKapaliGun} onChangeText={setYeniKapaliGun} placeholder="1=Pzt" keyboardType="numeric" />
+                  </View>
+
+                  {/* Kapalı gün secici */}
+                  <View style={s.inputGrup}>
+                    <Text style={s.inputLabel}>Kapalı Gün</Text>
+                    <View style={s.gunSecKutu}>
+                      <TouchableOpacity style={[s.gunSecBtn, yeniKapaliGun === '' && s.gunSecAktif]}
+                        onPress={() => setYeniKapaliGun('')}>
+                        <Text style={[s.gunSecYazi, yeniKapaliGun === '' && s.gunSecYaziAktif]}>Yok</Text>
+                      </TouchableOpacity>
+                      {GUNLER.map((g, i) => (
+                        <TouchableOpacity key={i} style={[s.gunSecBtn, yeniKapaliGun === String(i) && s.gunSecAktif]}
+                          onPress={() => setYeniKapaliGun(String(i))}>
+                          <Text style={[s.gunSecYazi, yeniKapaliGun === String(i) && s.gunSecYaziAktif]}>{g}</Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Renk</Text>
-                      <TextInput style={s.input} value={yeniRenk} onChangeText={setYeniRenk} placeholder="#0077B6" />
-                    </View>
+                  </View>
+
+                  <View style={s.inputGrup}>
+                    <Text style={s.inputLabel}>Renk</Text>
+                    <TextInput style={s.input} value={yeniRenk} onChangeText={setYeniRenk} placeholder="#0077B6" />
                   </View>
                 </>
               )}
@@ -570,22 +636,22 @@ export default function AdminSaatler() {
               <Text style={s.bolumBaslik}>Standart Saatler</Text>
               <View style={s.satirKutu}>
                 <View style={s.inputGrup}>
-                  <Text style={s.inputLabel}>Acilis</Text>
+                  <Text style={s.inputLabel}>Açılış</Text>
                   <TextInput style={s.input} value={form.acilis} onChangeText={v => setForm(f => ({...f, acilis: v}))} placeholder="09:00" />
                 </View>
                 <View style={s.inputGrup}>
-                  <Text style={s.inputLabel}>Kapanis</Text>
+                  <Text style={s.inputLabel}>Kapanış</Text>
                   <TextInput style={s.input} value={form.kapanis} onChangeText={v => setForm(f => ({...f, kapanis: v}))} placeholder="18:00" />
                 </View>
                 <View style={s.inputGrup}>
-                  <Text style={s.inputLabel}>Gise</Text>
+                  <Text style={s.inputLabel}>Gişe</Text>
                   <TextInput style={s.input} value={form.gise_kapanis} onChangeText={v => setForm(f => ({...f, gise_kapanis: v}))} placeholder="17:00" />
                 </View>
               </View>
 
               {/* Mevsimsel Toggle */}
               <View style={s.switchSatir}>
-                <Text style={s.switchLabel}>Mevsimsel saat farki var mi?</Text>
+                <Text style={s.switchLabel}>Mevsimsel saat farkı var mı?</Text>
                 <Switch value={form.mevsimsel} onValueChange={v => setForm(f => ({...f, mevsimsel: v}))} trackColor={{true:'#0077B6'}} />
               </View>
 
@@ -594,37 +660,45 @@ export default function AdminSaatler() {
                   <Text style={s.bolumBaslik}>Yaz Saatleri</Text>
                   <View style={s.satirKutu}>
                     <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Acilis</Text>
+                      <Text style={s.inputLabel}>Açılış</Text>
                       <TextInput style={s.input} value={form.yaz_acilis} onChangeText={v => setForm(f => ({...f, yaz_acilis: v}))} placeholder="08:00" />
                     </View>
                     <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Kapanis</Text>
+                      <Text style={s.inputLabel}>Kapanış</Text>
                       <TextInput style={s.input} value={form.yaz_kapanis} onChangeText={v => setForm(f => ({...f, yaz_kapanis: v}))} placeholder="19:00" />
                     </View>
+                    <View style={s.inputGrup}>
+                      <Text style={s.inputLabel}>Gişe</Text>
+                      <TextInput style={s.input} value={form.yaz_gise_kapanis} onChangeText={v => setForm(f => ({...f, yaz_gise_kapanis: v}))} placeholder="18:00" />
+                    </View>
                   </View>
-                  <Text style={s.bolumBaslik}>Kis Saatleri</Text>
+                  <Text style={s.bolumBaslik}>Kış Saatleri</Text>
                   <View style={s.satirKutu}>
                     <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Acilis</Text>
+                      <Text style={s.inputLabel}>Açılış</Text>
                       <TextInput style={s.input} value={form.kis_acilis} onChangeText={v => setForm(f => ({...f, kis_acilis: v}))} placeholder="09:00" />
                     </View>
                     <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Kapanis</Text>
+                      <Text style={s.inputLabel}>Kapanış</Text>
                       <TextInput style={s.input} value={form.kis_kapanis} onChangeText={v => setForm(f => ({...f, kis_kapanis: v}))} placeholder="17:00" />
+                    </View>
+                    <View style={s.inputGrup}>
+                      <Text style={s.inputLabel}>Gişe</Text>
+                      <TextInput style={s.input} value={form.kis_gise_kapanis} onChangeText={v => setForm(f => ({...f, kis_gise_kapanis: v}))} placeholder="16:00" />
                     </View>
                   </View>
                 </>
               )}
 
               {/* Hafta Sonu */}
-              <Text style={s.bolumBaslik}>Hafta Sonu (farkli ise)</Text>
+              <Text style={s.bolumBaslik}>Hafta Sonu (farklı ise)</Text>
               <View style={s.satirKutu}>
                 <View style={s.inputGrup}>
-                  <Text style={s.inputLabel}>Acilis</Text>
+                  <Text style={s.inputLabel}>Açılış</Text>
                   <TextInput style={s.input} value={form.haftasonu_acilis} onChangeText={v => setForm(f => ({...f, haftasonu_acilis: v}))} placeholder="—" />
                 </View>
                 <View style={s.inputGrup}>
-                  <Text style={s.inputLabel}>Kapanis</Text>
+                  <Text style={s.inputLabel}>Kapanış</Text>
                   <TextInput style={s.input} value={form.haftasonu_kapanis} onChangeText={v => setForm(f => ({...f, haftasonu_kapanis: v}))} placeholder="—" />
                 </View>
               </View>
@@ -637,18 +711,36 @@ export default function AdminSaatler() {
                   <TextInput style={s.input} value={form.fiyat_yerli} onChangeText={v => setForm(f => ({...f, fiyat_yerli: v}))} placeholder="—" />
                 </View>
                 <View style={s.inputGrup}>
-                  <Text style={s.inputLabel}>Yabanci</Text>
+                  <Text style={s.inputLabel}>Yabancı</Text>
                   <TextInput style={s.input} value={form.fiyat_yabanci} onChangeText={v => setForm(f => ({...f, fiyat_yabanci: v}))} placeholder="—" />
                 </View>
                 <View style={s.inputGrup}>
-                  <Text style={s.inputLabel}>Indirimli</Text>
+                  <Text style={s.inputLabel}>İndirimli</Text>
                   <TextInput style={s.input} value={form.fiyat_indirimli} onChangeText={v => setForm(f => ({...f, fiyat_indirimli: v}))} placeholder="—" />
                 </View>
               </View>
 
+              {/* Muzekart */}
+              <Text style={s.bolumBaslik}>MüzeKart</Text>
+              <View style={s.gunSecKutu}>
+                {[
+                  { key: '', label: 'Belirtilmemiş' },
+                  { key: 'gecerli', label: 'Geçer' },
+                  { key: 'gecmez', label: 'Geçmez' },
+                ].map(opt => (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={[s.gunSecBtn, form.muzekart === opt.key && s.gunSecAktif]}
+                    onPress={() => setForm(f => ({...f, muzekart: opt.key}))}
+                  >
+                    <Text style={[s.gunSecYazi, form.muzekart === opt.key && s.gunSecYaziAktif]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               {/* Restorasyon */}
               <View style={s.switchSatir}>
-                <Text style={s.switchLabel}>Restorasyonda mi?</Text>
+                <Text style={s.switchLabel}>Restorasyonda mı?</Text>
                 <Switch value={form.restorasyon} onValueChange={v => setForm(f => ({...f, restorasyon: v}))} trackColor={{true:'#D62828'}} />
               </View>
               {form.restorasyon && (
@@ -658,18 +750,23 @@ export default function AdminSaatler() {
               )}
 
               {/* Ozel Not */}
-              <Text style={s.bolumBaslik}>Ozel Not</Text>
+              <Text style={s.bolumBaslik}>Özel Not</Text>
               <TextInput style={[s.input, s.inputGenis]} value={form.ozel_not}
                 onChangeText={v => setForm(f => ({...f, ozel_not: v}))}
-                placeholder="Rehberler icin ozel bilgi..." multiline />
+                placeholder="Rehberler için özel bilgi..." multiline />
 
               {/* Butonlar */}
               <TouchableOpacity style={s.kaydetBtn} onPress={kaydet}>
                 <Text style={s.kaydetBtnYazi}>Kaydet</Text>
               </TouchableOpacity>
               <TouchableOpacity style={s.iptalBtn} onPress={() => setDuzenleModal(false)}>
-                <Text style={s.iptalBtnYazi}>Iptal</Text>
+                <Text style={s.iptalBtnYazi}>İptal</Text>
               </TouchableOpacity>
+              {!yeniEkleModu && seciliMekan && (
+                <TouchableOpacity style={s.silBtn} onPress={mekanSil}>
+                  <Text style={s.silBtnYazi}>Mekanı Sil</Text>
+                </TouchableOpacity>
+              )}
 
               <View style={{ height: 30 }} />
             </ScrollView>
@@ -681,10 +778,10 @@ export default function AdminSaatler() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  yukle: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' },
-  yetkisiz: { fontSize: 18, fontWeight: '700', color: '#1E293B', marginBottom: 16 },
+const createStyles = (t: TemaRenkleri) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  yukle: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
+  yetkisiz: { fontSize: 18, fontWeight: '700', color: t.text, marginBottom: 16 },
   geriBtn: { backgroundColor: '#0077B6', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
   geriBtnYazi: { color: '#FFF', fontWeight: '700' },
 
@@ -705,57 +802,66 @@ const s = StyleSheet.create({
   // Sekmeler
   sekmeScroll: { maxHeight: 48 },
   sekmeContainer: { paddingHorizontal: 16, gap: 8 },
-  sekmeBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#E2E8F0' },
+  sekmeBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: t.kartBorder },
   sekmeBtnAktif: { backgroundColor: '#0077B6' },
-  sekmeYazi: { color: '#64748B', fontSize: 12, fontWeight: '600' },
+  sekmeYazi: { color: t.textSecondary, fontSize: 12, fontWeight: '600' },
   sekmeYaziAktif: { color: '#FFF' },
 
   // Liste
   liste: { flex: 1, paddingHorizontal: 16, marginTop: 12 },
-  bosYazi: { textAlign: 'center', color: '#94A3B8', marginTop: 40, fontSize: 14 },
-  mekanKart: { backgroundColor: '#FFF', borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' },
+  bosYazi: { textAlign: 'center', color: t.textMuted, marginTop: 40, fontSize: 14 },
+  mekanKart: { backgroundColor: t.bgCard, borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: t.kartBorder },
   mekanKartRestorasyon: { borderColor: '#D62828', borderWidth: 1.5 },
   mekanRenk: { width: 5, alignSelf: 'stretch' },
   mekanBilgi: { flex: 1, padding: 14 },
-  mekanIsim: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
-  mekanSaat: { fontSize: 12, color: '#64748B', marginTop: 3 },
+  mekanIsim: { fontSize: 14, fontWeight: '700', color: t.text },
+  mekanSaat: { fontSize: 12, color: t.textSecondary, marginTop: 3 },
   mekanMevsim: { fontSize: 11, color: '#0096C7', marginTop: 2 },
   restorasyonYazi: { fontSize: 10, fontWeight: '800', color: '#D62828', marginTop: 3, letterSpacing: 1 },
-  mekanFiyat: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  duzenleOk: { color: '#94A3B8', fontSize: 20, marginRight: 16 },
+  mekanFiyat: { fontSize: 11, color: t.textSecondary, marginTop: 2 },
+  duzenleOk: { color: t.textMuted, fontSize: 20, marginRight: 16 },
 
   // Modal
-  modalArka: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalKutu: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
+  modalArka: { flex: 1, backgroundColor: t.modalOverlay, justifyContent: 'flex-end' },
+  modalKutu: { backgroundColor: t.modalBg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
   modalBaslik: { color: '#0077B6', fontSize: 20, fontWeight: '800' },
-  modalAlt: { color: '#64748B', fontSize: 12, marginBottom: 16 },
-  bolumBaslik: { color: '#1E293B', fontSize: 13, fontWeight: '700', marginTop: 16, marginBottom: 8 },
+  modalAlt: { color: t.textSecondary, fontSize: 12, marginBottom: 16 },
+  bolumBaslik: { color: t.text, fontSize: 13, fontWeight: '700', marginTop: 16, marginBottom: 8 },
   satirKutu: { flexDirection: 'row', gap: 10 },
   inputGrup: { flex: 1 },
-  inputLabel: { color: '#64748B', fontSize: 11, marginBottom: 4 },
-  input: { backgroundColor: '#F5F7FA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#1E293B', borderWidth: 1, borderColor: '#E2E8F0' },
+  inputLabel: { color: t.textSecondary, fontSize: 11, marginBottom: 4 },
+  input: { backgroundColor: t.bgInput, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder },
   inputGenis: { marginTop: 8, minHeight: 60, textAlignVertical: 'top' },
   switchSatir: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingVertical: 8 },
-  switchLabel: { color: '#1E293B', fontSize: 13, fontWeight: '600' },
+  switchLabel: { color: t.text, fontSize: 13, fontWeight: '600' },
   kaydetBtn: { backgroundColor: '#0077B6', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 20 },
   kaydetBtnYazi: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  iptalBtn: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 10 },
-  iptalBtnYazi: { color: '#64748B', fontSize: 14, fontWeight: '600' },
+  iptalBtn: { borderWidth: 1, borderColor: t.kartBorder, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 10 },
+  iptalBtnYazi: { color: t.textSecondary, fontSize: 14, fontWeight: '600' },
+  silBtn: { borderWidth: 1, borderColor: '#D62828', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 20 },
+  silBtnYazi: { color: '#D62828', fontSize: 14, fontWeight: '700' },
 
   // Sultanahmet ozel
-  sultKart: { backgroundColor: '#FFF', borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 8, marginBottom: 8, padding: 14, borderWidth: 2, borderColor: '#0077B6', borderLeftWidth: 5 },
+  sultKart: { backgroundColor: t.bgCard, borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 8, marginBottom: 8, padding: 14, borderWidth: 2, borderColor: '#0077B6', borderLeftWidth: 5 },
   sultSol: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   sultDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
   sultIsim: { fontSize: 15, fontWeight: '800', color: '#0077B6' },
-  sultAlt: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  pencereKart: { backgroundColor: '#F8FAFC', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#E2E8F0' },
+  sultAlt: { fontSize: 11, color: t.textSecondary, marginTop: 2 },
+  pencereKart: { backgroundColor: t.bgInput, borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: t.kartBorder },
   pencereSilBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#D6282820', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end' },
   pencereSilYazi: { color: '#D62828', fontWeight: '800', fontSize: 12 },
   pencereEkleBtn: { borderWidth: 1, borderColor: '#0077B6', borderStyle: 'dashed', borderRadius: 8, padding: 10, alignItems: 'center', marginBottom: 16 },
   pencereEkleYazi: { color: '#0077B6', fontWeight: '700', fontSize: 12 },
 
   // Yeni ekle butonu
-  yeniEkleBtn: { backgroundColor: '#FFF', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10, padding: 14, borderWidth: 1.5, borderColor: '#0077B6', borderStyle: 'dashed' },
+  yeniEkleBtn: { backgroundColor: t.bgCard, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10, padding: 14, borderWidth: 1.5, borderColor: '#0077B6', borderStyle: 'dashed' },
   yeniEklePlus: { color: '#0077B6', fontSize: 22, fontWeight: '700', marginRight: 8 },
   yeniEkleYazi: { color: '#0077B6', fontSize: 14, fontWeight: '700' },
+
+  // Gun / tip secici
+  gunSecKutu: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  gunSecBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: t.kartBorder },
+  gunSecAktif: { backgroundColor: '#0077B6' },
+  gunSecYazi: { fontSize: 11, fontWeight: '600', color: t.textSecondary },
+  gunSecYaziAktif: { color: '#FFF' },
 });

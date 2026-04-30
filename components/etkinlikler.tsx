@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { useTema } from '../hooks/use-tema';
 
 /* ═══════════════════════════════════════════
    Tipler
@@ -19,20 +20,6 @@ export interface Etkinlik {
   aktif: boolean;
 }
 
-/* ═══════════════════════════════════════════
-   Tip → Emoji eşleştirmesi
-   ═══════════════════════════════════════════ */
-
-const TIP_EMOJI: Record<string, string> = {
-  maraton: '🏃',
-  yuruyus: '🚶',
-  bisiklet: '🚴',
-  diplomatik: '🏛',
-  miting: '📢',
-  festival: '🎉',
-  resmi_toren: '👑',
-  diger: '📌',
-};
 
 const ETKI_STIL: Record<string, { renk: string; etiket: string }> = {
   yol_kapanma: { renk: '#D62828', etiket: 'YOL KAPANMA' },
@@ -72,16 +59,21 @@ export function useEtkinlikler() {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [hata, setHata] = useState(false);
 
+  const ilkYuklemeRef = useRef(true);
+
   const cek = useCallback(async () => {
     try {
-      setYukleniyor(true);
+      // Sadece ilk yuklemede spinner goster, sonrakilerde arka planda yenile
+      if (ilkYuklemeRef.current) {
+        setYukleniyor(true);
+      }
       setHata(false);
 
       const { data, error } = await supabase
         .from('etkinlikler')
         .select('*')
         .eq('aktif', true)
-        .gte('tarih', new Date().toISOString())
+        .gte('tarih', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
         .order('tarih', { ascending: true })
         .limit(50);
 
@@ -93,10 +85,33 @@ export function useEtkinlikler() {
       setEtkinlikler([]);
     } finally {
       setYukleniyor(false);
+      ilkYuklemeRef.current = false;
     }
   }, []);
 
-  useEffect(() => { cek(); }, [cek]);
+  useEffect(() => {
+    cek();
+
+    // Realtime subscription — INSERT, UPDATE, DELETE
+    // NOT: etkinlikler tablosu supabase_realtime publication'da olmali
+    // SQL: ALTER PUBLICATION supabase_realtime ADD TABLE etkinlikler;
+    const channel = supabase
+      .channel('etkinlikler-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'etkinlikler' }, () => {
+        cek();
+      })
+      .subscribe();
+
+    // Polling yedegi: Realtime calismasa bile 15 saniyede bir kontrol et
+    const polling = setInterval(() => {
+      cek();
+    }, 15000);
+
+    return () => {
+      clearInterval(polling);
+      supabase.removeChannel(channel);
+    };
+  }, [cek]);
 
   return { etkinlikler, yukleniyor, hata, yenile: cek };
 }
@@ -107,6 +122,7 @@ export function useEtkinlikler() {
 
 export function EtkinliklerBandi() {
   const { etkinlikler, yukleniyor, hata } = useEtkinlikler();
+  const { t } = useTema();
   const [detailModal, setDetailModal] = useState(false);
   const [secilenEtkinlik, setSecilenEtkinlik] = useState<Etkinlik | null>(null);
 
@@ -121,27 +137,27 @@ export function EtkinliklerBandi() {
   };
 
   return (
-    <View style={s.container}>
-      {/* Başlık */}
+    <View style={[s.container, { backgroundColor: t.bgSecondary, borderBottomColor: t.kartBorder }]}>
+      {/* Baslik */}
       <View style={s.baslikSatir}>
-        <Text style={s.baslik}>Yaklaşan Kent Etkinlikleri</Text>
+        <Text style={[s.baslik, { color: t.primary }]}>Yaklaşan Kent Etkinlikleri</Text>
       </View>
 
-      {/* Yükleniyor */}
+      {/* Yukleniyor */}
       {yukleniyor && (
-        <View style={[s.durumKutu, { backgroundColor: '#FFFFFF', borderColor: '#B0D4E8' }]}>
-          <ActivityIndicator size="small" color="#0077B6" />
-          <Text style={[s.durumYazi, { color: '#5A7A8A' }]}>Etkinlikler kontrol ediliyor...</Text>
+        <View style={[s.durumKutu, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
+          <ActivityIndicator size="small" color={t.primary} />
+          <Text style={[s.durumYazi, { color: t.textSecondary }]}>Etkinlikler kontrol ediliyor...</Text>
         </View>
       )}
 
       {/* Hata */}
       {!yukleniyor && hata && (
-        <View style={[s.durumKutu, { backgroundColor: '#FFFFFF', borderColor: '#B0D4E8' }]}>
-          <Text style={{ fontSize: 22 }}>⚠️</Text>
+        <View style={[s.durumKutu, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#D62828' }}>!</Text>
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={[s.normalYazi, { color: '#1A1A2E' }]}>Bağlantı hatası</Text>
-            <Text style={[s.normalAlt, { color: '#5A7A8A' }]}>Etkinlikler yüklenemiyor</Text>
+            <Text style={[s.normalYazi, { color: t.text }]}>Bağlantı hatası</Text>
+            <Text style={[s.normalAlt, { color: t.textSecondary }]}>Etkinlikler yüklenemiyor</Text>
           </View>
         </View>
       )}
@@ -149,34 +165,32 @@ export function EtkinliklerBandi() {
       {/* Etkinlik yok */}
       {!yukleniyor && !hata && etkinlikler.length === 0 && (
         <View style={[s.durumKutu, { backgroundColor: '#E8F5E9', borderColor: '#A5D6A7' }]}>
-          <Text style={{ fontSize: 22 }}>✅</Text>
+          <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#A5D6A7', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>+</Text></View>
           <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={[s.normalYazi, { color: '#2E7D32' }]}>Yaklaşan etkinlik yok</Text>
-            <Text style={[s.normalAlt, { color: '#5A7A8A' }]}>İstanbul'da trafik rahat!</Text>
+            <Text style={[s.normalAlt, { color: t.textSecondary }]}>İstanbul'da trafik rahat!</Text>
           </View>
         </View>
       )}
 
-      {/* Etkinlik kartları */}
+      {/* Etkinlik kartlari */}
       {!yukleniyor && etkinlikler.length > 0 && (
         <ScrollView showsVerticalScrollIndicator={false} scrollEventThrottle={16}>
           {etkinlikler.map(e => {
-            const emojiTip = TIP_EMOJI[e.tip] || '📌';
             const efkiStil = ETKI_STIL[e.etki] || ETKI_STIL.diger;
             return (
               <TouchableOpacity
                 key={e.id}
-                style={[s.etkinlikKart, { backgroundColor: '#FFFFFF', borderColor: '#B0D4E8' }]}
+                style={[s.etkinlikKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}
                 onPress={() => ayrinti(e)}
                 activeOpacity={0.7}
               >
                 <View style={s.kartUst}>
-                  <Text style={s.emoji}>{emojiTip}</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={[s.baslikKart, { color: '#0077B6' }]} numberOfLines={2}>
+                    <Text style={[s.baslikKart, { color: t.primary }]} numberOfLines={2}>
                       {e.baslik}
                     </Text>
-                    <Text style={[s.tarihKart, { color: '#5A7A8A' }]}>
+                    <Text style={[s.tarihKart, { color: t.textSecondary }]}>
                       {tarihinTurkce(e.tarih)}
                     </Text>
                   </View>
@@ -187,8 +201,8 @@ export function EtkinliklerBandi() {
                       {efkiStil.etiket}
                     </Text>
                   </View>
-                  <Text style={[s.konumKart, { color: '#1A1A2E' }]} numberOfLines={1}>
-                    📍 {e.konum}
+                  <Text style={[s.konumKart, { color: t.text }]} numberOfLines={1}>
+                    {e.konum}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -203,6 +217,7 @@ export function EtkinliklerBandi() {
           visible={detailModal}
           etkinlik={secilenEtkinlik}
           onClose={kapat}
+          t={t}
         />
       )}
     </View>
@@ -217,12 +232,13 @@ function EtkinlikDetailModal({
   visible,
   etkinlik,
   onClose,
+  t,
 }: {
   visible: boolean;
   etkinlik: Etkinlik;
   onClose: () => void;
+  t: ReturnType<typeof useTema>['t'];
 }) {
-  const emojiTip = TIP_EMOJI[etkinlik.tip] || '📌';
   const efkiStil = ETKI_STIL[etkinlik.etki] || ETKI_STIL.diger;
 
   const baslangic = tarihinTurkce(etkinlik.tarih);
@@ -231,13 +247,12 @@ function EtkinlikDetailModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={s.modalArka}>
-        <View style={s.modalKutu}>
+      <View style={[s.modalArka, { backgroundColor: t.modalOverlay }]}>
+        <View style={[s.modalKutu, { backgroundColor: t.modalBg }]}>
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Başlık */}
+            {/* Baslik */}
             <View style={s.detailBaslik}>
-              <Text style={{ fontSize: 48 }}>{emojiTip}</Text>
-              <Text style={[s.detailBaslikYazi, { color: '#0077B6' }]}>
+              <Text style={[s.detailBaslikYazi, { color: t.primary }]}>
                 {etkinlik.baslik}
               </Text>
             </View>
@@ -249,34 +264,34 @@ function EtkinlikDetailModal({
               </Text>
             </View>
 
-            {/* Tarih Aralığı */}
+            {/* Tarih Araligi */}
             <View style={s.detailSecim}>
-              <Text style={s.detailSecimBaslik}>Tarih</Text>
-              <Text style={[s.detailSecimIcerik, { color: '#1A1A2E' }]}>
+              <Text style={[s.detailSecimBaslik, { color: t.primary }]}>Tarih</Text>
+              <Text style={[s.detailSecimIcerik, { color: t.text }]}>
                 {tarihAraligi}
               </Text>
             </View>
 
             {/* Konum */}
             <View style={s.detailSecim}>
-              <Text style={s.detailSecimBaslik}>📍 Konum</Text>
-              <Text style={[s.detailSecimIcerik, { color: '#1A1A2E' }]}>
+              <Text style={[s.detailSecimBaslik, { color: t.primary }]}>Konum</Text>
+              <Text style={[s.detailSecimIcerik, { color: t.text }]}>
                 {etkinlik.konum}
               </Text>
             </View>
 
             {/* Etkilenen Yollar */}
             <View style={s.detailSecim}>
-              <Text style={s.detailSecimBaslik}>🛣 Etkilenen Yollar</Text>
-              <Text style={[s.detailSecimIcerik, { color: '#1A1A2E' }]}>
+              <Text style={[s.detailSecimBaslik, { color: t.primary }]}>Etkilenen Yollar</Text>
+              <Text style={[s.detailSecimIcerik, { color: t.text }]}>
                 {etkinlik.etkilenen_yollar}
               </Text>
             </View>
 
-            {/* Açıklama */}
+            {/* Aciklama */}
             <View style={s.detailSecim}>
-              <Text style={s.detailSecimBaslik}>📝 Açıklama</Text>
-              <Text style={[s.detailSecimIcerik, { color: '#1A1A2E' }]}>
+              <Text style={[s.detailSecimBaslik, { color: t.primary }]}>Açıklama</Text>
+              <Text style={[s.detailSecimIcerik, { color: t.text }]}>
                 {etkinlik.aciklama}
               </Text>
             </View>
@@ -284,11 +299,11 @@ function EtkinlikDetailModal({
 
           {/* Kapat Butonu */}
           <TouchableOpacity
-            style={[s.kapatBtn, { backgroundColor: '#D6EAF8' }]}
+            style={[s.kapatBtn, { backgroundColor: t.bgSecondary }]}
             onPress={onClose}
             activeOpacity={0.7}
           >
-            <Text style={[s.kapatYazi, { color: '#0077B6' }]}>Kapat</Text>
+            <Text style={[s.kapatYazi, { color: t.primary }]}>Kapat</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -306,6 +321,19 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#EAF4FB',
+    borderTopWidth: 1.5,
+    borderTopColor: 'rgba(255,255,255,0.6)',
+    borderBottomWidth: 2.5,
+    borderBottomColor: '#9DC5DB',
+    borderLeftWidth: 0.5,
+    borderLeftColor: 'rgba(255,255,255,0.3)',
+    borderRightWidth: 0.5,
+    borderRightColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#0077B6',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
   // Başlık satırı
@@ -356,11 +384,6 @@ const s = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 10,
   },
-  emoji: {
-    fontSize: 24,
-    marginRight: 10,
-    marginTop: 2,
-  },
   baslikKart: {
     fontSize: 14,
     fontWeight: '700',
@@ -407,12 +430,14 @@ const s = StyleSheet.create({
   detailBaslik: {
     alignItems: 'center',
     marginBottom: 20,
+    paddingHorizontal: 10,
   },
   detailBaslikYazi: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    marginTop: 10,
+    marginTop: 4,
     textAlign: 'center',
+    lineHeight: 28,
   },
   detailEtkiBadge: {
     alignSelf: 'center',

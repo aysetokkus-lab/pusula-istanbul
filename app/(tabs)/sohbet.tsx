@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { router, useFocusEffect } from 'expo-router';
 import { useKufurFiltre } from '../../hooks/use-kufur-filtre';
 import { useOkunmamisMesaj } from '../../hooks/use-okunmamis-mesaj';
+import { useAbonelik } from '../../hooks/use-abonelik';
 
 /* ═══════════════════════════════════════════
    Tipler
@@ -47,9 +48,30 @@ function basHarfler(isim: string): string {
 function saat(iso: string): string {
   try {
     const d = new Date(iso);
+    const simdi = new Date();
     const sa = String(d.getHours()).padStart(2, '0');
     const dk = String(d.getMinutes()).padStart(2, '0');
-    return `${sa}:${dk}`;
+    const saatStr = `${sa}:${dk}`;
+
+    // Bugün mü?
+    if (d.toDateString() === simdi.toDateString()) return saatStr;
+
+    // Dün mü?
+    const dun = new Date(simdi);
+    dun.setDate(dun.getDate() - 1);
+    if (d.toDateString() === dun.toDateString()) return `Dün ${saatStr}`;
+
+    // Bu hafta içinde mi? (7 gün)
+    const farkGun = Math.floor((simdi.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    if (farkGun < 7) {
+      const gunler = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+      return `${gunler[d.getDay()]} ${saatStr}`;
+    }
+
+    // Daha eski
+    const gun = String(d.getDate()).padStart(2, '0');
+    const ay = String(d.getMonth() + 1).padStart(2, '0');
+    return `${gun}.${ay} ${saatStr}`;
   } catch {
     return '';
   }
@@ -75,6 +97,7 @@ export default function SohbetEkrani() {
   const { t } = useTema();
   const styles = createStyles(t);
   const flatListRef = useRef<FlatList>(null);
+  const { premiumMi, yukleniyor: abonelikYukleniyor } = useAbonelik();
 
   // Okunmamış mesaj badge yönetimi
   const { sohbeteGirdi, sohbettenCikti } = useOkunmamisMesaj();
@@ -223,6 +246,70 @@ export default function SohbetEkrani() {
     banKontrol();
   }, [kullanici]);
 
+  /* ─── Engellenen kullanıcılar (bu kullanıcının engellediği) ─── */
+  const [engellenenIdler, setEngellenenIdler] = useState<Set<string>>(new Set());
+
+  const engellenenleriYukle = useCallback(async () => {
+    if (!kullanici) return;
+    try {
+      const { data } = await supabase
+        .from('engellenen_kullanicilar')
+        .select('engellenen_id')
+        .eq('engelleyen_id', kullanici.id);
+      setEngellenenIdler(new Set((data || []).map((e: any) => e.engellenen_id)));
+    } catch (e) {
+      console.warn('Engellenen kullanici listesi yuklenemedi:', e);
+    }
+  }, [kullanici]);
+
+  useEffect(() => {
+    engellenenleriYukle();
+  }, [engellenenleriYukle]);
+
+  /* ─── Kullanıcı engelle ─── */
+  const kullaniciEngelle = useCallback(async (engellenenId: string, engellenenIsim: string, mesajMetni: string) => {
+    if (!kullanici) return;
+    if (engellenenId === kullanici.id) {
+      Alert.alert('Bilgi', 'Kendinizi engelleyemezsiniz.');
+      return;
+    }
+
+    Alert.alert(
+      'Kullanıcıyı Engelle',
+      `${engellenenIsim} adlı kullanıcıyı engellemek istiyor musunuz?\n\nEngellediğiniz kullanıcının mesajları sohbetten anında kaldırılacak ve bir daha görünmeyecek. Uygunsuz içerik geliştiriciye bildirilecek.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Engelle',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('engellenen_kullanicilar').insert({
+                engelleyen_id: kullanici.id,
+                engellenen_id: engellenenId,
+                engellenen_isim: engellenenIsim,
+                sebep: mesajMetni.substring(0, 200),
+                bildirildi: false,
+              });
+              if (error && !error.message.includes('duplicate')) throw error;
+
+              // Anlık feed'den kaldır
+              setEngellenenIdler((prev) => new Set([...prev, engellenenId]));
+              setMesajlar((prev) => prev.filter((m) => m.kullanici_id !== engellenenId));
+
+              Alert.alert(
+                'Engellendi',
+                `${engellenenIsim} engellendi. Mesajları sohbetinizden kaldırıldı. Geliştirici bu durumdan haberdar edildi.`
+              );
+            } catch (e: any) {
+              Alert.alert('Hata', e?.message || 'Engelleme başarısız. Lütfen tekrar deneyin.');
+            }
+          },
+        },
+      ]
+    );
+  }, [kullanici]);
+
   /* ─── Mesaj gönder ─── */
   const mesajGonder = async () => {
     if (!yeniMesaj.trim() || !kullanici) return;
@@ -285,6 +372,67 @@ export default function SohbetEkrani() {
     }
   }, [mesajlar]);
 
+  /* ─── Mesaj Raporla ─── */
+  const mesajRaporla = useCallback(async (mesaj: Mesaj) => {
+    if (!kullanici) return;
+    // Kendi mesajini raporlayamasin
+    if (mesaj.kullanici_id === kullanici.id) {
+      Alert.alert('Bilgi', 'Kendi mesajınızı raporlayamazsınız.');
+      return;
+    }
+
+    Alert.alert(
+      'Mesajı Raporla',
+      `"${mesaj.mesaj.substring(0, 80)}${mesaj.mesaj.length > 80 ? '...' : ''}"\n\nBu mesajı uygunsuz içerik olarak raporlamak istiyor musunuz?`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Raporla',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('raporlanan_mesajlar').insert({
+                mesaj_id: mesaj.id,
+                raporlayan_id: kullanici.id,
+                mesaj_metni: mesaj.mesaj,
+                mesaj_sahibi_id: mesaj.kullanici_id,
+                mesaj_sahibi_isim: mesaj.kullanici_isim,
+              });
+              if (error) throw error;
+              Alert.alert('Teşekkürler', 'Raporunuz moderatörlere iletildi.');
+            } catch {
+              Alert.alert('Hata', 'Rapor gönderilemedi. Lütfen tekrar deneyin.');
+            }
+          },
+        },
+      ]
+    );
+  }, [kullanici]);
+
+  /* ─── Mesaj aksiyonları menüsü (Raporla / Engelle) ─── */
+  const mesajAksiyonlari = useCallback((mesaj: Mesaj) => {
+    if (!kullanici) return;
+    // Kendi mesajinda aksiyon menusu gosterme
+    if (mesaj.kullanici_id === kullanici.id) return;
+
+    Alert.alert(
+      mesaj.kullanici_isim,
+      `"${mesaj.mesaj.substring(0, 100)}${mesaj.mesaj.length > 100 ? '...' : ''}"`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Mesajı Raporla',
+          onPress: () => mesajRaporla(mesaj),
+        },
+        {
+          text: 'Kullanıcıyı Engelle',
+          style: 'destructive',
+          onPress: () => kullaniciEngelle(mesaj.kullanici_id, mesaj.kullanici_isim, mesaj.mesaj),
+        },
+      ]
+    );
+  }, [kullanici, mesajRaporla, kullaniciEngelle]);
+
   /* ─── Yenile ─── */
   const yenile = async () => {
     setTekrarYukleniyor(true);
@@ -308,7 +456,7 @@ export default function SohbetEkrani() {
     );
   }
 
-  // ─── Misafir modu ───
+  // ─── Misafir modu (giris yapilmamis) ───
   if (!kullanici) {
     return (
       <View style={[styles.container, { backgroundColor: t.bg }]}>
@@ -331,7 +479,7 @@ export default function SohbetEkrani() {
           </Text>
           <TouchableOpacity
             style={[styles.girisBtn, { backgroundColor: Palette.istanbulMavi }]}
-            onPress={() => router.replace('/giris')}
+            onPress={() => router.push('/giris')}
           >
             <Text style={styles.girisBtnYazi}>Giriş Yap / Kayıt Ol</Text>
           </TouchableOpacity>
@@ -340,8 +488,45 @@ export default function SohbetEkrani() {
     );
   }
 
+  // ─── Premium gate (giris yapilmis ama abonelik yok) ───
+  if (!premiumMi && !abonelikYukleniyor) {
+    return (
+      <View style={[styles.container, { backgroundColor: t.bg }]}>
+        <LinearGradient
+          colors={['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: insets.top + 12 }]}
+        >
+          <Text style={styles.headerTitle}>Sohbet</Text>
+          <Text style={styles.headerAlt}>Premium özellik</Text>
+        </LinearGradient>
+
+        <View style={styles.misafirIcerik}>
+          <View style={[styles.misafirIkon, { backgroundColor: '#F3E8FF' }]}>
+            <Text style={{ fontSize: 36, color: '#7B2D8E' }}>P</Text>
+          </View>
+          <Text style={[styles.misafirBaslik, { color: t.text }]}>Premium Özellik</Text>
+          <Text style={[styles.misafirAciklama, { color: t.textSecondary }]}>
+            Rehber sohbet odası premium abonelere özeldir. Diğer rehberlerle anlık iletişim kurabilmek için abone olun.
+          </Text>
+          <TouchableOpacity
+            style={[styles.girisBtn, { backgroundColor: '#7B2D8E' }]}
+            onPress={() => router.push('/abone-ol')}
+          >
+            <Text style={styles.girisBtnYazi}>Abone Ol</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, { backgroundColor: t.bg }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: t.bg }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
       {/* ── Gradient Header ── */}
       <LinearGradient
         colors={['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']}
@@ -350,13 +535,13 @@ export default function SohbetEkrani() {
         style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
         <Text style={styles.headerTitle}>Rehber Sohbeti</Text>
-        <Text style={styles.headerAlt}>Tüm rehberler bu sohbet odasını görebilir</Text>
+        <Text style={styles.headerAlt}>Uygunsuz içerik için mesajdaki (...) butonunu kullanın</Text>
       </LinearGradient>
 
       {/* ── Mesajlar ── */}
       <FlatList
         ref={flatListRef}
-        data={mesajlar}
+        data={mesajlar.filter((m) => !engellenenIdler.has(m.kullanici_id))}
         extraData={guncelSayac}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.mesajListesi}
@@ -364,7 +549,12 @@ export default function SohbetEkrani() {
           const isimHarf = basHarfler(item.kullanici_isim);
           const avatarRenk = renkUret(item.kullanici_isim);
           return (
-            <View style={styles.mesajSatir}>
+            <TouchableOpacity
+              style={styles.mesajSatir}
+              activeOpacity={0.7}
+              onLongPress={() => mesajAksiyonlari(item)}
+              delayLongPress={600}
+            >
               <LinearGradient
                 colors={[avatarRenk, `${avatarRenk}CC`]}
                 start={{ x: 0, y: 0 }}
@@ -375,9 +565,21 @@ export default function SohbetEkrani() {
               </LinearGradient>
 
               <View style={[styles.mesajBubble, { backgroundColor: t.bgCard }]}>
-                <Text style={[styles.mesajIsim, { color: Palette.istanbulMavi }]}>
-                  {item.kullanici_isim}
-                </Text>
+                <View style={styles.mesajUstSatir}>
+                  <Text style={[styles.mesajIsim, { color: Palette.istanbulMavi, flex: 1 }]}>
+                    {item.kullanici_isim}
+                  </Text>
+                  {/* Gorünür Raporla/Engelle butonu (iPad uyumlu — Apple Guideline 4) */}
+                  {kullanici && item.kullanici_id !== kullanici.id && (
+                    <TouchableOpacity
+                      style={styles.aksiyonBtn}
+                      onPress={() => mesajAksiyonlari(item)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={[styles.aksiyonBtnYazi, { color: t.textMuted }]}>...</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <Text style={[styles.mesajMetin, { color: t.text }]}>
                   {item.mesaj}
                 </Text>
@@ -385,7 +587,7 @@ export default function SohbetEkrani() {
                   {saat(item.created_at)}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         }}
         ListEmptyComponent={
@@ -404,35 +606,31 @@ export default function SohbetEkrani() {
       />
 
       {/* ── Giriş Alanı ── */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
-      >
-        <View style={[styles.girisBolumu, { paddingBottom: insets.bottom + 8 }]}>
-          <TextInput
-            style={[styles.girisiInput, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
-            placeholder="Mesaj yazın..."
-            placeholderTextColor={t.textMuted}
-            value={yeniMesaj}
-            onChangeText={setYeniMesaj}
-            multiline={true}
-            maxLength={500}
-            editable={!gonderiyor}
-          />
-          <TouchableOpacity
-            style={[styles.gonderBtn, { backgroundColor: Palette.istanbulMavi, opacity: gonderiyor || !yeniMesaj.trim() ? 0.6 : 1 }]}
-            onPress={mesajGonder}
-            disabled={gonderiyor || !yeniMesaj.trim()}
-          >
-            {gonderiyor ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.gonderBtnYazi}>Gönder</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </View>
+      <View style={[styles.girisBolumu, { paddingBottom: insets.bottom + 8 }]}>
+        <TextInput
+          style={[styles.girisiInput, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
+          placeholder="Mesaj yazın..."
+          placeholderTextColor={t.textMuted}
+          value={yeniMesaj}
+          onChangeText={setYeniMesaj}
+          multiline={true}
+          maxLength={500}
+          editable={!gonderiyor}
+          textAlignVertical="top"
+        />
+        <TouchableOpacity
+          style={[styles.gonderBtn, { backgroundColor: Palette.istanbulMavi, opacity: gonderiyor || !yeniMesaj.trim() ? 0.6 : 1 }]}
+          onPress={mesajGonder}
+          disabled={gonderiyor || !yeniMesaj.trim()}
+        >
+          {gonderiyor ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.gonderBtnYazi}>Gönder</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -496,10 +694,26 @@ function createStyles(t: TemaRenkleri) {
       borderWidth: 1,
       borderColor: t.kartBorder,
     },
+    mesajUstSatir: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 2,
+    },
+    aksiyonBtn: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 10,
+      marginLeft: 4,
+    },
+    aksiyonBtnYazi: {
+      fontSize: 18,
+      fontWeight: '900',
+      lineHeight: 18,
+      letterSpacing: 1,
+    },
     mesajIsim: {
       fontSize: 13,
       fontWeight: '700',
-      marginBottom: 2,
     },
     mesajMetin: {
       fontSize: 14,
@@ -543,6 +757,7 @@ function createStyles(t: TemaRenkleri) {
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
       fontSize: 14,
+      minHeight: 44,
       maxHeight: 100,
       borderWidth: 1,
     },

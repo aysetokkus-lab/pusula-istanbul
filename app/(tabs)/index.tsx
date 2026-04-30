@@ -4,14 +4,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../../lib/supabase';
 import { CanliDurumOzet } from '../../components/canli-durum-panel';
 import { UlasimUyariBandi } from '../../components/ulasim-uyari';
+import { TrafikUyariBandi } from '../../components/trafik-uyari';
 import { EtkinliklerBandi } from '../../components/etkinlikler';
 import { useTema } from '../../hooks/use-tema';
 import { useMekanDetay } from '../../hooks/use-mekan-saatleri';
 import { useGemiTakvimi } from '../../hooks/use-gemi-takvimi';
 import { Palette, Typo, Space, Radius, type TemaRenkleri } from '../../constants/theme';
+import { useAbonelik } from '../../hooks/use-abonelik';
 
 interface NamazVakti { Fajr: string; Sunrise: string; Dhuhr: string; Asr: string; Maghrib: string; Isha: string; }
 
@@ -21,20 +24,20 @@ const GUNLER_TR = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','
 const AYLAR_TR = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 
 const NAMAZ_ETIKETLERI = [
-  { key: 'Fajr' as keyof NamazVakti, label: 'İmsak', emoji: '🌙' },
-  { key: 'Sunrise' as keyof NamazVakti, label: 'Güneş', emoji: '🌅' },
-  { key: 'Dhuhr' as keyof NamazVakti, label: 'Öğle', emoji: '☀️' },
-  { key: 'Asr' as keyof NamazVakti, label: 'İkindi', emoji: '🌤' },
-  { key: 'Maghrib' as keyof NamazVakti, label: 'Akşam', emoji: '🌇' },
-  { key: 'Isha' as keyof NamazVakti, label: 'Yatsı', emoji: '🌙' },
+  { key: 'Fajr' as keyof NamazVakti, label: 'İmsak' },
+  { key: 'Sunrise' as keyof NamazVakti, label: 'Güneş' },
+  { key: 'Dhuhr' as keyof NamazVakti, label: 'Öğle' },
+  { key: 'Asr' as keyof NamazVakti, label: 'İkindi' },
+  { key: 'Maghrib' as keyof NamazVakti, label: 'Akşam' },
+  { key: 'Isha' as keyof NamazVakti, label: 'Yatsı' },
 ];
 
 // ═══ Hızlı Erişim Butonları ═══
 const HIZLI_ERISIM = [
-  { key: 'saha', emoji: '📡', label: 'Saha', renk: Palette.istanbulMavi },
-  { key: 'muzeler', emoji: '🏛', label: 'Müzeler', renk: Palette.murdum },
-  { key: 'vapur', emoji: '⛴', label: 'Vapur', renk: '#0096C7' },
-  { key: 'ulasim', emoji: '✈️', label: 'Ulaşım', renk: '#48CAE4' },
+  { key: 'saha', label: 'Saha', renk: Palette.istanbulMavi },
+  { key: 'muzeler', label: 'Müzeler', renk: Palette.murdum },
+  { key: 'vapur', label: 'Vapur', renk: '#0096C7' },
+  { key: 'ulasim', label: 'Ulaşım', renk: '#48CAE4' },
 ];
 
 // ═══ Yardımcı Fonksiyonlar ═══
@@ -124,14 +127,17 @@ function DurumDot({ renk }: { renk: string }) {
 }
 
 // ═══ Grid Items for 8-Icon Layout ═══
-const GRID_ITEMS = [
+type GridItem = { key: string; label: string; icon: any; iconText?: string };
+const GRID_ITEMS: GridItem[] = [
+  // Üst sıra
   { key: 'namaz', label: 'Namaz\nVakitleri', icon: require('../../assets/icons/namaz-vakitleri.svg') },
-  { key: 'muzeler', label: 'Müzeler', icon: require('../../assets/icons/muzeler.svg') },
-  { key: 'saraylar', label: 'Saraylar', icon: require('../../assets/icons/saraylar.svg') },
+  { key: 'saraylar', label: 'Müze\nSaray\nCami', icon: require('../../assets/icons/saraylar.svg') },
   { key: 'bogaz', label: 'Boğaz Turları', icon: require('../../assets/icons/bogaz-turlari.svg') },
+  { key: 'muzekart', label: 'MüzeKart\nSatış Noktaları', icon: null, iconText: 'M' },
+  // Alt sıra
+  { key: 'ihl', label: 'İHL\nUçuşları', icon: require('../../assets/icons/ucus.svg'), iconText: 'İHL' },
+  { key: 'saw', label: 'SAW\nUçuşları', icon: require('../../assets/icons/ucus.svg'), iconText: 'SAW' },
   { key: 'havalimani', label: 'Havalimanı\nUlaşım', icon: require('../../assets/icons/havalimani-ulasim.svg') },
-  { key: 'muzekart', label: 'Müze Kart\nSatış Noktaları', icon: null },
-  { key: 'gemi', label: 'Gemi\nTarihleri', icon: require('../../assets/icons/gemi-tarihleri.svg') },
   { key: 'doviz', label: 'Döviz Kuru', icon: require('../../assets/icons/doviz-kuru.svg') },
 ];
 
@@ -139,6 +145,7 @@ const GRID_ITEMS = [
 export default function AnaSayfa() {
   const insets = useSafeAreaInsets();
   const { t } = useTema();
+  const { premiumMi } = useAbonelik();
   // CanliDurumOzet kendi modal'ını yönetiyor
 
   // Sultanahmet Camii verisi (admin panelinden yonetilir)
@@ -222,14 +229,14 @@ export default function AnaSayfa() {
       const current = data.current_condition?.[0];
       if (current) {
         const kod = parseInt(current.weatherCode, 10);
-        let ikon = '☀️';
-        if ([113].includes(kod)) ikon = '☀️';
-        else if ([116].includes(kod)) ikon = '⛅';
-        else if ([119, 122].includes(kod)) ikon = '☁️';
-        else if ([143, 248, 260].includes(kod)) ikon = '🌫️';
-        else if ([176, 263, 266, 293, 296, 299, 302, 305, 308, 311, 314, 353, 356, 359].includes(kod)) ikon = '🌧️';
-        else if ([179, 182, 185, 227, 230, 320, 323, 326, 329, 332, 335, 338, 350, 362, 365, 368, 371, 374, 377].includes(kod)) ikon = '❄️';
-        else if ([200, 386, 389, 392, 395].includes(kod)) ikon = '⛈️';
+        let ikon = 'Açık';
+        if ([113].includes(kod)) ikon = 'Açık';
+        else if ([116].includes(kod)) ikon = 'Parçalı';
+        else if ([119, 122].includes(kod)) ikon = 'Bulutlu';
+        else if ([143, 248, 260].includes(kod)) ikon = 'Sisli';
+        else if ([176, 263, 266, 293, 296, 299, 302, 305, 308, 311, 314, 353, 356, 359].includes(kod)) ikon = 'Yağmurlu';
+        else if ([179, 182, 185, 227, 230, 320, 323, 326, 329, 332, 335, 338, 350, 362, 365, 368, 371, 374, 377].includes(kod)) ikon = 'Kar';
+        else if ([200, 386, 389, 392, 395].includes(kod)) ikon = 'Fırtına';
         setHavaDurumu({ derece: parseInt(current.temp_C, 10), ikon });
       }
     } catch (e) {
@@ -238,12 +245,12 @@ export default function AnaSayfa() {
   };
 
   const PARA_BIRIMLERI = [
-    { kod: 'TRY', bayrak: '🇹🇷', isim: 'Türk Lirası', sembol: '₺' },
-    { kod: 'EUR', bayrak: '🇪🇺', isim: 'Euro', sembol: '€' },
-    { kod: 'USD', bayrak: '🇺🇸', isim: 'ABD Doları', sembol: '$' },
-    { kod: 'GBP', bayrak: '🇬🇧', isim: 'Sterlin', sembol: '£' },
-    { kod: 'CAD', bayrak: '🇨🇦', isim: 'Kanada Doları', sembol: 'C$' },
-    { kod: 'CHF', bayrak: '🇨🇭', isim: 'İsviçre Frangı', sembol: 'Fr' },
+    { kod: 'TRY', isim: 'Türk Lirası', sembol: '₺' },
+    { kod: 'EUR', isim: 'Euro', sembol: '€' },
+    { kod: 'USD', isim: 'ABD Doları', sembol: '$' },
+    { kod: 'GBP', isim: 'Sterlin', sembol: '£' },
+    { kod: 'CAD', isim: 'Kanada Doları', sembol: 'C$' },
+    { kod: 'CHF', isim: 'İsviçre Frangı', sembol: 'Fr' },
   ];
 
   const dovizCek = async () => {
@@ -297,6 +304,13 @@ export default function AnaSayfa() {
         end={{ x: 1, y: 1 }}
         style={[styles(t).headerWrapper, { paddingTop: insets.top }]}
       >
+        {/* Glossy highlight */}
+        <LinearGradient
+          colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.05)', 'rgba(0,0,0,0)']}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles(t).bandGloss}
+        />
         <View style={styles(t).headerContent}>
           <View style={styles(t).logoRow}>
             <Text style={styles(t).logoPusula}>PUSULA</Text>
@@ -318,6 +332,12 @@ export default function AnaSayfa() {
         end={{ x: 1, y: 1 }}
         style={styles(t).greetingStrip}
       >
+        <LinearGradient
+          colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.05)', 'rgba(0,0,0,0)']}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles(t).bandGloss}
+        />
         <View style={styles(t).greetingLeft}>
           <Text style={styles(t).clockText}>{saat}</Text>
           <Text style={styles(t).dateText}>{tarih.split(',')[0]}</Text>
@@ -329,14 +349,31 @@ export default function AnaSayfa() {
               {havaDurumu ? `${havaDurumu.ikon} ${havaDurumu.derece}°C` : '...'}
             </Text>
           </TouchableOpacity>
-          <Text style={styles(t).wishlText}>İyi turlar</Text>
         </View>
       </LinearGradient>
 
-      {/* ═══ 3. SAHA DURUMU ═══ */}
+      {/* ═══ 3. SAHA DURUMU (Premium) ═══ */}
       <View style={styles(t).whiteSeparator} />
-      <CanliDurumOzet />
-      {/* ═══ 4. SULTAN AHMET CAMİİ BAND ═══ */}
+      {premiumMi ? (
+        <CanliDurumOzet />
+      ) : (
+        <TouchableOpacity onPress={() => router.push('/abone-ol')} activeOpacity={0.7}>
+          <LinearGradient
+            colors={['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ paddingHorizontal: 16, paddingVertical: 14, marginHorizontal: 16, borderRadius: 14 }}
+          >
+            <Text style={{ fontFamily: 'Poppins_700Bold', fontSize: 14, color: '#FFFFFF' }}>
+              Canlı Saha Durumu
+            </Text>
+            <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              Müze kuyruk bilgileri için Premium'a yükselt
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
+      {/* ═══ 4. SULTANAHMETCAMİİ BAND ═══ */}
       <View style={styles(t).whiteSeparator} />
       <TouchableOpacity onPress={() => setSultanahmetModal(true)} activeOpacity={0.7}>
         <LinearGradient
@@ -345,8 +382,14 @@ export default function AnaSayfa() {
           end={{ x: 1, y: 1 }}
           style={styles(t).sectionBand}
         >
+          <LinearGradient
+            colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.05)', 'rgba(0,0,0,0)']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={styles(t).bandGloss}
+          />
           <View style={{ flex: 1 }}>
-            <Text style={styles(t).sectionBandTitle}>Sultan Ahmet Camii</Text>
+            <Text style={styles(t).sectionBandTitle}>Sultanahmet Camii</Text>
             <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{sahDurum.mesaj}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
@@ -369,9 +412,6 @@ export default function AnaSayfa() {
               activeOpacity={0.7}
               onPress={() => {
                 switch (item.key) {
-                  case 'muzeler':
-                    router.push({ pathname: '/(tabs)/muzeler', params: { kat: '1' } });
-                    break;
                   case 'saraylar':
                     router.push({ pathname: '/(tabs)/muzeler', params: { kat: '0' } });
                     break;
@@ -384,8 +424,11 @@ export default function AnaSayfa() {
                   case 'muzekart':
                     router.push('/(tabs)/muzeKart');
                     break;
-                  case 'gemi':
-                    setGemiModal(true);
+                  case 'ihl':
+                    WebBrowser.openBrowserAsync('https://www.istairport.com/ucuslar/ucus-bilgileri/gelen-ucuslar');
+                    break;
+                  case 'saw':
+                    WebBrowser.openBrowserAsync('https://www.sabihagokcen.aero/yolcu-ve-ziyaretciler/yolcu-rehberi/ucus-bilgi-ekrani');
                     break;
                   case 'namaz':
                     setNamazModal(true);
@@ -397,22 +440,54 @@ export default function AnaSayfa() {
                 }
               }}
             >
-              <LinearGradient
-                colors={['#48CAE4', '#0096C7', '#0077B6']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles(t).iconCircle}
-              >
-                {item.icon ? (
-                  <Image
-                    source={item.icon}
-                    style={styles(t).iconSvg}
-                    contentFit="contain"
+              <View style={styles(t).iconCircleShadow}>
+                <LinearGradient
+                  colors={['#48CAE4', '#0096C7', '#0077B6', '#005A8D']}
+                  start={{ x: 0.5, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
+                  style={styles(t).iconCircle}
+                >
+                  {/* Glossy highlight overlay */}
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.15)', 'rgba(255,255,255,0)']}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 0.6 }}
+                    style={styles(t).glossOverlay}
                   />
-                ) : (
-                  <Text style={styles(t).muzeKartText}>M</Text>
-                )}
-              </LinearGradient>
+                  {item.icon && item.iconText ? (
+                    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                      <Image
+                        source={item.icon}
+                        style={{ width: 26, height: 26, marginBottom: 2 }}
+                        contentFit="contain"
+                      />
+                      <Text
+                        style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.5 }}
+                        numberOfLines={1}
+                      >
+                        {item.iconText}
+                      </Text>
+                    </View>
+                  ) : item.icon ? (
+                    <Image
+                      source={item.icon}
+                      style={styles(t).iconSvg}
+                      contentFit="contain"
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        styles(t).muzeKartText,
+                        (item.iconText || 'M').length > 1 && { fontSize: 18, letterSpacing: 0.5 },
+                      ]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                    >
+                      {item.iconText || 'M'}
+                    </Text>
+                  )}
+                </LinearGradient>
+              </View>
               <Text style={[styles(t).iconLabel, { color: t.text }]}>{item.label}</Text>
             </TouchableOpacity>
           ))}
@@ -427,6 +502,12 @@ export default function AnaSayfa() {
         end={{ x: 1, y: 1 }}
         style={styles(t).bandHeader}
       >
+        <LinearGradient
+          colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.05)', 'rgba(0,0,0,0)']}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles(t).bandGloss}
+        />
         <Text style={styles(t).bandTitle}>Galataport — Haftalık Gemi Takvimi</Text>
         <TouchableOpacity onPress={() => setGemiModal(true)}>
           <Text style={styles(t).viewAllText}>Tüm Liste</Text>
@@ -471,13 +552,43 @@ export default function AnaSayfa() {
         </TouchableOpacity>
       )}
 
-      {/* ═══ 5. ULAŞIM UYARILARI ═══ */}
+      {/* ═══ 5. ULAŞIM UYARILARI (Premium) ═══ */}
       <View style={styles(t).whiteSeparator} />
-      <UlasimUyariBandi t={t} />
+      {premiumMi ? (
+        <UlasimUyariBandi t={t} />
+      ) : (
+        <TouchableOpacity onPress={() => router.push('/abone-ol')} activeOpacity={0.7}>
+          <LinearGradient
+            colors={['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ paddingHorizontal: 16, paddingVertical: 14, marginHorizontal: 16, borderRadius: 14 }}
+          >
+            <Text style={{ fontFamily: 'Poppins_700Bold', fontSize: 14, color: '#FFFFFF' }}>
+              Ulaşım Uyarıları
+            </Text>
+            <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              Anlık metro, tramvay arıza bildirimleri için Premium'a yükselt
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
 
-      {/* ═══ 6. YAKLAŞAN KENT ETKİNLİKLERİ ═══ */}
-      <View style={styles(t).whiteSeparator} />
-      <EtkinliklerBandi />
+      {/* ═══ 5b. TRAFİK VE YOL DURUMU (Premium) ═══ */}
+      {premiumMi && (
+        <>
+          <View style={styles(t).whiteSeparator} />
+          <TrafikUyariBandi t={t} />
+        </>
+      )}
+
+      {/* ═══ 6. YAKLAŞAN KENT ETKİNLİKLERİ (Premium) ═══ */}
+      {premiumMi && (
+        <>
+          <View style={styles(t).whiteSeparator} />
+          <EtkinliklerBandi />
+        </>
+      )}
 
       <View style={{ height: 30 }} />
 
@@ -509,8 +620,8 @@ export default function AnaSayfa() {
                         <Text style={[styles(t).shipCompany, { color: t.primary }]}>{g.sirket}</Text>
                         <View style={styles(t).shipDetailsRow}>
                           <Text style={[styles(t).shipDetailItem, { color: t.textSecondary }]}>Yolcu: {g.yolcu.toLocaleString('tr-TR')}</Text>
-                          {g.gelisSaat ? <Text style={[styles(t).shipDetailItem, { color: t.textSecondary }]}>Gelis: {g.gelisSaat}</Text> : null}
-                          {g.gidisSaat ? <Text style={[styles(t).shipDetailItem, { color: t.textSecondary }]}>Gidis: {g.gidisSaat}</Text> : null}
+                          {g.gelisSaat ? <Text style={[styles(t).shipDetailItem, { color: t.textSecondary }]}>Geliş: {g.gelisSaat}</Text> : null}
+                          {g.gidisSaat ? <Text style={[styles(t).shipDetailItem, { color: t.textSecondary }]}>Gidiş: {g.gidisSaat}</Text> : null}
                         </View>
                         <Text style={[styles(t).shipDate, { color: t.textMuted }]}>{tarihFormat(g.tarih)}</Text>
                       </View>
@@ -533,7 +644,6 @@ export default function AnaSayfa() {
           <View style={[styles(t).modalContent, { backgroundColor: t.bgCard }]}>
             <View style={styles(t).modalHeader}>
               <Text style={[styles(t).modalTitle, { color: t.primary }]}>Sultanahmet Camii</Text>
-              <Text style={[styles(t).modalSubtitle, { color: t.textSecondary }]}>Namaz vakitlerine göre dinamik</Text>
             </View>
             <View style={[styles(t).statusBand, { backgroundColor: sahDurum.renk + '18', borderLeftColor: sahDurum.renk }]}>
               <Text style={[styles(t).statusBandText, { color: sahDurum.renk }]}>
@@ -569,7 +679,7 @@ export default function AnaSayfa() {
               </View>}
               {sultPencereler.length === 0 && <View style={[styles(t).infoBox, { backgroundColor: t.bgSecondary }]}>
                 <Text style={[styles(t).infoTitle, { color: Palette.uyari }]}>Ziyaret pencereleri henüz girilmedi</Text>
-                <Text style={[styles(t).infoText, { color: t.textSecondary }]}>Admin panelden Sultanahmet Camii ziyaret saatlerini girin.</Text>
+                <Text style={[styles(t).infoText, { color: t.textSecondary }]}>Ziyaret pencereleri henüz güncellenmedi.</Text>
               </View>}
               <View style={[styles(t).infoBox, { backgroundColor: t.bgSecondary }]}>
                 <Text style={[styles(t).infoTitle, { color: t.primary }]}>Genel Bilgi</Text>
@@ -581,10 +691,9 @@ export default function AnaSayfa() {
                 <Text style={[styles(t).infoText, { color: t.textSecondary }]}>Giriş ücretsiz</Text>
                 <Text style={[styles(t).infoText, { color: t.textSecondary }]}>Örtünme zorunlu (emanet elbise kabini var)</Text>
                 <Text style={[styles(t).infoText, { color: t.textSecondary }]}>Bebek arabası giremez</Text>
-                <Text style={[styles(t).infoText, { color: t.textSecondary }]}>Sessiz olunmalı</Text>
               </View>
             </ScrollView>
-            <Text style={[styles(t).sourceText, { color: t.textMuted }]}>Kaynak: sultanahmetcami.org — Saatler admin panelden güncellenir</Text>
+            <Text style={[styles(t).sourceText, { color: t.textMuted }]}>Kaynak: sultanahmetcamii.org</Text>
             <TouchableOpacity style={[styles(t).closeButton, { backgroundColor: t.primary }]} onPress={() => setSultanahmetModal(false)}>
               <Text style={styles(t).closeButtonText}>Kapat</Text>
             </TouchableOpacity>
@@ -597,45 +706,45 @@ export default function AnaSayfa() {
         <View style={[styles(t).modalOverlay]}>
           <View style={[styles(t).modalContent, { backgroundColor: t.bgCard }]}>
             <View style={styles(t).modalHeader}>
-              <Text style={[styles(t).modalTitle, { color: t.primary }]}>🏛 Ayasofya Camii — Galeri Katı</Text>
+              <Text style={[styles(t).modalTitle, { color: t.primary }]}>Ayasofya Camii — Galeri Katı</Text>
               <Text style={[styles(t).modalSubtitle, { color: t.textSecondary }]}>Turist ziyareti (üst kat)</Text>
             </View>
             <View style={[styles(t).statusBand, { backgroundColor: ayaDurum.renk + '18', borderLeftColor: ayaDurum.renk }]}>
               <Text style={[styles(t).statusBandText, { color: ayaDurum.renk }]}>
-                {ayaDurum.durum === 'AÇIK' ? '🟢' : ayaDurum.durum === 'GİŞE KAPALI' ? '🟠' : ayaDurum.durum === 'KAPANACAK' ? '🟠' : '🔴'} {ayaDurum.durum} — {ayaDurum.mesaj}
+                {ayaDurum.durum} — {ayaDurum.mesaj}
               </Text>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
               <View style={[styles(t).infoBox, { backgroundColor: t.bgSecondary }]}>
-                <Text style={[styles(t).infoTitle, { color: t.primary }]}>📅 Mevsimsel Saatler</Text>
+                <Text style={[styles(t).infoTitle, { color: t.primary }]}>Mevsimsel Saatler</Text>
                 <View style={styles(t).seasonRow}>
-                  <Text style={[styles(t).seasonLabel, { color: yazMi() ? t.text : t.textMuted }]}>☀️ Yaz (1 Nis - 30 Eyl)</Text>
+                  <Text style={[styles(t).seasonLabel, { color: yazMi() ? t.text : t.textMuted }]}>Yaz (1 Nis - 30 Eyl)</Text>
                   <Text style={[styles(t).seasonTime, { color: yazMi() ? t.text : t.textMuted, fontWeight: yazMi() ? '700' : '400' }]}>08:00 – 19:30</Text>
                 </View>
                 <View style={styles(t).seasonRow}>
-                  <Text style={[styles(t).seasonLabel, { color: !yazMi() ? t.text : t.textMuted }]}>❄️ Kış (1 Eki - 31 Mar)</Text>
+                  <Text style={[styles(t).seasonLabel, { color: !yazMi() ? t.text : t.textMuted }]}>Kış (1 Eki - 31 Mar)</Text>
                   <Text style={[styles(t).seasonTime, { color: !yazMi() ? t.text : t.textMuted, fontWeight: !yazMi() ? '700' : '400' }]}>09:00 – 19:30</Text>
                 </View>
                 <View style={[styles(t).seasonRow, { marginTop: 6, borderTopWidth: 1, borderTopColor: t.divider, paddingTop: 8 }]}>
-                  <Text style={[styles(t).seasonLabel, { color: t.textSecondary }]}>🎫 Gişe kapanış</Text>
+                  <Text style={[styles(t).seasonLabel, { color: t.textSecondary }]}>Gişe kapanış</Text>
                   <Text style={[styles(t).seasonTime, { color: t.textSecondary }]}>18:30</Text>
                 </View>
               </View>
               <View style={[styles(t).warningBox, { backgroundColor: Palette.altin + '12' }]}>
-                <Text style={[styles(t).warningText, { color: Palette.altin }]}>🕋 Cuma günleri 12:30 – 14:30 arası kapalı</Text>
+                <Text style={[styles(t).warningText, { color: Palette.altin }]}>Cuma günleri 12:30 – 14:30 arası kapalı</Text>
               </View>
               <View style={[styles(t).infoBox, { backgroundColor: t.bgSecondary }]}>
-                <Text style={[styles(t).infoTitle, { color: t.primary }]}>💰 Giriş Ücreti (Galeri Katı)</Text>
+                <Text style={[styles(t).infoTitle, { color: t.primary }]}>Giriş Ücreti (Galeri Katı)</Text>
                 <View style={styles(t).priceRow}>
-                  <Text style={[styles(t).priceLabel, { color: t.textSecondary }]}>🌍 Yabancı</Text>
+                  <Text style={[styles(t).priceLabel, { color: t.textSecondary }]}>Yabancı</Text>
                   <Text style={[styles(t).priceValue, { color: t.text }]}>25 €</Text>
                 </View>
                 <View style={styles(t).priceRow}>
-                  <Text style={[styles(t).priceLabel, { color: t.textSecondary }]}>🇹🇷 TC Vatandaşı</Text>
+                  <Text style={[styles(t).priceLabel, { color: t.textSecondary }]}>TC Vatandaşı</Text>
                   <Text style={[styles(t).priceValue, { color: t.text }]}>800 ₺</Text>
                 </View>
                 <View style={styles(t).priceRow}>
-                  <Text style={[styles(t).priceLabel, { color: t.textSecondary }]}>🎟 Müzekart</Text>
+                  <Text style={[styles(t).priceLabel, { color: t.textSecondary }]}>MüzeKart</Text>
                   <Text style={[styles(t).priceValue, { color: t.text }]}>425 ₺</Text>
                 </View>
               </View>
@@ -644,7 +753,7 @@ export default function AnaSayfa() {
                 <Text style={[styles(t).infoText, { color: t.textSecondary }]}>• Zemin kat = cami (ücretsiz, sadece ibadet)</Text>
                 <Text style={[styles(t).infoText, { color: t.textSecondary }]}>• Üst kat = galeri (ücretli, turist girişi)</Text>
                 <Text style={[styles(t).infoText, { color: t.textSecondary }]}>• Örtünme zorunlu</Text>
-                <Text style={[styles(t).infoText, { color: t.textSecondary }]}>🎫 Bilet: dexxmuseums.com</Text>
+                <Text style={[styles(t).infoText, { color: t.textSecondary }]}>Bilet: dexxmuseums.com</Text>
               </View>
             </ScrollView>
             <Text style={[styles(t).sourceText, { color: t.textMuted }]}>Güncelleme: Mart 2026</Text>
@@ -671,7 +780,7 @@ export default function AnaSayfa() {
                       { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: t.divider },
                       aktif && { backgroundColor: Palette.istanbulMavi + '12', marginHorizontal: -16, paddingHorizontal: 16, borderRadius: 10, borderBottomWidth: 0 },
                     ]}>
-                      <Text style={{ fontSize: 22, width: 36 }}>{v.emoji}</Text>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: aktif ? Palette.istanbulMavi : t.textMuted, marginRight: 12 }} />
                       <Text style={[{ flex: 1, fontSize: 16, fontWeight: aktif ? '700' : '500' }, { color: aktif ? Palette.istanbulMavi : t.text }]}>{v.label}</Text>
                       <Text style={[{ fontSize: 20, fontWeight: '700', fontVariant: ['tabular-nums'] as any }, { color: aktif ? Palette.istanbulMavi : t.text }]}>{vakit}</Text>
                       {aktif && <Text style={{ marginLeft: 8, fontSize: 11, color: Palette.istanbulMavi, fontWeight: '600' }}>SONRAKİ</Text>}
@@ -695,7 +804,7 @@ export default function AnaSayfa() {
         <View style={styles(t).modalOverlay}>
           <View style={[styles(t).modalContent, { backgroundColor: t.modalBg }]}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={[styles(t).modalTitle, { color: t.text }]}>💱 Döviz Çevirici</Text>
+              <Text style={[styles(t).modalTitle, { color: t.text }]}>Döviz Çevirici</Text>
 
               {dovizYukleniyor ? (
                 <ActivityIndicator size="large" color={t.primary} style={{ marginTop: 30 }} />
@@ -729,7 +838,7 @@ export default function AnaSayfa() {
                               borderWidth: 1, borderColor: dovizKaynak === p.kod ? Palette.istanbulMavi : t.divider,
                             }}
                           >
-                            <Text style={{ fontSize: 16, marginRight: 4 }}>{p.bayrak}</Text>
+                            <Text style={{ fontSize: 14, marginRight: 4, fontWeight: '700', color: '#64748B' }}>{p.kod}</Text>
                             <Text style={{ fontSize: 13, fontWeight: '700', color: dovizKaynak === p.kod ? '#fff' : t.text }}>{p.kod}</Text>
                           </TouchableOpacity>
                         ))}
@@ -758,7 +867,7 @@ export default function AnaSayfa() {
                               borderWidth: 1, borderColor: dovizHedef === p.kod ? Palette.murdum : t.divider,
                             }}
                           >
-                            <Text style={{ fontSize: 16, marginRight: 4 }}>{p.bayrak}</Text>
+                            <Text style={{ fontSize: 14, marginRight: 4, fontWeight: '700', color: '#64748B' }}>{p.kod}</Text>
                             <Text style={{ fontSize: 13, fontWeight: '700', color: dovizHedef === p.kod ? '#fff' : t.text }}>{p.kod}</Text>
                           </TouchableOpacity>
                         ))}
@@ -780,14 +889,13 @@ export default function AnaSayfa() {
                   </View>
 
                   {/* ── Güncel Kurlar Tablosu (TL bazlı) ── */}
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: t.text, marginBottom: 8 }}>📊 Güncel Kurlar (1 birim = ? ₺)</Text>
                   {PARA_BIRIMLERI.filter(p => p.kod !== 'TRY').map(p => (
                     <TouchableOpacity
                       key={`tablo_${p.kod}`}
                       onPress={() => { setDovizKaynak(p.kod); setDovizHedef('TRY'); setDovizMiktar('1'); }}
                       style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: t.divider }}
                     >
-                      <Text style={{ fontSize: 24, marginRight: 10 }}>{p.bayrak}</Text>
+                      <Text style={{ fontSize: 16, marginRight: 10, fontWeight: '700', color: '#64748B' }}>{p.kod}</Text>
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontSize: 14, fontWeight: '700', color: t.text }}>{p.kod}</Text>
                         <Text style={{ fontSize: 11, color: t.textSecondary }}>{p.isim}</Text>
@@ -800,7 +908,7 @@ export default function AnaSayfa() {
                 </View>
               ) : (
                 <View style={{ alignItems: 'center', paddingVertical: 30 }}>
-                  <Text style={{ fontSize: 40, marginBottom: 10 }}>😕</Text>
+                  <Text style={{ fontSize: 18, marginBottom: 10, color: '#94A3B8', fontWeight: '700' }}>!</Text>
                   <Text style={{ color: t.textSecondary, textAlign: 'center', fontSize: 14 }}>Kur bilgisi alınamadı.{'\n'}İnternet bağlantınızı kontrol edin.</Text>
                   <TouchableOpacity onPress={dovizCek} style={{ marginTop: 16, backgroundColor: t.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 10 }}>
                     <Text style={{ color: '#fff', fontWeight: '700' }}>Tekrar Dene</Text>
@@ -833,6 +941,22 @@ function styles(t: TemaRenkleri) {
     // HEADER
     headerWrapper: {
       overflow: 'hidden',
+      shadowColor: t.kartShadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: t.divider,
+      position: 'relative',
+    },
+    bandGloss: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: '55%',
+      zIndex: 1,
     },
     headerContent: {
       paddingVertical: 20,
@@ -871,6 +995,10 @@ function styles(t: TemaRenkleri) {
       justifyContent: 'space-between',
       alignItems: 'center',
       gap: Space.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: t.divider,
+      position: 'relative',
+      overflow: 'hidden',
     },
     greetingLeft: {
       alignItems: 'flex-start',
@@ -916,6 +1044,10 @@ function styles(t: TemaRenkleri) {
       alignItems: 'center',
       paddingHorizontal: Space.lg,
       paddingVertical: Space.md,
+      borderBottomWidth: 1,
+      borderBottomColor: t.divider,
+      position: 'relative',
+      overflow: 'hidden',
     },
     bandTitle: {
       fontSize: 15,
@@ -934,19 +1066,23 @@ function styles(t: TemaRenkleri) {
       color: '#2E7D32',
     },
 
-    // WHITE SEPARATOR
+    // SEPARATOR
     whiteSeparator: {
-      height: 3,
-      backgroundColor: '#FFFFFF',
+      height: 1,
+      backgroundColor: t.divider,
     },
 
-    // SECTION BAND (Sultan Ahmet, Etkinlikler, Ulaşım Uyarıları)
+    // SECTION BAND (Sultanahmet, Etkinlikler, Ulaşım Uyarıları)
     sectionBand: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingHorizontal: Space.lg,
       paddingVertical: Space.md,
+      borderBottomWidth: 1,
+      borderBottomColor: t.divider,
+      position: 'relative',
+      overflow: 'hidden',
     },
     sectionBandTitle: {
       fontSize: 15,
@@ -1025,14 +1161,37 @@ function styles(t: TemaRenkleri) {
       width: '24%',
       alignItems: 'center',
     },
+    iconCircleShadow: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      marginBottom: Space.md,
+      shadowColor: t.kartShadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 6,
+    },
     iconCircle: {
       width: 64,
       height: 64,
       borderRadius: 32,
-      backgroundColor: t.primary,
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: Space.md,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: t.divider,
+    },
+    glossOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 4,
+      right: 4,
+      height: '50%',
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      borderBottomLeftRadius: 20,
+      borderBottomRightRadius: 20,
     },
     iconSvg: {
       width: 44,

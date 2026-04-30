@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAdmin } from '../hooks/use-admin';
 import { supabase } from '../lib/supabase';
+import { useTema } from '../hooks/use-tema';
+import type { TemaRenkleri } from '../constants/theme';
 
 interface Ban {
   id: string;
@@ -23,6 +25,8 @@ interface Ban {
 
 export default function AdminBanlar() {
   const insets = useSafeAreaInsets();
+  const { t } = useTema();
+  const s = createStyles(t);
   const { isYetkili, yukleniyor: adminYukleniyor } = useAdmin();
 
   const [banlar, setBanlar] = useState<Ban[]>([]);
@@ -169,9 +173,9 @@ export default function AdminBanlar() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' },
+const createStyles = (t: TemaRenkleri) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
 
   header: { paddingBottom: 16, paddingHorizontal: 16 },
   geriTus: { marginBottom: 8 },
@@ -181,23 +185,23 @@ const s = StyleSheet.create({
 
   liste: { flex: 1, padding: 16 },
   bosContainer: { paddingVertical: 60, alignItems: 'center' },
-  bosYazi: { color: '#94A3B8', fontSize: 15 },
+  bosYazi: { color: t.textMuted, fontSize: 15 },
 
   bolumBaslik: {
-    fontSize: 13, fontWeight: '600', color: '#8A9BAE',
+    fontSize: 13, fontWeight: '600', color: t.textSecondary,
     marginTop: 24, marginBottom: 12,
   },
 
   kart: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 16,
-    marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: t.bgCard, borderRadius: 14, padding: 16,
+    marginBottom: 12, borderWidth: 1, borderColor: t.kartBorder,
   },
   kartPasif: { opacity: 0.5 },
   kartUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   kartBilgi: { flex: 1, marginRight: 12 },
-  kartIsim: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
-  kartSebep: { fontSize: 12, color: '#64748B', marginTop: 4 },
-  kartTarih: { fontSize: 11, color: '#94A3B8', marginTop: 4 },
+  kartIsim: { fontSize: 15, fontWeight: '700', color: t.text },
+  kartSebep: { fontSize: 12, color: t.textSecondary, marginTop: 4 },
+  kartTarih: { fontSize: 11, color: t.textMuted, marginTop: 4 },
 
   aktifBadge: {
     backgroundColor: '#FEE2E2', borderRadius: 8,
@@ -206,7 +210,7 @@ const s = StyleSheet.create({
   aktifBadgeYazi: { fontSize: 11, fontWeight: '700', color: '#D62828' },
 
   kaldirBtn: {
-    backgroundColor: '#EAF4FB', borderRadius: 8,
+    backgroundColor: t.bgSecondary, borderRadius: 8,
     paddingVertical: 10, alignItems: 'center', marginTop: 12,
   },
   kaldirBtnYazi: { fontSize: 13, fontWeight: '700', color: '#0077B6' },

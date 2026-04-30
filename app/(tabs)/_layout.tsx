@@ -5,12 +5,12 @@ import { useTema } from '../../hooks/use-tema';
 import { HomeIcon, SirenIcon, ChatIcon, SearchIcon, UserIcon } from '../../components/tab-icons';
 import { useOkunmamisMesaj } from '../../hooks/use-okunmamis-mesaj';
 
-function TabIcon({ children, focused, badge }: { children: React.ReactNode; focused: boolean; badge?: boolean }) {
+function TabIcon({ children, focused, badge, tabBg }: { children: React.ReactNode; focused: boolean; badge?: boolean; tabBg?: string }) {
   return (
     <View style={[si.iconWrap, focused && si.iconWrapActive]}>
       {children}
       {badge && !focused && (
-        <View style={si.badge} />
+        <View style={[si.badge, tabBg ? { borderColor: tabBg } : undefined]} />
       )}
     </View>
   );
@@ -45,19 +45,19 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { okunmamisVar } = useOkunmamisMesaj();
 
-  const aktif = '#0077B6';
-  const pasif = '#94A3B8';
+  const aktif = t.tabActive;
+  const pasif = t.tabInactive;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E2E8F0',
+          backgroundColor: t.tabBg,
+          borderTopColor: t.tabBorder,
           borderTopWidth: 1,
-          height: 65,
-          paddingBottom: 10,
+          height: 65 + (Platform.OS !== 'web' ? insets.bottom : 0),
+          paddingBottom: Platform.OS !== 'web' ? Math.max(insets.bottom, 10) : 10,
           paddingLeft: Platform.OS === 'web' ? 0 : insets.left,
           paddingRight: Platform.OS === 'web' ? 0 : insets.right,
           elevation: 0,
@@ -98,7 +98,7 @@ export default function TabLayout() {
         options={{
           title: 'Sohbet',
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} badge={okunmamisVar}>
+            <TabIcon focused={focused} badge={okunmamisVar} tabBg={t.tabBg}>
               <ChatIcon size={22} color={focused ? aktif : pasif} />
             </TabIcon>
           ),

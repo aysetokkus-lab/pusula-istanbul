@@ -23,26 +23,19 @@ export default function MuzeKart() {
 
   // Supabase'den muzekart durumuna gore filtrele
   const gecenYerler = useMemo(() =>
-    mekanlar.filter(m => m.muzekart === 'gecerli').map(m => ({
-      isim: m.isim,
-      not: m.ozel_not || '',
-    })),
+    mekanlar.filter(m => m.muzekart === 'gecerli').map(m => m.isim),
     [mekanlar]
   );
 
   const gecmeyenYerler = useMemo(() =>
-    mekanlar.filter(m => m.muzekart === 'gecmez').map(m => ({
-      isim: m.isim,
-      not: m.fiyat_yabanci ? `Yabanci: ${m.fiyat_yabanci}` : (m.ozel_not || 'Ayri bilet'),
-    })),
+    mekanlar.filter(m => m.muzekart === 'gecmez').map(m => m.isim),
     [mekanlar]
   );
 
   return (
     <ScrollView style={styles.container}>
       <LinearGradient colors={['#00A8E8','#0077B6','#0096C7','#48CAE4']} start={{x:0,y:0}} end={{x:1,y:1}} style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerBaslik}>Müze Kart</Text>
-        <Text style={styles.headerAlt}>Museum Pass İstanbul bilgileri</Text>
+        <Text style={styles.headerBaslik}>MüzeKart</Text>
       </LinearGradient>
 
       {/* RESMI LINK */}
@@ -56,14 +49,7 @@ export default function MuzeKart() {
         <Text style={styles.bolumBaslik}>Fatih'te Satış Noktaları</Text>
         {SATIS_NOKTALARI.map((s, i) => (
           <View key={i} style={[styles.satisKart, { borderLeftColor: s.yogunluk === 'dusuk' ? Palette.acik : Palette.uyari }]}>
-            <View style={styles.satisUst}>
-              <Text style={styles.satisIsim}>{s.isim}</Text>
-              <View style={[styles.yogunlukBadge, { backgroundColor: s.yogunluk === 'dusuk' ? Palette.acik + '20' : Palette.uyari + '20' }]}>
-                <Text style={[styles.yogunlukYazi, { color: s.yogunluk === 'dusuk' ? Palette.acik : Palette.uyari }]}>
-                  {s.yogunluk === 'dusuk' ? 'Sakin' : 'Kalabalik'}
-                </Text>
-              </View>
-            </View>
+            <Text style={styles.satisIsim}>{s.isim}</Text>
             <Text style={styles.satisAdres}>{s.adres}</Text>
             <Text style={styles.satisNot}>{s.not}</Text>
           </View>
@@ -77,7 +63,7 @@ export default function MuzeKart() {
           <TouchableOpacity style={[styles.tipKart, { borderColor: t.accent }]}
             onPress={() => Linking.openURL('https://muze.gov.tr/urun-detay?CatalogNo=KRT-MBL01-99-008')}>
             <View style={[styles.tipDot, { backgroundColor: t.accent }]} />
-            <Text style={[styles.tipAdi, { color: t.accent }]}>Müzekart</Text>
+            <Text style={[styles.tipAdi, { color: t.accent }]}>MüzeKart</Text>
             <Text style={styles.tipAlt}>T.C. Vatandaşı</Text>
             <Text style={styles.tipAciklama}>Kimlik ile satın alınır. Yıllık geçerli.</Text>
             <Text style={styles.tipLink}>Satın Al</Text>
@@ -95,19 +81,16 @@ export default function MuzeKart() {
 
       {/* GECEN YERLER */}
       <View style={styles.bolum}>
-        <Text style={styles.bolumBaslik}>Müzekart Geçen Yerler</Text>
+        <Text style={styles.bolumBaslik}>MüzeKart Geçen Yerler</Text>
         {yukleniyor && gecenYerler.length === 0 ? (
           <ActivityIndicator size="small" color={t.primary} style={{ marginVertical: 20 }} />
         ) : gecenYerler.length === 0 ? (
           <Text style={[styles.bosYazi, { color: t.textMuted }]}>Henüz veri yok</Text>
         ) : (
-          gecenYerler.map((m, i) => (
+          gecenYerler.map((isim, i) => (
             <View key={i} style={styles.gecenSatir}>
               <View style={[styles.durumDot, { backgroundColor: Palette.acik }]} />
-              <View style={styles.satirIcerik}>
-                <Text style={styles.satirIsim}>{m.isim}</Text>
-                {m.not ? <Text style={styles.satirNot}>{m.not}</Text> : null}
-              </View>
+              <Text style={styles.satirIsim}>{isim}</Text>
             </View>
           ))
         )}
@@ -115,19 +98,16 @@ export default function MuzeKart() {
 
       {/* GECMEYEN YERLER */}
       <View style={styles.bolum}>
-        <Text style={styles.bolumBaslik}>Müzekart Geçmeyen Yerler</Text>
+        <Text style={styles.bolumBaslik}>MüzeKart Geçmeyen Yerler</Text>
         {yukleniyor && gecmeyenYerler.length === 0 ? (
           <ActivityIndicator size="small" color={t.primary} style={{ marginVertical: 20 }} />
         ) : gecmeyenYerler.length === 0 ? (
           <Text style={[styles.bosYazi, { color: t.textMuted }]}>Henüz veri yok</Text>
         ) : (
-          gecmeyenYerler.map((m, i) => (
+          gecmeyenYerler.map((isim, i) => (
             <View key={i} style={styles.gecmeyenSatir}>
               <View style={[styles.durumDot, { backgroundColor: Palette.kapali }]} />
-              <View style={styles.satirIcerik}>
-                <Text style={styles.satirIsim}>{m.isim}</Text>
-                <Text style={styles.gecmeyenNot}>{m.not}</Text>
-              </View>
+              <Text style={styles.satirIsim}>{isim}</Text>
             </View>
           ))
         )}
@@ -167,10 +147,7 @@ function createStyles(t: TemaRenkleri) {
     gecenSatir: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Palette.acik + '15', borderRadius: 8, padding: 12, marginBottom: 6 },
     gecmeyenSatir: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Palette.kapali + '15', borderRadius: 8, padding: 12, marginBottom: 6 },
     durumDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10, marginTop: 4 },
-    satirIcerik: { flex: 1 },
-    satirIsim: { color: t.text, fontSize: 13, fontWeight: '600' },
-    satirNot: { color: Palette.uyari, fontSize: 11, marginTop: 2 },
-    gecmeyenNot: { color: t.textSecondary, fontSize: 11, marginTop: 2 },
+    satirIsim: { color: t.text, fontSize: 13, fontWeight: '600', flex: 1 },
     bosYazi: { textAlign: 'center', fontSize: 13, marginVertical: 16 },
     satisKart: { backgroundColor: t.bgCard, borderRadius: 12, padding: 14, marginBottom: 10, borderLeftWidth: 4 },
     satisUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },

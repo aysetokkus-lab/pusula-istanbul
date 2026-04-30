@@ -6,7 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
    Bildirim Kategorileri
    ═══════════════════════════════════════════ */
 export interface BildirimTercihleri {
-  ulasim: boolean;       // Ulaşım uyarıları
+  ulasim: boolean;       // Ulaşım uyarıları (rayli sistem)
+  trafik: boolean;       // Trafik ve yol durumu (IBB Ulasim: kopru, metrobus, E-5, TEM)
   sahaDurumu: boolean;   // Canlı saha durumu (müze yoğunluk)
   etkinlikler: boolean;  // Yaklaşan etkinlikler
   sohbet: boolean;       // Yeni sohbet mesajları
@@ -15,6 +16,7 @@ export interface BildirimTercihleri {
 
 export const VARSAYILAN_TERCIHLER: BildirimTercihleri = {
   ulasim: true,
+  trafik: true,
   sahaDurumu: true,
   etkinlikler: true,
   sohbet: true,
@@ -27,8 +29,13 @@ export type BildirimKategori = keyof BildirimTercihleri;
 export const BILDIRIM_KATEGORI_BILGI: Record<BildirimKategori, { baslik: string; aciklama: string; aciklamaKapali: string }> = {
   ulasim: {
     baslik: 'Ulaşım Uyarıları',
-    aciklama: 'Arıza, kesinti ve gecikme bildirimleri açık',
-    aciklamaKapali: 'Ulaşım bildirimleri kapalı',
+    aciklama: 'Metro, tramvay ve Marmaray arıza bildirimleri açık',
+    aciklamaKapali: 'Raylı sistem bildirimleri kapalı',
+  },
+  trafik: {
+    baslik: 'Trafik ve Yol Durumu',
+    aciklama: 'Köprü, metrobüs, E-5, TEM ve yol çalışması bildirimleri açık',
+    aciklamaKapali: 'Trafik bildirimleri kapalı',
   },
   sahaDurumu: {
     baslik: 'Saha Durumu',

@@ -10,11 +10,15 @@ import { useAdmin } from '../hooks/use-admin';
 import { supabase } from '../lib/supabase';
 import type { HavalimaniSefer } from '../hooks/use-ulasim-tarife';
 import type { BogazTuru } from '../hooks/use-bogaz-turlari';
+import { useTema } from '../hooks/use-tema';
+import type { TemaRenkleri } from '../constants/theme';
 
 type Sekme = 'havaist' | 'havabus' | 'bogaz';
 
 export default function AdminUlasimTarife() {
   const insets = useSafeAreaInsets();
+  const { t } = useTema();
+  const s = createStyles(t);
   const { isYetkili, yukleniyor: adminYukleniyor } = useAdmin();
   const [sekme, setSekme] = useState<Sekme>('havaist');
   const [seferler, setSeferler] = useState<HavalimaniSefer[]>([]);
@@ -33,7 +37,11 @@ export default function AdminUlasimTarife() {
   const [bogazModal, setBogazModal] = useState(false);
   const [seciliTur, setSeciliTur] = useState<BogazTuru | null>(null);
   const [bogazSaatlerStr, setBogazSaatlerStr] = useState('');
+  const [bogazHsSaatlerStr, setBogazHsSaatlerStr] = useState('');
   const [bogazFiyatForm, setBogazFiyatForm] = useState('');
+  const [bogazKalkisNoktaStr, setBogazKalkisNoktaStr] = useState('');
+  const [bogazKalkisYeri, setBogazKalkisYeri] = useState('');
+  const [bogazOzelNot, setBogazOzelNot] = useState('');
 
   // Yeni ekleme modlari
   const [yeniSeferModu, setYeniSeferModu] = useState(false);
@@ -82,7 +90,11 @@ export default function AdminUlasimTarife() {
     setYeniBogazRenk('#0077B6');
     setYeniBogazSure('');
     setBogazSaatlerStr('');
+    setBogazHsSaatlerStr('');
     setBogazFiyatForm('');
+    setBogazKalkisNoktaStr('');
+    setBogazKalkisYeri('');
+    setBogazOzelNot('');
     setBogazModal(true);
   };
 
@@ -105,7 +117,7 @@ export default function AdminUlasimTarife() {
 
     if (yeniSeferModu) {
       if (!yeniSeferAdi.trim()) {
-        Alert.alert('Hata', 'Durak adi bos olamaz.');
+        Alert.alert('Hata', 'Durak adı boş olamaz.');
         return;
       }
       const durakId = yeniSeferAdi.trim().toLowerCase().replace(/[^a-z0-9ğüşıöç]/gi, '_').replace(/_+/g, '_');
@@ -126,7 +138,7 @@ export default function AdminUlasimTarife() {
       if (error) {
         Alert.alert('Hata', error.message);
       } else {
-        Alert.alert('Basarili', `${yeniSeferAdi.trim()} eklendi.`);
+        Alert.alert('Başarılı', `${yeniSeferAdi.trim()} eklendi.`);
         setSeferModal(false);
         veriCek();
       }
@@ -152,7 +164,7 @@ export default function AdminUlasimTarife() {
       if (error) {
         Alert.alert('Hata', error.message);
       } else {
-        Alert.alert('Basarili', `${seciliSefer.durak_adi} seferleri guncellendi.`);
+        Alert.alert('Başarılı', `${seciliSefer.durak_adi} seferleri güncellendi.`);
         setSeferModal(false);
         veriCek();
       }
@@ -163,7 +175,13 @@ export default function AdminUlasimTarife() {
     setYeniBogazModu(false);
     setSeciliTur(t);
     setBogazSaatlerStr((t.hafta_ici_saatler || []).join(', '));
+    setBogazHsSaatlerStr((t.hafta_sonu_saatler || []).join(', '));
     setBogazFiyatForm(t.fiyat || '');
+    setBogazKalkisYeri(t.kalkis_yeri || '');
+    setBogazOzelNot(t.ozel_not || '');
+    // kalkis_noktalari: [{durak, fiyat}] → "Kabatas: 300 TL, Besiktas: 250 TL"
+    const knStr = (t.kalkis_noktalari || []).map((k: any) => `${k.durak}: ${k.fiyat}`).join(', ');
+    setBogazKalkisNoktaStr(knStr);
     setBogazModal(true);
   };
 
@@ -173,12 +191,28 @@ export default function AdminUlasimTarife() {
     const saatParse = (str: string) => str.split(',').map(s => s.trim()).filter(s => /^\d{2}:\d{2}$/.test(s));
     const yeniSaatler = saatParse(bogazSaatlerStr);
 
+    // kalkis_noktalari parse: "Kabatas: 300 TL, Besiktas: 250 TL" → [{durak, fiyat}]
+    const kalkisNoktaParse = (str: string) => {
+      if (!str.trim()) return [];
+      return str.split(',').map(s => {
+        const [durak, ...fiyatParts] = s.split(':');
+        return { durak: (durak || '').trim(), fiyat: fiyatParts.join(':').trim() };
+      }).filter(k => k.durak);
+    };
+
+    const hsSaatler = saatParse(bogazHsSaatlerStr);
+    const kalkisNoktalari = kalkisNoktaParse(bogazKalkisNoktaStr);
+
     if (yeniBogazModu) {
       if (!yeniBogazSirket.trim()) {
-        Alert.alert('Hata', 'Sirket adi bos olamaz.');
+        Alert.alert('Hata', 'Şirket adı boş olamaz.');
         return;
       }
-      const sirketId = yeniBogazSirketId.trim() || yeniBogazSirket.trim().toLowerCase().replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_');
+      if (!yeniBogazSirketId.trim()) {
+        Alert.alert('Hata', 'Şirket ID boş olamaz. Örnek: turyol, dentur, sehirhatlari_kisa');
+        return;
+      }
+      const sirketId = yeniBogazSirketId.trim();
       const { error } = await supabase.from('bogaz_turlari').insert({
         sirket_id: sirketId,
         sirket_adi: yeniBogazSirket.trim(),
@@ -187,10 +221,12 @@ export default function AdminUlasimTarife() {
         fiyat: bogazFiyatForm || null,
         sure: yeniBogazSure || null,
         hafta_ici_saatler: yeniSaatler,
-        hafta_sonu_saatler: yeniSaatler,
+        hafta_sonu_saatler: hsSaatler.length > 0 ? hsSaatler : yeniSaatler,
         gidis_guzergah: [],
         donus_guzergah: [],
-        kalkis_noktalari: [],
+        kalkis_noktalari: kalkisNoktalari,
+        kalkis_yeri: bogazKalkisYeri || null,
+        ozel_not: bogazOzelNot || null,
         aktif: true,
         aktif_mevsim: 'kis',
         guncelleme_tarihi: new Date().toISOString(),
@@ -200,7 +236,7 @@ export default function AdminUlasimTarife() {
       if (error) {
         Alert.alert('Hata', error.message);
       } else {
-        Alert.alert('Basarili', `${yeniBogazSirket.trim()} eklendi.`);
+        Alert.alert('Başarılı', `${yeniBogazSirket.trim()} eklendi.`);
         setBogazModal(false);
         veriCek();
       }
@@ -210,8 +246,11 @@ export default function AdminUlasimTarife() {
         .from('bogaz_turlari')
         .update({
           hafta_ici_saatler: yeniSaatler,
-          hafta_sonu_saatler: yeniSaatler,
+          hafta_sonu_saatler: hsSaatler.length > 0 ? hsSaatler : yeniSaatler,
           fiyat: bogazFiyatForm || null,
+          kalkis_noktalari: kalkisNoktalari.length > 0 ? kalkisNoktalari : (seciliTur.kalkis_noktalari || []),
+          kalkis_yeri: bogazKalkisYeri || seciliTur.kalkis_yeri || null,
+          ozel_not: bogazOzelNot || null,
           guncelleme_tarihi: new Date().toISOString(),
           guncelleyen: user?.id,
         })
@@ -220,7 +259,7 @@ export default function AdminUlasimTarife() {
       if (error) {
         Alert.alert('Hata', error.message);
       } else {
-        Alert.alert('Basarili', `${seciliTur.sirket_adi} turlari guncellendi.`);
+        Alert.alert('Başarılı', `${seciliTur.sirket_adi} turları güncellendi.`);
         setBogazModal(false);
         veriCek();
       }
@@ -233,9 +272,9 @@ export default function AdminUlasimTarife() {
   if (!isYetkili) {
     return (
       <View style={s.yukle}>
-        <Text style={s.yetkisiz}>Erisim Engellendi</Text>
+        <Text style={s.yetkisiz}>Erişim Engellendi</Text>
         <TouchableOpacity style={s.geriBtn} onPress={() => router.back()}>
-          <Text style={s.geriBtnYazi}>Geri Don</Text>
+          <Text style={s.geriBtnYazi}>Geri Dön</Text>
         </TouchableOpacity>
       </View>
     );
@@ -247,8 +286,8 @@ export default function AdminUlasimTarife() {
         <TouchableOpacity onPress={() => router.back()} style={s.geriTus}>
           <Text style={s.geriTusYazi}>{'<'} Geri</Text>
         </TouchableOpacity>
-        <Text style={s.headerBaslik}>Ulasim Tarifeleri</Text>
-        <Text style={s.headerAlt}>Havalimani seferleri ve bogaz turlari</Text>
+        <Text style={s.headerBaslik}>Ulaşım Tarifeleri</Text>
+        <Text style={s.headerAlt}>Havalimanı seferleri ve boğaz turları</Text>
       </LinearGradient>
 
       {/* Sekmeler */}
@@ -256,7 +295,7 @@ export default function AdminUlasimTarife() {
         {[
           { id: 'havaist' as Sekme, label: 'HAVAiST' },
           { id: 'havabus' as Sekme, label: 'HAVABUS' },
-          { id: 'bogaz' as Sekme, label: 'Bogaz Turlari' },
+          { id: 'bogaz' as Sekme, label: 'Boğaz Turları' },
         ].map(t => (
           <TouchableOpacity key={t.id} style={[s.sekmeBtn, sekme === t.id && s.sekmeBtnAktif]}
             onPress={() => setSekme(t.id)}>
@@ -269,7 +308,7 @@ export default function AdminUlasimTarife() {
         {/* Yeni Ekle Butonu */}
         <TouchableOpacity style={s.yeniEkleBtn} onPress={sekme === 'bogaz' ? yeniBogazAc : yeniSeferAc} activeOpacity={0.7}>
           <Text style={s.yeniEklePlus}>+</Text>
-          <Text style={s.yeniEkleYazi}>{sekme === 'bogaz' ? 'Yeni Bogaz Turu Ekle' : 'Yeni Guzergah Ekle'}</Text>
+          <Text style={s.yeniEkleYazi}>{sekme === 'bogaz' ? 'Yeni Boğaz Turu Ekle' : 'Yeni Güzergâh Ekle'}</Text>
         </TouchableOpacity>
 
         {yukleniyor ? (
@@ -277,7 +316,7 @@ export default function AdminUlasimTarife() {
         ) : sekme === 'bogaz' ? (
           /* BOGAZ TURLARI */
           bogazTurlar.length === 0 ? (
-            <Text style={s.bosYazi}>Bogaz turu bulunamadi.</Text>
+            <Text style={s.bosYazi}>Boğaz turu bulunamadı.</Text>
           ) : (
             bogazTurlar.map(t => (
               <TouchableOpacity key={t.id} style={s.kartKutu} onPress={() => bogazDuzenleAc(t)} activeOpacity={0.7}>
@@ -285,7 +324,7 @@ export default function AdminUlasimTarife() {
                 <View style={s.kartBilgi}>
                   <Text style={s.kartIsim}>{t.sirket_adi}</Text>
                   <Text style={s.kartAlt}>
-                    {t.tur_tipi === 'standart' ? (t.kalkis_yeri || 'Coklu kalkis') : `${t.tur_tipi} tur`}
+                    {t.tur_tipi === 'standart' ? (t.kalkis_yeri || 'Çoklu kalkış') : `${t.tur_tipi} tur`}
                     {t.fiyat ? ` — ${t.fiyat}` : ''}
                   </Text>
                   <Text style={s.kartSaat}>
@@ -300,7 +339,7 @@ export default function AdminUlasimTarife() {
         ) : (
           /* HAVALİMANI SEFERLERİ */
           seferler.length === 0 ? (
-            <Text style={s.bosYazi}>Sefer bulunamadi.</Text>
+            <Text style={s.bosYazi}>Sefer bulunamadı.</Text>
           ) : (
             seferler.map(sf => (
               <TouchableOpacity key={sf.id} style={s.kartKutu} onPress={() => seferDuzenleAc(sf)} activeOpacity={0.7}>
@@ -313,7 +352,7 @@ export default function AdminUlasimTarife() {
                     {sf.sure ? ` (${sf.sure})` : ''}
                   </Text>
                   <Text style={s.kartSaat}>
-                    Sehir→Hav: {sf.sehirden_hav?.length || 0} sefer / Hav→Sehir: {sf.havdan_sehir?.length || 0} sefer
+                    Şehir→Hav: {sf.sehirden_hav?.length || 0} sefer / Hav→Şehir: {sf.havdan_sehir?.length || 0} sefer
                   </Text>
                   {sf.tarife_donemi && <Text style={s.kartDonemi}>Tarife: {sf.tarife_donemi}</Text>}
                 </View>
@@ -329,14 +368,14 @@ export default function AdminUlasimTarife() {
         <View style={s.modalArka}>
           <View style={s.modalKutu}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={s.modalBaslik}>{yeniSeferModu ? 'Yeni Guzergah Ekle' : seciliSefer?.durak_adi}</Text>
+              <Text style={s.modalBaslik}>{yeniSeferModu ? 'Yeni Güzergâh Ekle' : seciliSefer?.durak_adi}</Text>
               <Text style={s.modalAlt}>{yeniSeferModu ? (sekme === 'havaist' ? 'HAVAiST' : 'HAVABUS') : `${seciliSefer?.firma?.toUpperCase()} — ${seciliSefer?.havalimani}`}</Text>
 
               {yeniSeferModu && (
                 <>
                   <View style={s.inputGrup}>
-                    <Text style={s.inputLabel}>Durak Adi *</Text>
-                    <TextInput style={s.input} value={yeniSeferAdi} onChangeText={setYeniSeferAdi} placeholder="Ornek: Taksim" />
+                    <Text style={s.inputLabel}>Durak Adı *</Text>
+                    <TextInput style={s.input} value={yeniSeferAdi} onChangeText={setYeniSeferAdi} placeholder="Örnek: Taksim" />
                   </View>
                   <View style={s.inputGrup}>
                     <Text style={s.inputLabel}>Havalimani</Text>
@@ -346,7 +385,7 @@ export default function AdminUlasimTarife() {
                           style={[s.havSecBtn, yeniSeferHavalimani === h && s.havSecBtnAktif]}
                           onPress={() => setYeniSeferHavalimani(h)}>
                           <Text style={[s.havSecYazi, yeniSeferHavalimani === h && s.havSecYaziAktif]}>
-                            {h === 'IST' ? 'Istanbul (IST)' : 'Sabiha Gokcen (SAW)'}
+                            {h === 'IST' ? 'İstanbul (IST)' : 'Sabiha Gökçen (SAW)'}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -362,21 +401,21 @@ export default function AdminUlasimTarife() {
                     <TextInput style={s.input} value={fiyatForm} onChangeText={setFiyatForm} placeholder="440 TL" />
                   </View>
                   <View style={s.inputGrup}>
-                    <Text style={s.inputLabel}>Sure</Text>
+                    <Text style={s.inputLabel}>Süre</Text>
                     <TextInput style={s.input} value={sureForm} onChangeText={setSureForm} placeholder="~90 dk" />
                   </View>
                 </View>
               )}
 
               <Text style={s.bolumBaslik}>
-                Sehir → Havalimani ({sehirdenHavStr.split(',').filter(s => s.trim()).length} sefer)
+                Şehir → Havalimanı ({sehirdenHavStr.split(',').filter(s => s.trim()).length} sefer)
               </Text>
-              <Text style={s.ipucu}>Saatleri virgul ile ayirin: 08:00, 09:30, 10:00</Text>
+              <Text style={s.ipucu}>Saatleri virgül ile ayırın: 08:00, 09:30, 10:00</Text>
               <TextInput style={[s.input, s.inputCokSatir]} value={sehirdenHavStr}
                 onChangeText={setSehirdenHavStr} multiline placeholder="08:00, 09:00, 10:00..." />
 
               <Text style={s.bolumBaslik}>
-                Havalimani → Sehir ({havdanSehirStr.split(',').filter(s => s.trim()).length} sefer)
+                Havalimanı → Şehir ({havdanSehirStr.split(',').filter(s => s.trim()).length} sefer)
               </Text>
               <TextInput style={[s.input, s.inputCokSatir]} value={havdanSehirStr}
                 onChangeText={setHavdanSehirStr} multiline placeholder="08:00, 09:00, 10:00..." />
@@ -385,7 +424,7 @@ export default function AdminUlasimTarife() {
                 <Text style={s.kaydetBtnYazi}>Kaydet</Text>
               </TouchableOpacity>
               <TouchableOpacity style={s.iptalBtn} onPress={() => setSeferModal(false)}>
-                <Text style={s.iptalBtnYazi}>Iptal</Text>
+                <Text style={s.iptalBtnYazi}>İptal</Text>
               </TouchableOpacity>
               <View style={{ height: 30 }} />
             </ScrollView>
@@ -398,22 +437,27 @@ export default function AdminUlasimTarife() {
         <View style={s.modalArka}>
           <View style={s.modalKutu}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={s.modalBaslik}>{yeniBogazModu ? 'Yeni Bogaz Turu Ekle' : seciliTur?.sirket_adi}</Text>
-              <Text style={s.modalAlt}>{yeniBogazModu ? 'Bogaz Turlari' : `${seciliTur?.tur_tipi} tur — ${seciliTur?.tarife_donemi}`}</Text>
+              <Text style={s.modalBaslik}>{yeniBogazModu ? 'Yeni Boğaz Turu Ekle' : seciliTur?.sirket_adi}</Text>
+              <Text style={s.modalAlt}>{yeniBogazModu ? 'Boğaz Turları' : `${seciliTur?.tur_tipi} tur — ${seciliTur?.tarife_donemi}`}</Text>
 
               {yeniBogazModu && (
                 <>
                   <View style={s.inputGrup}>
-                    <Text style={s.inputLabel}>Sirket Adi *</Text>
-                    <TextInput style={s.input} value={yeniBogazSirket} onChangeText={setYeniBogazSirket} placeholder="Ornek: Dentur Avrasya" />
+                    <Text style={s.inputLabel}>Şirket Adı *</Text>
+                    <TextInput style={s.input} value={yeniBogazSirket} onChangeText={setYeniBogazSirket} placeholder="Örnek: Dentur Avrasya" />
+                  </View>
+                  <View style={s.inputGrup}>
+                    <Text style={s.inputLabel}>Şirket ID * (küçük harf, boşluksuz)</Text>
+                    <TextInput style={s.input} value={yeniBogazSirketId} onChangeText={setYeniBogazSirketId}
+                      placeholder="turyol, dentur, sehirhatlari_kisa" autoCapitalize="none" />
                   </View>
                   <View style={s.satirKutu}>
                     <View style={s.inputGrup}>
                       <Text style={s.inputLabel}>Tur Tipi</Text>
-                      <TextInput style={s.input} value={yeniBogazTurTipi} onChangeText={setYeniBogazTurTipi} placeholder="standart/uzun" />
+                      <TextInput style={s.input} value={yeniBogazTurTipi} onChangeText={setYeniBogazTurTipi} placeholder="standart/uzun/kisa" />
                     </View>
                     <View style={s.inputGrup}>
-                      <Text style={s.inputLabel}>Sure</Text>
+                      <Text style={s.inputLabel}>Süre</Text>
                       <TextInput style={s.input} value={yeniBogazSure} onChangeText={setYeniBogazSure} placeholder="~2 saat" />
                     </View>
                     <View style={s.inputGrup}>
@@ -424,23 +468,48 @@ export default function AdminUlasimTarife() {
                 </>
               )}
 
+              <View style={s.satirKutu}>
+                <View style={s.inputGrup}>
+                  <Text style={s.inputLabel}>Fiyat (genel)</Text>
+                  <TextInput style={s.input} value={bogazFiyatForm} onChangeText={setBogazFiyatForm} placeholder="300 TL" />
+                </View>
+                <View style={s.inputGrup}>
+                  <Text style={s.inputLabel}>Kalkış Yeri</Text>
+                  <TextInput style={s.input} value={bogazKalkisYeri} onChangeText={setBogazKalkisYeri} placeholder="Eminonu" />
+                </View>
+              </View>
+
               <View style={{ marginTop: 12 }}>
-                <Text style={s.inputLabel}>Fiyat</Text>
-                <TextInput style={s.input} value={bogazFiyatForm} onChangeText={setBogazFiyatForm} placeholder="300 TL" />
+                <Text style={s.inputLabel}>Kalkış Noktaları ve Fiyatları</Text>
+                <Text style={s.ipucu}>Format: Kabatas: 300 TL, Besiktas: 250 TL</Text>
+                <TextInput style={[s.input, { marginTop: 4 }]} value={bogazKalkisNoktaStr}
+                  onChangeText={setBogazKalkisNoktaStr} placeholder="Kabatas: 300 TL, Besiktas: 250 TL" />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={s.inputLabel}>Özel Not</Text>
+                <TextInput style={s.input} value={bogazOzelNot} onChangeText={setBogazOzelNot} placeholder="Opsiyonel açıklama..." />
               </View>
 
               <Text style={s.bolumBaslik}>
-                Sefer Saatleri ({bogazSaatlerStr.split(',').filter(s => s.trim()).length} sefer)
+                Hafta İçi Saatleri ({bogazSaatlerStr.split(',').filter(s => s.trim()).length} sefer)
               </Text>
-              <Text style={s.ipucu}>Saatleri virgul ile ayirin: 10:00, 11:00, 12:00</Text>
+              <Text style={s.ipucu}>Saatleri virgül ile ayırın: 10:00, 11:00, 12:00</Text>
               <TextInput style={[s.input, s.inputCokSatir]} value={bogazSaatlerStr}
                 onChangeText={setBogazSaatlerStr} multiline placeholder="10:00, 11:00, 12:00..." />
+
+              <Text style={s.bolumBaslik}>
+                Hafta Sonu Saatleri ({bogazHsSaatlerStr.split(',').filter(s => s.trim()).length} sefer)
+              </Text>
+              <Text style={s.ipucu}>Boş bırakırsanız hafta içi saatleri kullanılır</Text>
+              <TextInput style={[s.input, s.inputCokSatir]} value={bogazHsSaatlerStr}
+                onChangeText={setBogazHsSaatlerStr} multiline placeholder="10:00, 11:00, 12:00..." />
 
               <TouchableOpacity style={s.kaydetBtn} onPress={bogazKaydet}>
                 <Text style={s.kaydetBtnYazi}>Kaydet</Text>
               </TouchableOpacity>
               <TouchableOpacity style={s.iptalBtn} onPress={() => setBogazModal(false)}>
-                <Text style={s.iptalBtnYazi}>Iptal</Text>
+                <Text style={s.iptalBtnYazi}>İptal</Text>
               </TouchableOpacity>
               <View style={{ height: 30 }} />
             </ScrollView>
@@ -451,10 +520,10 @@ export default function AdminUlasimTarife() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  yukle: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F7FA' },
-  yetkisiz: { fontSize: 18, fontWeight: '700', color: '#1E293B', marginBottom: 16 },
+const createStyles = (t: TemaRenkleri) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
+  yukle: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
+  yetkisiz: { fontSize: 18, fontWeight: '700', color: t.text, marginBottom: 16 },
   geriBtn: { backgroundColor: '#0077B6', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
   geriBtnYazi: { color: '#FFF', fontWeight: '700' },
 
@@ -464,47 +533,47 @@ const s = StyleSheet.create({
   headerBaslik: { color: '#FFF', fontSize: 22, fontWeight: '800', textAlign: 'center' },
   headerAlt: { color: 'rgba(255,255,255,0.7)', fontSize: 12, textAlign: 'center', marginTop: 4 },
 
-  sekmeKutu: { flexDirection: 'row', margin: 16, marginBottom: 8, backgroundColor: '#FFF', borderRadius: 10, padding: 4 },
+  sekmeKutu: { flexDirection: 'row', margin: 16, marginBottom: 8, backgroundColor: t.bgCard, borderRadius: 10, padding: 4 },
   sekmeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
   sekmeBtnAktif: { backgroundColor: '#0077B6' },
-  sekmeYazi: { color: '#64748B', fontSize: 12, fontWeight: '600' },
+  sekmeYazi: { color: t.textSecondary, fontSize: 12, fontWeight: '600' },
   sekmeYaziAktif: { color: '#FFF', fontWeight: '700' },
 
   liste: { flex: 1, paddingHorizontal: 16 },
-  bosYazi: { textAlign: 'center', color: '#94A3B8', marginTop: 40, fontSize: 14 },
+  bosYazi: { textAlign: 'center', color: t.textMuted, marginTop: 40, fontSize: 14 },
 
-  kartKutu: { backgroundColor: '#FFF', borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' },
+  kartKutu: { backgroundColor: t.bgCard, borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: t.kartBorder },
   kartRenk: { width: 5, alignSelf: 'stretch' },
   kartBilgi: { flex: 1, padding: 14 },
-  kartIsim: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
-  kartAlt: { fontSize: 12, color: '#64748B', marginTop: 3 },
+  kartIsim: { fontSize: 15, fontWeight: '700', color: t.text },
+  kartAlt: { fontSize: 12, color: t.textSecondary, marginTop: 3 },
   kartSaat: { fontSize: 11, color: '#0096C7', marginTop: 3 },
-  kartDonemi: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
-  kartOk: { color: '#94A3B8', fontSize: 20, marginRight: 16 },
+  kartDonemi: { fontSize: 10, color: t.textMuted, marginTop: 2 },
+  kartOk: { color: t.textMuted, fontSize: 20, marginRight: 16 },
 
   // Modal
-  modalArka: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalKutu: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
+  modalArka: { flex: 1, backgroundColor: t.modalOverlay, justifyContent: 'flex-end' },
+  modalKutu: { backgroundColor: t.modalBg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
   modalBaslik: { color: '#0077B6', fontSize: 20, fontWeight: '800' },
-  modalAlt: { color: '#64748B', fontSize: 12, marginBottom: 8 },
-  bolumBaslik: { color: '#1E293B', fontSize: 13, fontWeight: '700', marginTop: 16, marginBottom: 4 },
-  ipucu: { color: '#94A3B8', fontSize: 11, marginBottom: 6 },
+  modalAlt: { color: t.textSecondary, fontSize: 12, marginBottom: 8 },
+  bolumBaslik: { color: t.text, fontSize: 13, fontWeight: '700', marginTop: 16, marginBottom: 4 },
+  ipucu: { color: t.textMuted, fontSize: 11, marginBottom: 6 },
   satirKutu: { flexDirection: 'row', gap: 10, marginTop: 8 },
   inputGrup: { flex: 1 },
-  inputLabel: { color: '#64748B', fontSize: 11, marginBottom: 4 },
-  input: { backgroundColor: '#F5F7FA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#1E293B', borderWidth: 1, borderColor: '#E2E8F0' },
+  inputLabel: { color: t.textSecondary, fontSize: 11, marginBottom: 4 },
+  input: { backgroundColor: t.bgInput, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder },
   inputCokSatir: { marginTop: 4, minHeight: 80, textAlignVertical: 'top' },
   kaydetBtn: { backgroundColor: '#0077B6', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 20 },
   kaydetBtnYazi: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  iptalBtn: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 10 },
-  iptalBtnYazi: { color: '#64748B', fontSize: 14, fontWeight: '600' },
+  iptalBtn: { borderWidth: 1, borderColor: t.kartBorder, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 10 },
+  iptalBtnYazi: { color: t.textSecondary, fontSize: 14, fontWeight: '600' },
 
   // Yeni ekle
-  yeniEkleBtn: { backgroundColor: '#FFF', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10, padding: 14, borderWidth: 1.5, borderColor: '#0077B6', borderStyle: 'dashed' },
+  yeniEkleBtn: { backgroundColor: t.bgCard, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10, padding: 14, borderWidth: 1.5, borderColor: '#0077B6', borderStyle: 'dashed' },
   yeniEklePlus: { color: '#0077B6', fontSize: 22, fontWeight: '700', marginRight: 8 },
   yeniEkleYazi: { color: '#0077B6', fontSize: 14, fontWeight: '700' },
-  havSecBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: '#E2E8F0', alignItems: 'center' },
+  havSecBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: t.kartBorder, alignItems: 'center' },
   havSecBtnAktif: { backgroundColor: '#0077B6' },
-  havSecYazi: { fontSize: 12, fontWeight: '600', color: '#64748B' },
+  havSecYazi: { fontSize: 12, fontWeight: '600', color: t.textSecondary },
   havSecYaziAktif: { color: '#FFF' },
 });

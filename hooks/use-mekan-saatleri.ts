@@ -16,6 +16,8 @@ export interface MekanSaat {
   yaz_kapanis: string | null;
   kis_acilis: string | null;
   kis_kapanis: string | null;
+  yaz_gise_kapanis: string | null;
+  kis_gise_kapanis: string | null;
   aktif_mevsim: string;
   haftaici_acilis: string | null;
   haftaici_kapanis: string | null;

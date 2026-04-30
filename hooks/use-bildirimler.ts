@@ -74,6 +74,7 @@ async function androidKanallariOlustur() {
   if (Platform.OS !== 'android' || !Notifications || !bildirimDestekleniyor) return;
   const kanallar = [
     { id: 'ulasim-uyari', name: 'Ulaşım Uyarıları', importance: 4 },
+    { id: 'trafik-uyari', name: 'Trafik ve Yol Durumu', importance: 4 },
     { id: 'saha-durumu', name: 'Saha Durumu', importance: 3 },
     { id: 'etkinlikler', name: 'Etkinlikler', importance: 3 },
     { id: 'sohbet', name: 'Sohbet Mesajları', importance: 4 },
@@ -102,7 +103,7 @@ const ULASIM_TIP: Record<string, string> = {
 
 /* ═══════════════════════════════════════════
    Hook: useBildirimler
-   Tüm 5 kategoriyi tek hook'ta yönetir.
+   Tüm 6 kategoriyi tek hook'ta yönetir.
    Tercihlere göre Supabase Realtime dinler.
    ═══════════════════════════════════════════ */
 export function useBildirimler() {
@@ -137,24 +138,44 @@ export function useBildirimler() {
     };
   }, []);
 
-  // ── 2. Ulaşım Uyarıları ──
+  // ── 2. Ulaşım Uyarıları (raylı sistem + trafik ayrı tercihle) ──
+  // IBB Ulaşım kaynaklı uyarılar: tercihler.trafik
+  // Diğer tüm raylı sistem uyarıları: tercihler.ulasim
+  const TRAFIK_KAYNAK = 'x:IBBUlasim';
+
   useEffect(() => {
     if (!yuklendi) return;
     const AD = 'bildirim-ulasim';
-    if (!tercihler.ulasim) { kanalKaldir(AD); return; }
+    // Her iki tercihten biri bile açıksa subscription gerekli
+    if (!tercihler.ulasim && !tercihler.trafik) { kanalKaldir(AD); return; }
 
     const ch = supabase
       .channel(AD)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ulasim_uyarilari' }, (p: any) => {
         const y = p.new;
         if (!y || !y.aktif) return;
+
+        // Cozulmus uyarilar icin bildirim GONDERME
+        if (y.cozuldu) return;
+
+        // 1 saatten eski tweet'ler icin bildirim GONDERME
+        // (uygulama acildiginda eski tweet'ler senkronize olabilir)
+        const tweetYasi = Date.now() - new Date(y.tarih).getTime();
+        if (tweetYasi > 60 * 60 * 1000) return;
+
+        // Kaynak bazlı tercih kontrolü
+        const trafikKaynagi = y.kaynak === TRAFIK_KAYNAK;
+        if (trafikKaynagi && !tercihler.trafik) return;
+        if (!trafikKaynagi && !tercihler.ulasim) return;
+
         const etiket = ULASIM_TIP[y.tip] || 'BİLGİ';
-        bildirimGonder(`[${etiket}] ${y.hat}`, y.icerik, 'ulasim-uyari', { hat: y.hat, tip: y.tip });
+        const kanal = trafikKaynagi ? 'trafik-uyari' : 'ulasim-uyari';
+        bildirimGonder(`[${etiket}] ${y.hat}`, y.icerik, kanal, { hat: y.hat, tip: y.tip, kaynak: y.kaynak });
       })
       .subscribe();
     kanalEkle(AD, ch);
     return () => kanalKaldir(AD);
-  }, [yuklendi, tercihler.ulasim]);
+  }, [yuklendi, tercihler.ulasim, tercihler.trafik]);
 
   // ── 3. Saha Durumu (canlı müze yoğunluk) ──
   useEffect(() => {
@@ -239,7 +260,7 @@ export function useBildirimler() {
         const gonderenAd = y.kullanici_isim || 'Bir rehber';
         bildirimGonder(
           'Yeni Mesaj',
-          `${gonderenAd}: ${y.icerik?.substring(0, 100) || ''}`,
+          `${gonderenAd}: ${(y.mesaj || y.icerik || '').substring(0, 100)}`,
           'sohbet',
           { mesajId: y.id },
         );
@@ -274,11 +295,17 @@ export function useBildirimler() {
           { mekanId: y.mekan_id },
         );
       })
-      // Ulaşım tarife değişikliği
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ulasim_tarifeleri' }, (p: any) => {
+      // Havalimanı sefer tarife değişikliği
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'havalimani_seferleri' }, (p: any) => {
         const y = p.new;
         if (!y) return;
-        bildirimGonder('Tarife Güncellendi', `${y.guzergah || y.sirket_adi || 'Bir güzergah'} tarife bilgisi değişti`, 'sistem');
+        bildirimGonder('Tarife Güncellendi', `${y.durak_adi || 'Bir güzergah'} tarife bilgisi değişti${y.fiyat ? ' — ' + y.fiyat : ''}`, 'sistem');
+      })
+      // Boğaz turu tarife değişikliği
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bogaz_turlari' }, (p: any) => {
+        const y = p.new;
+        if (!y) return;
+        bildirimGonder('Tarife Güncellendi', `${y.sirket_adi || 'Bir tur'} tarife bilgisi değişti`, 'sistem');
       })
       .subscribe();
     kanalEkle(AD, ch);

@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAdmin } from '../hooks/use-admin';
 import { supabase } from '../lib/supabase';
+import { useTema } from '../hooks/use-tema';
+import type { TemaRenkleri } from '../constants/theme';
 
 // ─── Moderator yetki tanimlari ───────────────────
 // Moderatorun erisebilecegi ekranlar
@@ -20,6 +22,8 @@ const MODERATOR_EKRANLARI = [
 // ─── Admin Ana Panel ───────────────────────────────
 export default function AdminPanel() {
   const insets = useSafeAreaInsets();
+  const { t } = useTema();
+  const s = createStyles(t);
   const { rol, isAdmin, isYetkili, yukleniyor } = useAdmin();
 
   const [bekleyenRapor, setBekleyenRapor] = useState(0);
@@ -168,14 +172,14 @@ export default function AdminPanel() {
   const tumMenuItems = [
     {
       baslik: 'Saha Bildirimleri',
-      aciklama: 'Aktif saha durumu bildirimlerini yonet',
+      aciklama: 'Aktif saha durumu bildirimlerini yönet',
       hedef: '/admin-saha' as const,
       renk: '#10B981',
       sadece: 'herkes' as const,
     },
     {
-      baslik: 'Etkinlik Yonetimi',
-      aciklama: 'Kent etkinliklerini ekle, duzenle, sil',
+      baslik: 'Etkinlik Yönetimi',
+      aciklama: 'Kent etkinliklerini ekle, düzenle, sil',
       hedef: '/admin-etkinlik' as const,
       renk: '#0077B6',
       sadece: 'herkes' as const,
@@ -286,7 +290,7 @@ export default function AdminPanel() {
             <TextInput
               style={s.modInput}
               placeholder="Kullanıcı e-posta adresi"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={t.textMuted}
               value={modEmail}
               onChangeText={setModEmail}
               keyboardType="email-address"
@@ -336,17 +340,17 @@ export default function AdminPanel() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
+const createStyles = (t: TemaRenkleri) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: t.bg },
   yukleniyorContainer: {
-    flex: 1, backgroundColor: '#F5F7FA',
+    flex: 1, backgroundColor: t.bg,
     justifyContent: 'center', alignItems: 'center',
   },
   yetkisizBaslik: {
-    fontSize: 18, fontWeight: '700', color: '#1E293B', marginBottom: 8,
+    fontSize: 18, fontWeight: '700', color: t.text, marginBottom: 8,
   },
   yetkisizAlt: {
-    fontSize: 14, color: '#64748B', marginBottom: 24,
+    fontSize: 14, color: t.textSecondary, marginBottom: 24,
   },
   geriBtn: {
     backgroundColor: '#0077B6', borderRadius: 10,
@@ -368,16 +372,16 @@ const s = StyleSheet.create({
   // Menü
   icerik: { padding: 16 },
   menuKart: {
-    backgroundColor: '#FFF', borderRadius: 14,
+    backgroundColor: t.bgCard, borderRadius: 14,
     flexDirection: 'row', alignItems: 'center',
     marginBottom: 12, overflow: 'hidden',
-    borderWidth: 1, borderColor: '#E2E8F0',
+    borderWidth: 1, borderColor: t.kartBorder,
   },
   menuRenk: { width: 5, alignSelf: 'stretch' },
   menuBilgi: { flex: 1, padding: 16 },
-  menuBaslik: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
-  menuAciklama: { fontSize: 12, color: '#64748B', marginTop: 3 },
-  menuOk: { color: '#94A3B8', fontSize: 20, marginRight: 16 },
+  menuBaslik: { fontSize: 15, fontWeight: '700', color: t.text },
+  menuAciklama: { fontSize: 12, color: t.textSecondary, marginTop: 3 },
+  menuOk: { color: t.textMuted, fontSize: 20, marginRight: 16 },
   badge: {
     backgroundColor: '#D62828', borderRadius: 12,
     minWidth: 24, height: 24, alignItems: 'center',
@@ -388,22 +392,22 @@ const s = StyleSheet.create({
   // Moderator Yonetimi
   modBolum: {
     marginHorizontal: 16, marginTop: 8,
-    backgroundColor: '#FFF', borderRadius: 14,
-    padding: 16, borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: t.bgCard, borderRadius: 14,
+    padding: 16, borderWidth: 1, borderColor: t.kartBorder,
   },
   modBolumBaslik: {
-    fontSize: 16, fontWeight: '700', color: '#1E293B', marginBottom: 4,
+    fontSize: 16, fontWeight: '700', color: t.text, marginBottom: 4,
   },
   modBolumAciklama: {
-    fontSize: 12, color: '#64748B', marginBottom: 16, lineHeight: 18,
+    fontSize: 12, color: t.textSecondary, marginBottom: 16, lineHeight: 18,
   },
   modForm: {
     flexDirection: 'row', gap: 8, marginBottom: 16,
   },
   modInput: {
-    flex: 1, backgroundColor: '#F1F5F9', borderRadius: 10,
+    flex: 1, backgroundColor: t.bgInput, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 14, color: '#1E293B', borderWidth: 1, borderColor: '#E2E8F0',
+    fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder,
   },
   modAtaBtn: {
     backgroundColor: '#0077B6', borderRadius: 10,
@@ -414,14 +418,14 @@ const s = StyleSheet.create({
   },
   modListe: { marginTop: 4 },
   modListeBaslik: {
-    fontSize: 13, fontWeight: '600', color: '#64748B', marginBottom: 10,
+    fontSize: 13, fontWeight: '600', color: t.textSecondary, marginBottom: 10,
   },
   modSatir: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: t.divider,
   },
-  modIsim: { fontSize: 14, fontWeight: '600', color: '#1E293B' },
-  modMail: { fontSize: 12, color: '#94A3B8', marginTop: 1 },
+  modIsim: { fontSize: 14, fontWeight: '600', color: t.text },
+  modMail: { fontSize: 12, color: t.textMuted, marginTop: 1 },
   modKaldirBtn: {
     backgroundColor: '#FEE2E2', borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 6,
@@ -430,6 +434,6 @@ const s = StyleSheet.create({
     color: '#D62828', fontSize: 12, fontWeight: '700',
   },
   modBos: {
-    fontSize: 13, color: '#94A3B8', fontStyle: 'italic', marginTop: 4,
+    fontSize: 13, color: t.textMuted, fontStyle: 'italic', marginTop: 4,
   },
 });
