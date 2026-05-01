@@ -1,6 +1,6 @@
 # Pusula Istanbul - Claude Oturum Indeksi
 
-**Tarih (son guncelleme):** 29 Nisan 2026
+**Tarih (son guncelleme):** 30 Nisan 2026
 
 ---
 
@@ -54,7 +54,7 @@ Asagidaki sorulari kullaniciya **sorma** — cevaplar bu dosyada veya okuman ger
 - "Hangi Node surumu?" — **Node 20 zorunlu (v24 uyumsuz)**
 - "Expo Go calisir mi?" — **HAYIR**, native modules var (RC, expo-notifications, screen-capture). Custom dev client gerekir: `npx expo start --dev-client`
 - "Apple/Google hesap aktif mi?" — **Ikisi de aktif**, Paid Apps Agreement Active (5 Nis 2026 - 31 Mar 2027)
-- "Su an hangi surum yayinda?" — **STATE.md'ye bak, sorma. v1.0.8 App Store'da, v1.0.9 review'da.**
+- "Su an hangi surum yayinda?" — **STATE.md'ye bak, sorma. v1.0.9 App Store'da, v1.0.10 review'da (her iki platform).**
 - "Proje dizini nerede?" — **/Users/aysetokkus/istanbul-rehber** (her zaman bu, sorma)
 
 Eger `package.json`'a, `app.json`'a, ya da `eas.json`'a bakman lazim olan basit bir teknik soru varsa **dosyaya kendin bak**, kullaniciya sorma.
@@ -100,15 +100,17 @@ Eger `package.json`'a, `app.json`'a, ya da `eas.json`'a bakman lazim olan basit 
 - **CI/CD:** EAS Build + EAS Submit
 - **Yapay zeka destek:** Claude Cowork (kod + mimari + bu dosyalar)
 
-### Su An Hangi Asamadayiz (29 Nisan 2026)
+### Su An Hangi Asamadayiz (30 Nisan 2026)
 **Henuz lansman YAPILMADI** — kasitli olarak. Kalite > momentum. Ayse 30 yillik markasini bug'li bir ucretli urunle riske atmiyor. Sira:
 
-- **App Store:** v1.0.8 yayinda AMA **sifre sifirlama bug'i var** (ilk deneme tutmadi). v1.0.9 review'da, ~24-48 saat. Bu sefer **Manual release** secildi (v1.0.7 felaketi sonrasi karari).
-- **Google Play:** v1.0.9 Production review'da (3-7 gun). Alpha'da fix DOGRULANDI — Ayse v1.0.9'u kendi telefonuna tester olarak kurdu, sifre sifirlama akisinin sorunsuz calistigini bizzat gordu.
+- **App Store:** v1.0.9 yayinda AMA **warm-start sifre sifirlama bug'i hala mevcut** (Pending Pattern cold-start cozdu, warm-start cozmedi). **v1.0.10 review'da**, ~24-48 saat. Manual release secili.
+- **Google Play:** **v1.0.10 Production review'da** (3-7 gun). v1.0.9 (versionCode 26) "Devre disi" — atlanacak, kullanicilar v1.0.8 → v1.0.10 direkt geciser. Yonetilen yayinlanma acik.
+- **v1.0.10 fix:** `_layout.tsx`'e iki yerde 150ms setTimeout defer (PASSWORD_RECOVERY event handler + Pending Pattern useEffect). Mac M1 + TestFlight Designed for iPad ile dogrulandi (iPhone7 iOS 15.8 + TestFlight uyumsuz). Samsung S22 + APK ile de dogrulandi.
+- **Git commit:** v1.0.0 → v1.0.10 toplu birikim 30 Nisan'da GitHub'a push edildi (commit `48249ed`, 80 dosya). Kayip riski ortadan kalkti.
 - **6 Apple reject** atlatildi (Demo hesap, IAP Restore, iPad Design, EULA, Subscription Group Localization, Paid Apps Agreement). Hepsinin dersi `DECISIONS.md`'de.
 - **Custom SMTP** kuruldu (26 Nis), email akisi calisiyor, 5 markali Turkce template hazir.
 - **4 scheduled task** aktif (sehir hatlari iptal seferleri, havalimani tarife, muzeler, saraylar).
-- **v1.1.0 planlamasi:** push notification altyapisi, X API'yi scheduled task'a tasimak, ana ekran widget'i.
+- **v1.1.0 planlamasi:** profil ekrani surum no dinamiklestir (su an v1.0.0 hardcoded), edge-to-edge Android 15 uyumu (`v1.1.0-CHECKLIST.md` outputs'ta), push notification altyapisi, X API'yi scheduled task'a tasimak.
 
 Detayli surum durumu icin: `claude-context/STATE.md`
 

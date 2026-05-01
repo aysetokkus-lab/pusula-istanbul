@@ -4,6 +4,69 @@ Bu dosya **append-only** — eski surum bilgilerini silmeyiz, yeni surumler ust 
 
 ---
 
+## v1.0.10 (BUILD + SUBMIT EDILDI — 30 Nisan 2026)
+
+**Sorun:** v1.0.9'daki Pending Pattern fix'i Apple ve Google'da yayina cikti, **cold-start senaryosunu** cozdu. AMA Ayse iPhone7 iOS 15.8'de test ettiginde sifre sifirlama hala calismadi: app ana ekrana acilip recovery session kuruluyor, ama `/sifre-sifirla` ekranina yonlendirme yapilmiyor. Bu **warm-start** senaryosu (app arka planda iken Mail'den linke basildiginda).
+
+### Tani Sureci (30 Nisan 2026)
+1. Ayse iPhone7'de test → "kendi kendine login oluyorum" → ana ekran (sifre-sifirla GELMIYOR)
+2. Mail link uzun bas → URL `https://rzlfghjpsximthlolfxo.supabase.co/auth/v1/verify?token=...&type=recovery&redirect_to=pusulaistanbul://giris` (SafeLinks YOK, normal Supabase URL)
+3. Tikla → Safari → "Pusula Istanbul ile Acilsin mi?" popup → Ac → app foreground → ana ekran
+4. **Hipotez:** App arka planda → 'url' event fire eder → handleAuthDeepLink koshar → setSession basarili (recovery session kurulur, kullanici "login" gorunur) → setSifreSifirlamaPending(true) → useEffect tetiklenir → router.replace('/sifre-sifirla') AMA SILENTLY FAIL → kullanici /(tabs)'da kalir
+5. **Sebep:** Expo Router `(tabs)` group'tan disari escape (route group escape) sirasinda React state batching ile race girer. Pending Pattern fonts/oturum/abonelik bekliyor (cold-start icin), ama warm-start'ta bunlar zaten hazir → router.replace immediate cagriliyor → router transition tick stable degil → silently fail.
+
+### Fix: setTimeout(150) Defer (cift guvence)
+`app/_layout.tsx` (~line 137-150 ve ~207-220):
+- **PASSWORD_RECOVERY event handler:** `setSifreSifirlamaModu(true) + setSifreSifirlamaPending(true)` sonrasi `setTimeout(() => router.replace('/sifre-sifirla'), 150)` direkt navigate (warm-start path)
+- **Pending Pattern useEffect:** `router.replace` cagrisi `setTimeout(() => { router.replace... }, 150)` ile defer edildi (cold-start path)
+- 150ms defer = Expo Router internal stack state stable olana kadar bekleme suresi
+- Cift yol birbirinin yedek (cold-start'ta ikisi de tetiklenebilir, warm-start'ta sadece event listener tetiklenir, race condition azalir)
+
+### Dogrulama Test Akisi (30 Nisan 2026)
+- iOS: iPhone7 iOS 15.8 + TestFlight uyumsuzlugu (TestFlight iOS 16+ gerektiriyor) → Mac M1 + TestFlight + "Designed for iPad" alternatifi kullanildi. App acildi → login + sifremi unuttum + email + link → /sifre-sifirla ekrani GELDI ✓ → yeni sifre belirle → giris ekranina don → yeni sifre ile login ✓
+- Android: Preview APK Samsung S22'ye yuklendi, ayni akis test edildi → /sifre-sifirla ekrani GELDI ✓ → tum akis basarili ✓
+
+### app.json Bumped
+- version: 1.0.9 → **1.0.10**
+- iOS buildNumber: 26 → **27** (EAS auto-bump)
+- Android versionCode: 27 → **28** (EAS auto-bump)
+
+### Tamamlanan Adimlar (30 Nisan 2026)
+1. ✓ `_layout.tsx`'e cift defer fix uygulandi
+2. ✓ `app.json` version 1.0.10
+3. ✓ iOS production build (~5 dk cache hit) — IPA hazir
+4. ✓ Android production AAB build (~25 dk) — AAB hazir
+5. ✓ Android preview APK (telefon testi icin) — APK hazir
+6. ✓ iOS `eas submit` → ASC processing → TestFlight Internal Testing'e yuklendi
+7. ✓ TestFlight "Gelistirici" grubu olusturuldu, automatic distribution acik, aysetokkus@hotmail.com tester olarak eklendi
+8. ✓ Mac M1 + TestFlight ile sifre sifirlama akisi DOGRULANDI
+9. ✓ Samsung S22 + APK ile sifre sifirlama akisi DOGRULANDI
+10. ✓ iOS App Store Submit for Review (Manual Release secildi, App Review notes detayli yazildi)
+11. ✓ `eas.json` submit track "internal" → "production" (EAS CLI 18.x'te `--track` flag kaldirildi)
+12. ✓ Android `eas submit --platform android --latest` → Play Console Production Draft yuklendi
+13. ✓ Play Console v1.0.9 (versionCode 26) "Devre disi" oldu (atlanacak), v1.0.10 (versionCode 28) inceleme'ye gonderildi
+14. ✓ `.gitignore` guvenlik guncellemesi: google-service-account.json + raporlar + *.eski exclude
+15. ✓ v1.0.0 → v1.0.10 toplu git commit + push (commit `48249ed`, 80 dosya, 8337 insertion) — 3 haftalik birikim GitHub'da yedeklendi
+
+### Release Notes (Turkce, her iki platform)
+```
+E-posta uzerinden gelen sifre sifirlama baglantisi artik dogru ekrana yonlendiriyor.
+Bazi kullanicilarin "Yeni Sifre Belirle" ekranini goremedigi teknik sorun duzeltildi.
+```
+
+### Apple App Review Notes (Ingilizce)
+"Bug → Root cause → Fix" formatinda detayli teknik aciklama yazildi (race condition + group escape + setTimeout defer). Test Account ve adim adim test scenario eklendi.
+
+### DERSLER
+- **Pending Pattern tek basina yetmez** — Stack mount ek olarak Expo Router route group escape race'i de var, defer ile cozuluyor
+- **Mac M1 + Designed for iPad** — eski iOS cihazlar TestFlight'a yetisemediginde altin alternatif (iPhone7 iOS 15.8 → TestFlight 16+, Mac M1 cozdu)
+- **EAS CLI 18.x `--track` flag kaldirildi** — eas.json'a koyma zorunlu, komut satirinda override edilemez
+- **TestFlight Internal Testing review YOK** — Submit for Review tusuna BASMADIKCA Apple inceleme baslamiyor, internal tester'lar anlik test edebilir
+- **Microsoft Defender SafeLinks debug tuzaklari** — Outlook'tan kendine forward edersen safelinks ekleniyor, gercek email link'i kafa karistiriyor. Test icin SafeLinks'siz mail (Gmail/iCloud) kullan.
+- **Git commit eksikligi kritik risk** — v1.0.0'dan v1.0.10'a 3 haftalik birikim sadece local diskte tutuluyordu. Toplu commit ile cozuldu, ileride her surumde commit zorunlu.
+
+---
+
 ## v1.0.9 (BUILD HAZIR — 27-28 Nisan 2026)
 
 **Sorun:** v1.0.8'deki sifre sifirlama fix'i Apple ve Google'da yayina cikti AMA hata hala mevcut. Iki kullanici (ayse.tokkus@gmail vs kelebekiamarket@gmail) ile A/B testi sonucu kesin tani: **Stack mount race condition.**
