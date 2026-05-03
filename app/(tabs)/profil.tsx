@@ -273,7 +273,7 @@ export default function ProfilEkrani() {
       } else {
         Alert.alert(
           'Aktif Abonelik Bulunamadı',
-          'Bu Apple ID / Google hesabı ile ilişkili aktif bir abonelik bulunamadı.'
+          'Hesabınız ile ilişkili aktif bir abonelik bulunamadı.'
         );
       }
     } catch (e: any) {

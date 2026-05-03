@@ -182,7 +182,7 @@ export default function AboneOl() {
       } else {
         Alert.alert(
           'Aktif Abonelik Bulunamadı',
-          'Bu Apple ID ile ilişkili aktif bir abonelik bulunamadı. Yeni bir plan seçerek satın alma yapabilirsiniz.',
+          'Hesabınız ile ilişkili aktif bir abonelik bulunamadı. Yeni bir plan seçerek satın alma yapabilirsiniz.',
         );
       }
     } catch (e: any) {

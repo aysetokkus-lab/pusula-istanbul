@@ -31,16 +31,40 @@ export interface AbonelikDurumu {
   yenile: () => Promise<void>;
 }
 
-// RevenueCat'ten abonelik durumu sorgula
-async function rcAbonelikKontrol(): Promise<boolean> {
-  if (!isRCReady()) return false;
+/**
+ * RevenueCat product identifier'dan plan tipini cikar.
+ * Apple format:    "com.pusulaistanbul.app.yillik"
+ * Play format:     "com.pusulaistanbul.app.yillik:yillik-yeni"
+ * Ikisi de "yillik" veya "aylik" alt-stringini icerir.
+ */
+function planFromProductId(productId: string | undefined | null): 'yillik' | 'aylik' | null {
+  if (!productId) return null;
+  if (productId.includes('yillik')) return 'yillik';
+  if (productId.includes('aylik')) return 'aylik';
+  return null;
+}
+
+interface RCSonuc {
+  aktif: boolean;
+  productId?: string;
+  expirationDate?: string; // ISO string, RC entitlement.expirationDate
+}
+
+// RevenueCat'ten abonelik durumu sorgula — plan ve bitis tarihiyle birlikte
+async function rcAbonelikKontrol(): Promise<RCSonuc> {
+  if (!isRCReady()) return { aktif: false };
   try {
     const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
     const entitlement = customerInfo.entitlements.active[ENTITLEMENT_ID];
-    return !!entitlement;
+    if (!entitlement) return { aktif: false };
+    return {
+      aktif: true,
+      productId: entitlement.productIdentifier,
+      expirationDate: entitlement.expirationDate ?? undefined,
+    };
   } catch (e) {
     console.warn('RevenueCat abonelik sorgu hatasi:', e);
-    return false;
+    return { aktif: false };
   }
 }
 
@@ -69,7 +93,7 @@ export function useAbonelik(): AbonelikDurumu {
       // Tek query ile hem rol hem abonelik durumunu cek
       const { data: profil, error } = await supabase
         .from('profiles')
-        .select('rol, abonelik_durumu, abonelik_bitis')
+        .select('rol, abonelik_durumu, abonelik_plani, abonelik_bitis')
         .eq('id', user.id)
         .single();
 
@@ -91,17 +115,25 @@ export function useAbonelik(): AbonelikDurumu {
       }
 
       // 1) RevenueCat'ten kontrol (gercek IAP satin alma — tek kaynak)
-      const rcAktif = await rcAbonelikKontrol();
-      if (rcAktif) {
+      const rcSonuc = await rcAbonelikKontrol();
+      if (rcSonuc.aktif) {
         setAktifAbonelik(true);
         setIsAdminMod(false);
         setYukleniyor(false);
 
-        // Supabase'i de guncelle (senkronizasyon)
-        if (profil.abonelik_durumu !== 'aktif') {
-          await supabase.from('profiles').update({
-            abonelik_durumu: 'aktif',
-          }).eq('id', user.id);
+        // Supabase'i de guncelle (durumu + plan + bitis)
+        // BUG FIX (v1.0.11): onceden sadece abonelik_durumu yaziyordu, plan/bitis
+        // NULL kaliyordu (6 kullanicida tespit edildi, bkz. DECISIONS.md #30/#31).
+        // Artik RC entitlement'tan productIdentifier ve expirationDate'i de yansitiyoruz.
+        const yeniPlan = planFromProductId(rcSonuc.productId);
+        const update: Record<string, any> = {};
+        if (profil.abonelik_durumu !== 'aktif') update.abonelik_durumu = 'aktif';
+        if (yeniPlan && profil.abonelik_plani !== yeniPlan) update.abonelik_plani = yeniPlan;
+        if (rcSonuc.expirationDate && profil.abonelik_bitis !== rcSonuc.expirationDate) {
+          update.abonelik_bitis = rcSonuc.expirationDate;
+        }
+        if (Object.keys(update).length > 0) {
+          await supabase.from('profiles').update(update).eq('id', user.id);
         }
         return;
       }
@@ -164,15 +196,20 @@ export function useAbonelik(): AbonelikDurumu {
     const listenerEkle = () => {
       if (iptal) return;
       const listener = (customerInfo: CustomerInfo) => {
-        const aktif = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
-        if (aktif) {
+        const entitlement = customerInfo.entitlements.active[ENTITLEMENT_ID];
+        if (entitlement) {
           setAktifAbonelik(true);
-          // Supabase'i de senkronize et
+
+          // Supabase'i de senkronize et — durum + plan + bitis
+          // BUG FIX (v1.0.11): listener da onceden sadece abonelik_durumu yaziyordu.
+          const yeniPlan = planFromProductId(entitlement.productIdentifier);
+          const update: Record<string, any> = { abonelik_durumu: 'aktif' };
+          if (yeniPlan) update.abonelik_plani = yeniPlan;
+          if (entitlement.expirationDate) update.abonelik_bitis = entitlement.expirationDate;
+
           supabase.auth.getUser().then(({ data: { user } }) => {
             if (user) {
-              supabase.from('profiles').update({
-                abonelik_durumu: 'aktif',
-              }).eq('id', user.id);
+              supabase.from('profiles').update(update).eq('id', user.id);
             }
           });
         }

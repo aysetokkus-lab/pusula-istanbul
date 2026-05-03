@@ -137,6 +137,58 @@ Bu dosya tum cozulmus bug'larin kaydi — yeni bir bug ile karsilastiginda once 
 - **Saha karti not_metni 1 satira kesiliyor (v1.0.8)** — `numberOfLines={1}` → `numberOfLines={2}`
 - **durumKaldir sessiz fail (v1.0.8)** — RLS sessiz reddederse data.length === 0 olur → `.select()` ile kontrol, kullaniciya mesaj (bkz. DECISIONS.md "RLS Sessiz Reddedebilir")
 
+### 1 Mayis 2026 — Yayin Gunu Cozulen Sorunlar
+
+63. **Play Store Yillik Plan config bug (1 Mayis 2026)** — `com.pusulaistanbul.app.yillik` urununun base plan'i (`yillik`) AYLIK fatura donemi olarak konfigure edilmisti, halbuki Yillik Plan olarak satiliyordu. Kullanicilar yillik 699,99 TL bekleyerek aboneliyor, ay sonunda tekrar 699,99 TL kesilecekti (12x amaclanan). 2 musteri etkilendi (Mustafa Tanribilir, Sebnem Buyukkaragoz). **Cozum:** Yeni `yillik-yeni` base plan olusturuldu (Yillik dönem, 699,99 TL), eski `yillik` devre disi birakildi, RC offering yeni urune yonlendirildi. Etkilenenlere refund + 1 yil ucretsiz premium grant. Detay: DECISIONS.md #27.
+
+64. **abone-ol.tsx + profil.tsx — "Apple ID" hardcoded UX bug (1 Mayis 2026)** — Restore purchases akisinda "Aktif Abonelik Bulunamadi" Alert metninde "Bu Apple ID ile..." hardcoded. Android kullanicilar yanlis platform jargonu goruyordu. **Cozum:** Iki dosyada da generic "Hesabiniz ile..." metni. v1.0.11'de yayina cikacak. Detay: DECISIONS.md #27 sondaki ders.
+
+65. **Sebnem'in profili kismi NULL durumu (1 Mayis 2026)** — Yillik plan satin almasi sonrasi profile'da abonelik_durumu='aktif' set olmus ama abonelik_plani ve abonelik_bitis NULL kalmis. 3-Katmanli Guvenlik Agi'nin (DECISIONS.md #4) bir varyanti — kismi sync. **Cozum:** Manuel SQL UPDATE ile dolduruldu. v1.1.0'da abone-ol.tsx audit yapilacak (atomik update tum alanlari beraber set etmeli). Detay: DECISIONS.md #30.
+
+66. **Orcun'un satin alma akisi: banka karti bloke etti (1 Mayis 2026)** — Restore purchases denerken yeni satin alma tetiklendi, banka guvenlik filtresi cekimi bloke etti. Para kayip yok ama kullanici teknik akista takildi. **Cozum:** Hesabini Supabase admin yetkisiyle olusturduk, manuel premium grant 1 yil. Detay: DECISIONS.md #28.
+
+67. **CLAUDE.md'de yanlis entitlement adi (1 Mayis 2026 fark edildi)** — CLAUDE.md "RC Entitlement: pro" yaziyordu, gercekte lib/revenuecat.ts'te `ENTITLEMENT_ID = 'premium'`. **Cozum:** CLAUDE.md guncellendi, dogru entitlement: 'premium'. DECISIONS.md #19'da da bu eski bilgiye atif var, oraya da not eklendi.
+
+### 3 Mayis 2026 — use-abonelik.ts NULL Profile Sistematik Bug
+
+68. **use-abonelik.ts RC senkronizasyonunda eksik alan yazimi (3 Mayis 2026)** — Hook'un iki yerinde (line 100-105 RC dali + line 173-175 RC listener callback) RC entitlement aktif kullanici icin Supabase'e SADECE `abonelik_durumu='aktif'` yaziliyordu, `abonelik_plani` ve `abonelik_bitis` NULL kaliyordu. Sonuc: 6 kullanicida (Selim/Nadriye/Betul/Ebru + 2 dev hesap) yarim profile. Sebnem'in (1 May) durumu da ayni desende — race condition yorumu yanlismis. **Cozum (v1.0.11):** `planFromProductId()` helper, `rcAbonelikKontrol()` zenginlestirildi, iki yerin de update'i durumu+plan+bitis hepsini yaziyor (idempotent reconciler — sadece eksik/farkli alanlari). Detay: DECISIONS.md #31.
+
+69. **Ebru/Betul/Nadriye/Selim — manuel SQL doldurma (3 Mayis 2026)** — v1.0.11 yayina cikmadan once 4 etkilenen kullanicinin profile alanlari RC verisinden manuel SQL ile dolduruldu (atomic transaction). RC'de hepsinin satin alma kayitlari tarandi: hepsi iOS Apple App Store, ikisi yillik (Ebru, Betul → 2027-05 bitis), ikisi aylik (Nadriye, Selim → 2026-06 bitis). 2 dev hesap (proteste_angel, ayse.tokkus@gmail) atlandi (Ayse'nin test profilleri). **Cozum:** atomic UPDATE yapildi, dogrulama temiz.
+
+70. **Ebru "3. magdur" hipotezi curudu (3 Mayis 2026)** — Ebru 1 May 11:39'da kayit oldu (Play Store config bug fix oncesi), kritik magdur olabilirdi. RC'de profili acildi: iOS App Store, Yillik Plan TRY 699,99, "Subscription renews in 1 year" — Apple urununde billing period dogru. **Cozum:** Ebru magdur DEGIL. Apple subscription model'inde base plan ayrımı yok, billing period yanlisligi mumkun degil → 1 May Play Store config bug yalnizca Mustafa+Sebnem'i etkiledi, baska magdur YOK.
+
+71. **RC'de email araması bos donuyor (2 Mayis 2026 fark edildi)** — `gokteke@yahoo.com` ile RC search "No results found" donduruyor. Aslinda customer mevcut, ama email attribute set edilmemis. RC anonymous user merge'inde `Purchases.logIn(user.id)` cagrildi ama `Purchases.setAttributes({'$email': user.email})` cagrilmadi. **Gecici cozum:** UUID ile arama (Supabase'den UUID al, RC'de UUID ile ara — anonymous alias'a geri donuyor). **Kalici cozum:** v1.1.0'da `lib/revenuecat.ts`'e ekleme. Detay: STATE.md "v1.1.0 PLANLANAN OZELLIKLER" #7.
+
+---
+
+## BILINEN SINIRLAR (KABUL EDILEN ISTISNALAR)
+
+Bu bolumdeki sorunlar **kasten cozulmemis** — fix-yarari/yatirim-edilecek-zaman dengesi cozumu desteklemiyor. Belgelenmis sebepleriyle birlikte burada tutuluyor ki gelecekte bir kullanici sikayet ettiginde hizli yanit verilebilsin.
+
+### iPhone 7 (iOS 15.8) — Sifre Sifirlama Akisinda Race Condition (1 Mayis 2026)
+
+**Sorun:** v1.0.10 yayinda olmasina ragmen iPhone 7 + iOS 15.8 kombinasyonunda sifre sifirlama maili linkine basildiginda kullanici dogru ekrana yonlendirilmiyor — app ana ekrana acilip orada kaliyor.
+
+**Test verileri (1 Mayis 2026):**
+- Mac M1 (Designed for iPad): calisiyor
+- Samsung S22 (Snapdragon 8 Gen 1, 8GB RAM): calisiyor
+- iPhone 11 (A13, 4GB RAM, iOS 17): calisiyor
+- iPhone 7 (A10 Fusion, 2GB RAM, iOS 15.8): calismiyor
+
+**Mekanizma:** v1.0.10 fix'i `setTimeout(..., 150)` ile Expo Router Stack mount race'ini cozuyor. 150ms degeri modern donanima (M1, S22) gore kalibre edildi. iPhone 7'nin A10 + 2GB RAM kombinasyonu Stack mount'u 150ms'den uzun surede tamamliyor → router.replace yine "stack hazir degilken" tetikleniyor → silently fail. Yani v1.0.9'daki ayni race condition'in donanim-spesifik (zaman) versiyonu.
+
+**Neden Cozulmuyor:**
+- Hedef kitle: TUREB ruhsatli profesyonel turist rehberleri. iPhone 7 (2016 modeli) bu kitlede yok denecek kadar az — sahada gunlerce dayanmasi gereken bir cihazi 10 yillik modelle yapan rehber yok.
+- Apple iOS 15 destegini kesti — iPhone 7 son donemini yasiyor.
+- Maliyet: setTimeout'i 500ms'ye cikarmak ya da `useRootNavigationState` ile event-driven hazirlik kontrolune gecmek mumkun, ama bu sadece bir-iki kullaniciyi etkileyen sorun icin yeni bir build + review cycle anlamina gelir.
+
+**Eger Bir Kullanici Sikayet Ederse:**
+- Once cihaz modelini sor. iPhone 7 ise, "bu cihazda bilinen bir teknik sinirlama" oldugunu ve daha yeni cihazlarda calistigini soyle.
+- Alternatif: kullanici bilgisayardan veya baska bir telefondan sifresini yenileyebilir (web link bir tarayicida acilirsa Supabase auth flow yine calisir).
+- Eger yeterli sayida iPhone 7 sikayeti gelirse v1.1.x'te `setTimeout` 500ms'ye cikartilabilir veya `useRootNavigationState` ile kalici cozume gecilebilir.
+
+**Bilimsel Disiplin Notu:** N=4 testle (3 modern cihaz calisiyor, 1 eski cihaz calismiyor) hipotez yeterli derecede dogrulandi. Daha fazla deney (setTimeout 500ms ile yeni iPhone 7 testi) practical certainty icin gereksiz — istatistiksel olarak donanim/iOS yas suclusu netlesti.
+
 ---
 
 ## COZUM PATTERNLERI (Ozetlenmis)

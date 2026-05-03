@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pusula İstanbul",
     "slug": "pusula-istanbul",
-    "version": "1.0.10",
+    "version": "1.0.11",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pusulaistanbul",
@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pusulaistanbul.app",
-      "buildNumber": "27",
+      "buildNumber": "28",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Konumunuz yakındaki müze ve ulaşım bilgilerini göstermek için kullanılır.",
         "CFBundleAllowMixedLocalizations": true
@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "com.pusulaistanbul.app",
-      "versionCode": 28,
+      "versionCode": 29,
       "adaptiveIcon": {
         "backgroundColor": "#005A8D",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

@@ -1,6 +1,6 @@
 # Pusula Istanbul - Claude Oturum Indeksi
 
-**Tarih (son guncelleme):** 30 Nisan 2026
+**Tarih (son guncelleme):** 3 Mayis 2026
 
 ---
 
@@ -29,7 +29,8 @@ Konu spesifikse asagidaki tabloya bak, **uygun moduli da hemen oku**. Birden faz
 | Havalimani Ulasim, IST, SAW, Havaist, Havabus | `INFRASTRUCTURE.md` ("Havalimani Ulasim Veri Pipeline'i") |
 | Eski surum ne degisti? v1.0.x ne icindeydi? | `CHANGELOG.md` |
 | Tasarim kurali, emoji, renk, logo, font | `PROJECT.md` ("Tasarim Kurallari") |
-| "Bu nasil yapilirdi?" / mimari tartisma | `DECISIONS.md` (24 mimari karar) |
+| "Bu nasil yapilirdi?" / mimari tartisma | `DECISIONS.md` (31 mimari karar) |
+| Mekan saatleri/fiyat toplu yonetim, Excel pipeline, mevsim gecisi | `DECISIONS.md` ("Excel-as-Source-of-Truth") + `STATE.md` ("Toplu Veri Yonetim Dosyalari") |
 
 ---
 
@@ -48,7 +49,7 @@ Asagidaki sorulari kullaniciya **sorma** — cevaplar bu dosyada veya okuman ger
 - "Bir geliştirici/ajansla mi calisiyorsun?" — **Hayir, Ayse + Claude**
 - "Hangi backend kullaniyorsun?" — **Supabase** (URL: rzlfghjpsximthlolfxo.supabase.co)
 - "Auth nasil?" — **Supabase Email/Password, email confirmation acik, custom SMTP (Resend)**
-- "IAP nasil?" — **RevenueCat (entitlement: pro)** — App Store + Play Store
+- "IAP nasil?" — **RevenueCat (entitlement: `premium`)** — App Store + Play Store
 - "Bundle ID nedir?" — **com.pusulaistanbul.app**
 - "Domain ne?" — **pusulaistanbul.app**
 - "Hangi Node surumu?" — **Node 20 zorunlu (v24 uyumsuz)**
@@ -93,7 +94,7 @@ Eger `package.json`'a, `app.json`'a, ya da `eas.json`'a bakman lazim olan basit 
 ### Temel Altyapi
 - **Frontend:** React Native + Expo SDK 54 + TypeScript + Expo Router (tab + stack)
 - **Backend:** Supabase (Postgres + Auth + Realtime + RLS)
-- **Odeme:** RevenueCat (App Store + Play Store, entitlement: `pro`)
+- **Odeme:** RevenueCat (App Store + Play Store, entitlement: `premium`)
 - **Email:** Custom SMTP (Resend Pro → AWS SES Dublin → kullanici)
 - **Web:** GitHub Pages + custom domain (pusulaistanbul.app)
 - **Web scraping:** Firecrawl MCP (havabus, sehirhatlari, millisaraylar)
@@ -109,7 +110,7 @@ Eger `package.json`'a, `app.json`'a, ya da `eas.json`'a bakman lazim olan basit 
 - **Git commit:** v1.0.0 → v1.0.10 toplu birikim 30 Nisan'da GitHub'a push edildi (commit `48249ed`, 80 dosya). Kayip riski ortadan kalkti.
 - **6 Apple reject** atlatildi (Demo hesap, IAP Restore, iPad Design, EULA, Subscription Group Localization, Paid Apps Agreement). Hepsinin dersi `DECISIONS.md`'de.
 - **Custom SMTP** kuruldu (26 Nis), email akisi calisiyor, 5 markali Turkce template hazir.
-- **4 scheduled task** aktif (sehir hatlari iptal seferleri, havalimani tarife, muzeler, saraylar).
+- **2 scheduled task** aktif (sehir hatlari iptal seferleri, havalimani tarife) + 2 devre disi (saraylar + muzeler — 1 Mayis 2026'da kapatildi, hepsi admin panelden manuel yonetiliyor; bkz. DECISIONS.md #24).
 - **v1.1.0 planlamasi:** profil ekrani surum no dinamiklestir (su an v1.0.0 hardcoded), edge-to-edge Android 15 uyumu (`v1.1.0-CHECKLIST.md` outputs'ta), push notification altyapisi, X API'yi scheduled task'a tasimak.
 
 Detayli surum durumu icin: `claude-context/STATE.md`
@@ -126,7 +127,7 @@ istanbul-rehber/
     ├── STATE.md                       (mevcut dinamik durum: surum, deploy, aktif gorevler)
     ├── PROJECT.md                     (statik proje bilgisi: tech, dosya, is mantigi, tasarim)
     ├── CHANGELOG.md                   (surum gecmisi, release notes, eski v1.0.x)
-    ├── DECISIONS.md                   (24 mimari karar + ders — SIK BAKILACAK!)
+    ├── DECISIONS.md                   (26 mimari karar + ders — SIK BAKILACAK!)
     ├── ISSUES.md                      (bilinen sorunlar, 62 cozulmus bug)
     └── INFRASTRUCTURE.md              (email, EAS, Apple, Google, RC, DNS, scheduled tasks, havalimani pipeline)
 ```
@@ -189,7 +190,7 @@ npx expo start --dev-client
 | Bundle/Package | `com.pusulaistanbul.app` |
 | Scheme | `pusulaistanbul` |
 | Supabase URL | `https://rzlfghjpsximthlolfxo.supabase.co` |
-| RC Entitlement | `pro` |
+| RC Entitlement | `premium` |
 | Demo (premium) | aysetokkus@hotmail.com / 123456 |
 | Demo (suresi dolmus) | demo.test@pusulaistanbul.app / 123456 |
 | Web | https://pusulaistanbul.app |

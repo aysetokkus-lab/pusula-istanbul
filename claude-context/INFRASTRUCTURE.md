@@ -280,29 +280,38 @@ Hero > Screenshots > Features > Premium > Legal > Footer
 
 ## 8. SCHEDULED TASKS (Local agent mode)
 
-4 task aktif, hepsi `.env`'den `SUPABASE_SERVICE_ROLE_KEY` okuyup REST API ile yazar:
+2 task aktif + 2 devre disi, hepsi `.env`'den `SUPABASE_SERVICE_ROLE_KEY` okuyup REST API ile yazar:
 
-1. **`sehir-hatlari-iptal-takip`** — 15 dk araliklarla
+1. **`sehir-hatlari-iptal-takip`** — 06:00-20:00 arasi her 30 dk (AKTIF, 1 May 2026'da daraltildi)
+   - Cron: `*/30 6-20 * * *` (gece penceresi kapali — eskiden 7/24, 15 dk)
    - Firecrawl ile https://sehirhatlari.istanbul/tr/iptal-seferler scrape
    - Supabase ulasim_uyarilari tablosuna service_role key ile yazar
    - Tarih kontrolu: basliktan tarih parse, gecmis duyurular otomatik aktif=false
    - Idempotent: tweet_id basliktan SHA256 hash
    - Sayfada gorulmeyen aktif kayitlari otomatik pasif
+   - **Sebep:** Vapur seferleri 06:00 oncesi ve 20:00 sonrasi nadir, gece scrape'i Firecrawl kredisini bosa harciyor. ~50% kredi tasarrufu.
 
-2. **`havalimani-tarife-guncelle`** — Haftalik (Pazartesi sabahi)
+2. **`havalimani-tarife-guncelle`** — Haftalik Pazartesi 09:01 (AKTIF)
    - Firecrawl ile havabus.com + bilet.hava.ist scrape
    - havalimani_seferleri PATCH (jsonb format)
    - Detayli yapi ve fiyat tablosu icin asagi bak (Bolum 12)
 
-3. **`muze-saatleri-guncelle`** — Periyodik
-   - muze.gov.tr veri kontrolu
+3. **`muze-saatleri-guncelle`** — **DEVRE DISI (1 Mayis 2026)**
+   - muze.gov.tr + dosim.ktb.gov.tr veri kontrolu
+   - **Iptal sebebi:** muze.gov.tr URL'leri bazi muzelerde yanlis redirect (Galata Mevlevihanesi GMM01 → Gumushane'ye gidiyor, dogru SectionId bulunamiyor). Bazi muzelerde web/dosim/DB uclu celiski (Buyuk Saray Mozaikleri saat: web 09-19, DB 09-17:30, dosim "kapali"). Az sayida lokasyon, dusuk frekansli degisim — Ayse uzmanligi ile elle yonetim daha guvenilir.
+   - **Yeni yontem:** Muzeler admin panelden (`admin-saatler.tsx`, kategori 'muzeler' / 'ozel_muzeler' / 'camiler') Ayse tarafindan elle yonetiliyor.
+   - Geri acmak istenirse: `mcp__scheduled-tasks__update_scheduled_task taskId=muze-saatleri-guncelle enabled=true cronExpression="0 10 * * 3"`
 
-4. **`saraylar-saatleri-guncelle`** — Periyodik
+4. **`saraylar-saatleri-guncelle`** — **DEVRE DISI (1 Mayis 2026)**
    - millisaraylar.gov.tr URL pattern: `/Lokasyon/{ID}/Capitalized-English-Name`
+   - **Iptal sebebi:** Site parse'i Yildiz Sarayi gibi lokasyon-ozgu saatleri dogru yakalayamadi (site tek genel saat veriyor, lokasyona gore degisken degil). Aynalikavak/Maslak fiyat dususleri (100 TL → 80 TL) supheli kaldi. 10 sabit lokasyon, dusuk frekansli degisim, Ayse rehberlik uzmanligi ile elle yonetim daha guvenilir.
+   - **Yeni yontem:** Saraylar admin panelden (`admin-saatler.tsx`, kategori 'milli_saraylar') Ayse tarafindan elle yonetiliyor.
+   - Geri acmak istenirse: `mcp__scheduled-tasks__update_scheduled_task taskId=saraylar-saatleri-guncelle enabled=true`
 
 ### Onemli Notlar
 - Service role key sadece scheduled task'lar — mobile'a girmemeli
 - Sehir Hatlari skill'i vapur iptal seferlerini gercek zamanli yakalar (v1.0.7'de eklendi)
+- Saraylar + Muzeler manuel yonetim karari icin bkz. DECISIONS.md "Scheduled Task Ne Zaman Mantiksiz"
 
 ---
 

@@ -4,7 +4,69 @@ Bu dosya **append-only** — eski surum bilgilerini silmeyiz, yeni surumler ust 
 
 ---
 
-## v1.0.10 (BUILD + SUBMIT EDILDI — 30 Nisan 2026)
+## v1.0.11 (KOD HAZIR, BUILD BEKLIYOR — 3 Mayis 2026)
+
+Iki bagimsiz fix tek surumde toplandi: 1 Mayis'ta tespit edilen UX bug + 3 Mayis'ta tani konulan sistematik kod bug'i.
+
+### Fix A — "Apple ID" Hardcoded UX (1 Mayis 2026)
+
+**Sorun:** Orcun Taran (taranorcun@gmail.com) Android cihazinda Pusula Istanbul'u kullanirken "Aktif Abonelik Bulunamadi" hata Alert'inde "Bu Apple ID ile..." metnini gordu. Cihaz Android, Apple ID jargonu yanlis ve kafa karistirici.
+
+**Sebep:** `app/abone-ol.tsx` line 185 ve `app/(tabs)/profil.tsx` line 276 — restore purchases akisinda hata mesaji platform-aware degildi. Eski kod Apple/iOS varsayimi yapiyordu.
+
+**Fix:** Iki dosyada da generic metin: "Hesabiniz ile iliskili aktif bir abonelik bulunamadi." Platform agnostic, hem iOS hem Android icin dogru.
+
+### Fix B — use-abonelik.ts NULL Profile Sistematik Bug (3 Mayis 2026)
+
+**Sorun:** 2 Mayis sabahi Supabase taramasinda 6 kullanicida ayni desen tespit edildi: `abonelik_durumu='aktif'`, `abonelik_plani=NULL`, `abonelik_bitis=NULL`. Sebnem (1 May "race condition" denilen vaka) tek vaka degildi — sistematik kod hatasi. Etkilenen 4 gercek kullanici (Selim, Nadriye, Betul, Ebru) + 2 dev hesap.
+
+**Sebep:** `hooks/use-abonelik.ts`'de RC entitlement aktif olunca Supabase'e sadece `abonelik_durumu` yaziliyordu, plan ve bitis NULL kaliyordu. Iki yerde ayni hata:
+- Line 100-105: `kontrolEt()` icindeki RC dali
+- Line 173-175: `addCustomerInfoUpdateListener` callback'i
+
+`abone-ol.tsx`'in satin alma akisi zaten uc alani da yaziyordu, ama restore/merge/yeniden-giris yollari hep bu iki bug'li yerden geciyordu.
+
+**Fix:**
+- Yeni helper `planFromProductId()` — Apple (`com.pusulaistanbul.app.yillik`) ve Play (`com.pusulaistanbul.app.yillik:yillik-yeni`) format'larini `includes('yillik')` / `includes('aylik')` ile yakalar
+- `rcAbonelikKontrol()` artik `boolean` yerine `{aktif, productId, expirationDate}` donduruyor
+- Iki RC sync noktasi guncellendi — durumu + plan + bitis hepsini, idempotent reconciler mantigiyla (sadece eksik/farkli alanlari yazar)
+- Profile select cumlesine `abonelik_plani` eklendi (karsilastirma icin gerekli)
+- Yorum bloklarinda `BUG FIX (v1.0.11)` etiketi var
+
+**Manuel doldurma (3 May, build ONCESI):** 4 etkilenen kullanicinin profili RC verisinden atomic SQL ile dolduruldu. v1.0.11 yayina cikinca yeni vakalarda kod kendi kendini duzeltir, eski vakalar manuel ile temizlendi.
+
+**Bonus bulgu:** RC'de 4 kullanicinin de satin alma kayitlari iOS App Store. **Yeni Play Store config bug magduru YOK** — sadece 1 May'daki 2 magdur (Mustafa, Sebnem). Apple subscription model'inde base plan billing period yanlislugu mumkun degil.
+
+Detay: DECISIONS.md #31.
+
+### app.json (yapildi 3 May)
+- version: 1.0.10 → **1.0.11** ✓
+- iOS buildNumber: 27 → **28** ✓
+- Android versionCode: 28 → **29** ✓
+
+### Build & yayin
+1. EAS build her iki platform — `eas build --platform all --profile production`
+2. iOS submit + Manual Release — `eas submit --platform ios --latest`
+3. Android submit + Yonetilen yayinlanma — `eas submit --platform android --latest`
+4. Onay sonrasi manuel "Release This Version" + "Yayinla"
+
+### Release Notes (TR)
+```
+v1.0.11 — Daha tutarli abonelik bilgisi
+
+• Bazi abone kullanicilarda plan ve bitis tarihi bilgisinin profilde gorunmemesi sorunu giderildi.
+• Abonelik ekranlarindaki "Apple ID" ifadesi platform-bagimsiz "Hesabiniz" olarak guncellendi.
+```
+
+### DERSLER
+- **Generic UI metni > Platform-spesifik metin:** "Hesabiniz" gibi platform-agnostic yazma, hem dogru hem evrensel. Platform-spesifik metin yazacaksan `Platform.OS` ile cek (ama gereksiz karmasiklik).
+- **Race condition tek vakada hipotez, ikinci vakada tarama yap.** N=1 → race condition mumkun, N=2+ → sistematik bug. Sebnem'in vakasi (DECISIONS.md #30) bagimsiz ele alindi, ama 6 kullanicilik tarama sonucu gercek tani cikti.
+- **RC entitlement tek dogruluk kaynagi.** `productIdentifier` + `expirationDate` her zaman guncel. Supabase profile bunu yansitmali, manuel tutmamali. Yeni satin alma yollari eklendiginde hep "RC'den oku, Supabase'e yaz" disiplini.
+- **Idempotent reconciler > atomic update**, eger birden fazla kod yolundan veri yazmaya geliyorsan. Atomic disiplini birden fazla yerde kirilabilir; reconciler kendi kendini duzeltir.
+
+---
+
+## v1.0.10 (YAYINDA — 1 Mayis 2026, her iki platformda)
 
 **Sorun:** v1.0.9'daki Pending Pattern fix'i Apple ve Google'da yayina cikti, **cold-start senaryosunu** cozdu. AMA Ayse iPhone7 iOS 15.8'de test ettiginde sifre sifirlama hala calismadi: app ana ekrana acilip recovery session kuruluyor, ama `/sifre-sifirla` ekranina yonlendirme yapilmiyor. Bu **warm-start** senaryosu (app arka planda iken Mail'den linke basildiginda).
 
@@ -48,6 +110,21 @@ Bu dosya **append-only** — eski surum bilgilerini silmeyiz, yeni surumler ust 
 14. ✓ `.gitignore` guvenlik guncellemesi: google-service-account.json + raporlar + *.eski exclude
 15. ✓ v1.0.0 → v1.0.10 toplu git commit + push (commit `48249ed`, 80 dosya, 8337 insertion) — 3 haftalik birikim GitHub'da yedeklendi
 
+### Yayin Adimlari (1 Mayis 2026)
+16. ✓ Apple Review onayi geldi (~24 saatten kisa surede — beklenen 24-48 saatten cok daha hizli) → "Pending Developer Release" durumu
+17. ✓ Google Play onayi geldi (~24 saatten kisa surede — beklenen 3-7 gunden cok daha hizli) → "Yayinlanmaya hazir" durumu
+18. ✓ App Store Connect: "Release This Version" tusuna manuel basildi → v1.0.10 App Store'da yayina cikti
+19. ✓ Play Console: "Yayinla" tusuna manuel basildi → v1.0.10 Google Play'de yayina cikti
+20. ✓ STATE.md ve CHANGELOG.md guncellendi (yayin durumu)
+
+### Yayin Sonrasi 1 Mayis 2026 (ayni gun, ayri olaylar)
+- **Play Store Yillik Plan config bug kesfedildi:** Yayinlandiktan birkac saat sonra Orcun Taran (taranorcun@gmail.com) bildirdi: yillik plan satin alma ekraninda "TRY 699,99/month" goruyor. Aslinda Play Console'daki Yillik Plan urununun base plan'i (`yillik`) **AYLIK** fatura donemi olarak konfigure edilmisti — kod hatasi degil, store yapilandirma hatasi. Bug v1.0.10 ile alakasiz ama ayni gun ortaya cikti.
+- **Etkilenen 2 musteri (Mustafa Tanribilir + Sebnem Buyukkaragoz)** icin Play Console'dan refund yapildi (her biri 699,99 TL = 1.399,98 TL toplam). Abonelikleri iptal edildi. RC'de manuel premium grant ile 2027-05-01'e kadar ucretsiz erisim verildi (1 yil hediye).
+- **Orcun Taran (3. kullanici)** karti banka tarafindan bloke edildigi icin satin alma gerceklesmedi (ironik kazanc). Hesabi Supabase Dashboard admin yetkisiyle yaratildi, abonelik_durumu='aktif'+yillik+2027-05-01 olarak set edildi. Onun da 1 yil ucretsiz premium kazanci.
+- **Play Console fix:** Yeni `yillik-yeni` base plan olusturuldu (Yillik dönem, 699,99 TL), aktif edildi, eski `yillik` base plan devre disi birakildi. RC offering yeni urune yonlendirildi.
+- **UX bug fix kodda:** `app/abone-ol.tsx` ve `app/(tabs)/profil.tsx`'te "Apple ID" hardcoded metni Android'de yanlis gorunuyordu — generic "Hesabiniz" olarak duzeltildi (v1.0.11'de yayina cikacak).
+- **Detayli incident raporu:** ISSUES.md "Bugun cozulen" bolumu ve DECISIONS.md #27 "Play Console Base Plan Billing Period Verification".
+
 ### Release Notes (Turkce, her iki platform)
 ```
 E-posta uzerinden gelen sifre sifirlama baglantisi artik dogru ekrana yonlendiriyor.
@@ -64,6 +141,8 @@ Bazi kullanicilarin "Yeni Sifre Belirle" ekranini goremedigi teknik sorun duzelt
 - **TestFlight Internal Testing review YOK** — Submit for Review tusuna BASMADIKCA Apple inceleme baslamiyor, internal tester'lar anlik test edebilir
 - **Microsoft Defender SafeLinks debug tuzaklari** — Outlook'tan kendine forward edersen safelinks ekleniyor, gercek email link'i kafa karistiriyor. Test icin SafeLinks'siz mail (Gmail/iCloud) kullan.
 - **Git commit eksikligi kritik risk** — v1.0.0'dan v1.0.10'a 3 haftalik birikim sadece local diskte tutuluyordu. Toplu commit ile cozuldu, ileride her surumde commit zorunlu.
+- **Onay sureleri tahmin edilenden hizli olabilir** — v1.0.10'da hem Apple hem Google 24 saatten kisa surede onayladi. Beklenen sure (Apple 24-48 saat, Google 3-7 gun) konservatif tahminler — gercek sure cogu zaman daha kisa. Manuel release secimi bu yuzden onemli: hizli onayda da Ayse'nin son kontrol sansi olur.
+- **Tester hesabi production'i goremez** — Ayse'nin hesabi alpha test listesinde oldugu icin Play Store'da Beta rozetiyle gorundu. Production yayini dogrulamak icin tester olmayan baska bir hesap/cihaz gerekli. Bu karisikligi onlemek icin alpha kanali kapatilmali.
 
 ---
 
