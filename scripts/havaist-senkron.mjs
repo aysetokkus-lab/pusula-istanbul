@@ -96,24 +96,27 @@ function logAlways(...a) { console.log(...a); }
 // firma her zaman 'havaist', havalimani 'IST'. HVIST-13 (Sabiha transferi) de
 // IST sekmesi altinda gosterilir: kullanici "IST'e Sabiha'dan nasil gidilir"
 // sorusunu IST sekmesinden bekler.
+// Her durak icin hat_kodu (HVL-1..9, HVIST-5A..13), durak adi base hali ve API'de
+// arama yapilacak keyword. match_keyword stations array'inde durak indexi bulmak icin
+// kullanilir (orn: 'beşiktaş' → API'de 'Beşiktaş Meydan').
 const DURAKLAR = [
   // === HVL hatlari (IBB tipi) ===
-  { durak_id: 'aksaray',                  durak_adi: 'Aksaray',                  line_id: 26, type: 'ibb',     not_bilgi: 'Sultanahmet için en yakın durak' },
-  { durak_id: 'beylikduzu',               durak_adi: 'Beylikdüzü',               line_id: 15, type: 'ibb',     not_bilgi: 'HVL-2 hattı (Marmarapark başlangıç)' },
-  { durak_id: 'otogar_esenler',           durak_adi: 'Otogar (Esenler)',         line_id:  6, type: 'ibb',     not_bilgi: 'HVL-3 hattı' },
-  { durak_id: 'merter_bakirkoy',          durak_adi: 'Merter / Bakırköy',        line_id:  9, type: 'ibb',     not_bilgi: 'HVL-4 hattı (Bakırköy İDO ana)' },
-  { durak_id: 'kadikoy',                  durak_adi: 'Kadıköy',                  line_id: 32, type: 'ibb',     not_bilgi: 'HVL-6 hattı — Anadolu yakası' },
-  { durak_id: 'avcilar',                  durak_adi: 'Avcılar',                  line_id: 17, type: 'ibb',     not_bilgi: 'HVL-7 hattı' },
-  { durak_id: 'bahçeşehir_merkez',        durak_adi: 'Bahçeşehir Merkez',        line_id: 17, type: 'ibb',     not_bilgi: 'HVL-7 hattı (Avcılar ara durak)' },
-  { durak_id: 'halkalı_i_stasyon',        durak_adi: 'Halkalı İstasyon',         line_id: 31, type: 'ibb',     not_bilgi: 'HVL-8 hattı' },
-  { durak_id: 'taksim',                   durak_adi: 'Taksim',                   line_id: 23, type: 'ibb',     not_bilgi: 'HVL-9 hattı (Beşiktaş + 4. Levent ara durak)' },
-  { durak_id: 'besiktas',                 durak_adi: 'Beşiktaş',                 line_id: 23, type: 'ibb',     not_bilgi: 'HVL-9 Taksim hattı ara durağı' },
+  { durak_id: 'aksaray',                  base_ad: 'Aksaray',                  hat_kodu: 'HVL-1',   match_keyword: 'aksaray',            line_id: 26, type: 'ibb',     not_bilgi: 'Sultanahmet için en yakın durak' },
+  { durak_id: 'beylikduzu',               base_ad: 'Beylikdüzü',               hat_kodu: 'HVL-2',   match_keyword: 'beylikdüzü',         line_id: 15, type: 'ibb',     not_bilgi: 'Marmarapark başlangıç' },
+  { durak_id: 'otogar_esenler',           base_ad: 'Otogar (Esenler)',         hat_kodu: 'HVL-3',   match_keyword: 'otogar',             line_id:  6, type: 'ibb',     not_bilgi: 'Esenler Otogarı çıkışlı hat' },
+  { durak_id: 'merter_bakirkoy',          base_ad: 'Merter / Bakırköy',        hat_kodu: 'HVL-4',   match_keyword: 'bakırköy',           line_id:  9, type: 'ibb',     not_bilgi: 'Bakırköy İDO ana durak' },
+  { durak_id: 'kadikoy',                  base_ad: 'Kadıköy',                  hat_kodu: 'HVL-6',   match_keyword: 'kadıköy',            line_id: 32, type: 'ibb',     not_bilgi: 'Anadolu yakası' },
+  { durak_id: 'avcilar',                  base_ad: 'Avcılar',                  hat_kodu: 'HVL-7',   match_keyword: 'avcılar',            line_id: 17, type: 'ibb',     not_bilgi: 'Avcılar Cami durağı' },
+  { durak_id: 'bahçeşehir_merkez',        base_ad: 'Bahçeşehir Merkez',        hat_kodu: 'HVL-7',   match_keyword: 'bahçeşehir',         line_id: 17, type: 'ibb',     not_bilgi: 'HVL-7 hattı ara durak' },
+  { durak_id: 'halkalı_i_stasyon',        base_ad: 'Halkalı İstasyon',         hat_kodu: 'HVL-8',   match_keyword: 'halkalı i̇stasyon',   line_id: 31, type: 'ibb',     not_bilgi: 'Halkalı Marmaray çıkışı' },
+  { durak_id: 'taksim',                   base_ad: 'Taksim',                   hat_kodu: 'HVL-9',   match_keyword: 'taksim',             line_id: 23, type: 'ibb',     not_bilgi: 'Beşiktaş + 4. Levent ara durak' },
+  { durak_id: 'besiktas',                 base_ad: 'Beşiktaş',                 hat_kodu: 'HVL-9',   match_keyword: 'beşiktaş',           line_id: 23, type: 'ibb',     not_bilgi: 'Taksim hattı ara durağı' },
 
   // === HVIST hatlari (Havaist tipi) ===
-  { durak_id: 'arnavutkoy',               durak_adi: 'Arnavutköy',               line_id: 30, type: 'havaist', not_bilgi: 'HVİST-5A hattı' },
-  { durak_id: 'silivri_catalca',          durak_adi: 'Silivri / Çatalca',        line_id: 14, type: 'havaist', not_bilgi: 'HVİST-7 hattı' },
-  { durak_id: 'sultanahmet_çatladıkapı',  durak_adi: 'Sultanahmet-Çatladıkapı',  line_id: 32, type: 'havaist', not_bilgi: 'HVİST-11 hattı (Eminönü-Şişhane ara)' },
-  { durak_id: 'sabiha_gokcen',            durak_adi: 'Sabiha Gökçen Havalimanı', line_id:  3, type: 'havaist', not_bilgi: 'HVİST-13 — IST-SAW arası transfer' },
+  { durak_id: 'arnavutkoy',               base_ad: 'Arnavutköy',               hat_kodu: 'HVİST-5A', match_keyword: 'arnavutköy',         line_id: 30, type: 'havaist', not_bilgi: 'Arnavutköy merkez bağlantısı' },
+  { durak_id: 'silivri_catalca',          base_ad: 'Silivri / Çatalca',        hat_kodu: 'HVİST-7',  match_keyword: 'silivri',            line_id: 14, type: 'havaist', not_bilgi: 'Silivri otogar + Çatalca' },
+  { durak_id: 'sultanahmet_çatladıkapı',  base_ad: 'Sultanahmet-Çatladıkapı',  hat_kodu: 'HVİST-11', match_keyword: 'çatladıkapı',        line_id: 32, type: 'havaist', not_bilgi: 'Eminönü-Şişhane ara duraklı' },
+  { durak_id: 'sabiha_gokcen',            base_ad: 'Sabiha Gökçen Havalimanı', hat_kodu: 'HVİST-13', match_keyword: 'sabiha',             line_id:  3, type: 'havaist', not_bilgi: 'IST-SAW arası transfer' },
 ];
 
 // === Yardimcilar ===
@@ -234,11 +237,14 @@ async function main() {
       }
       const fiyat = out?.price?.ticket?.price ? `${out.price.ticket.price}₺` : null;
       const sure = out?.travel_time ? `${out.travel_time} dk` : null;
+      // Stations array'i: outbound API'sinden gelir = [airport, ..., endpoint]
+      const stationsList = (out?.stations || []).map(s => s.name);
       hatVerisi.set(k, {
         havdan_sehir: out?.all_trips || [],         // airport'tan kalkanlar = havalimanindan sehre
         sehirden_hav: inb?.all_trips || [],         // sehirden kalkanlar = sehirden havalimanina
         fiyat, sure,
         shortname: out?.shortname || ep.lineInfo?.shortname,
+        stations_outbound: stationsList,            // [airport → ... → endpoint] sirasiyla
       });
       log(`  ${out?.shortname || k}: gidis=${(inb?.all_trips||[]).length} donus=${(out?.all_trips||[]).length} fiyat=${fiyat}`);
       // Hafif rate-limit
@@ -249,9 +255,22 @@ async function main() {
   }
 
   // 4. DB'deki mevcut tum havaist/IST kayitlarini cek
-  const dbRows = await sbSelect('select=id,durak_id,durak_adi,fiyat,sure,sehirden_hav,havdan_sehir,not_bilgi&firma=eq.havaist&havalimani=eq.IST');
+  const dbRows = await sbSelect('select=id,durak_id,durak_adi,fiyat,sure,sehirden_hav,havdan_sehir,not_bilgi,sehirden_hav_guzergah,havdan_sehir_guzergah&firma=eq.havaist&havalimani=eq.IST');
   const dbByDurakId = new Map(dbRows.map(r => [r.durak_id, r]));
   log(`DB: ${dbRows.length} mevcut Havaist/IST kaydi`);
+
+  // Yardimci: Stations dizisinden, belirli bir duraktan baslayan guzergah text'i uret.
+  // yon='havdan' = airport→endpoint (stations array'i olduğu gibi);
+  // yon='sehirden' = endpoint→airport (reversed).
+  // Eger keyword bulunursa o duraktan baslayan kismi, bulunmazsa tum dizi.
+  function guzergahUret(stations, keyword, yon) {
+    if (!stations || stations.length === 0) return null;
+    const liste = yon === 'sehirden' ? [...stations].reverse() : [...stations];
+    const lcKeyword = keyword.toLowerCase().replace(/i̇/g, 'i');
+    const idx = liste.findIndex(s => s.toLowerCase().replace(/i̇/g, 'i').includes(lcKeyword));
+    const sliced = idx >= 0 ? liste.slice(idx) : liste;
+    return sliced.join(' - ');
+  }
 
   // 5. Her tanimli durak icin update veya insert
   const periyot = tariffePeriyot();
@@ -274,11 +293,19 @@ async function main() {
     }
 
     const mevcut = dbByDurakId.get(durak.durak_id);
+    // Hat kodu suffix'li durak adi: "Aksaray (HVL-1)"
+    const yeniDurakAdi = `${durak.base_ad} (${durak.hat_kodu})`;
+    // Guzergah text'leri (stations API'den)
+    const sehirdenGuzergah = guzergahUret(veri.stations_outbound, durak.match_keyword, 'sehirden');
+    const havdanGuzergah = guzergahUret(veri.stations_outbound, 'havaliman', 'havdan');
     const guncelPayload = {
       sehirden_hav: veri.sehirden_hav,
       havdan_sehir: veri.havdan_sehir,
       fiyat: veri.fiyat,
       sure: veri.sure,
+      durak_adi: yeniDurakAdi,
+      sehirden_hav_guzergah: sehirdenGuzergah,
+      havdan_sehir_guzergah: havdanGuzergah,
       kaynak,
       tarife_donemi: periyot,
       guncelleme_tarihi: new Date().toISOString(),
@@ -290,7 +317,10 @@ async function main() {
         !arraysEqual(mevcut.sehirden_hav || [], veri.sehirden_hav) ||
         !arraysEqual(mevcut.havdan_sehir || [], veri.havdan_sehir) ||
         mevcut.fiyat !== veri.fiyat ||
-        mevcut.sure !== veri.sure;
+        mevcut.sure !== veri.sure ||
+        mevcut.durak_adi !== yeniDurakAdi ||
+        (mevcut.sehirden_hav_guzergah || null) !== (sehirdenGuzergah || null) ||
+        (mevcut.havdan_sehir_guzergah || null) !== (havdanGuzergah || null);
 
       if (!farkVar) {
         noChangeCount++;
@@ -320,20 +350,19 @@ async function main() {
         updateCount++;
       }
     } else {
-      // INSERT: yeni durak
+      // INSERT: yeni durak (durak_adi guncelPayload icinde zaten hat_kodu ile geliyor)
       const insertPayload = {
         ...guncelPayload,
         firma: 'havaist',
         havalimani: 'IST',
         durak_id: durak.durak_id,
-        durak_adi: durak.durak_adi,
         not_bilgi: durak.not_bilgi,
         aktif: true,
       };
       degisiklikler.push({
         type: 'insert',
         durak_id: durak.durak_id,
-        durak_adi: durak.durak_adi,
+        durak_adi: yeniDurakAdi,
         fiyat: veri.fiyat,
         gidis: veri.sehirden_hav.length,
         donus: veri.havdan_sehir.length,
