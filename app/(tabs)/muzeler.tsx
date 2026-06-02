@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMekanSaatleri, type MekanSaat } from '../../hooks/use-mekan-saatleri';
 import { useTema } from '../../hooks/use-tema';
+import { useAbonelik } from '../../hooks/use-abonelik';
 
 const GUNLER = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
 
@@ -78,8 +79,12 @@ export default function Muzeler() {
   const insets = useSafeAreaInsets();
   const { t, isDark } = useTema();
   const params = useLocalSearchParams<{ mekanId?: string; kat?: string }>();
+  const { premiumMi } = useAbonelik();
   const [secili, setSecili] = useState<MekanSaat | null>(null);
   const [aktifKat, setAktifKat] = useState(0);
+
+  // Saraylar (kat 0) bedava — diger sekmeler premium
+  const sekmeKilitli = aktifKat !== 0 && !premiumMi;
 
   // Supabase'den veri cek (realtime)
   const kategoriId = KATEGORILER[aktifKat].id;
@@ -102,11 +107,16 @@ export default function Muzeler() {
       const bulunan = tumMekanlar.find(m => m.mekan_id === params.mekanId);
       if (bulunan) {
         const katIdx = KATEGORILER.findIndex(k => k.id === bulunan.kategori);
+        // Saraylar disindaki kategoriler premium — deep link bypass'ini engelle
+        if (katIdx !== 0 && !premiumMi) {
+          router.push('/abone-ol');
+          return;
+        }
         if (katIdx >= 0) setAktifKat(katIdx);
         setTimeout(() => setSecili(bulunan), 150);
       }
     }
-  }, [params.mekanId, tumMekanlar]);
+  }, [params.mekanId, tumMekanlar, premiumMi]);
 
   return (
     <ScrollView style={[st.container, { backgroundColor: t.bg }]}>
@@ -126,7 +136,25 @@ export default function Muzeler() {
       </View>
 
       {/* Mekan listesi */}
-      {yukleniyor ? (
+      {sekmeKilitli ? (
+        <TouchableOpacity onPress={() => router.push('/abone-ol')} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 16 }}>
+          <LinearGradient
+            colors={['#00A8E8','#0077B6','#0096C7','#48CAE4']}
+            start={{x:0,y:0}} end={{x:1,y:1}}
+            style={{ borderRadius: 14, padding: 22 }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>
+              {KATEGORILER[aktifKat].baslik} — Premium
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 13, lineHeight: 19, marginBottom: 14 }}>
+              Mekan saatleri, gişe kapanışı, mevsimsel saatler, fiyatlar ve MüzeKart bilgileri için Pusula İstanbul Premium gerekir.
+            </Text>
+            <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Abone Ol →</Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      ) : yukleniyor ? (
         <ActivityIndicator size="large" color="#0077B6" style={{ marginTop: 40 }} />
       ) : mekanlar.length === 0 ? (
         <Text style={[st.bosYazi, { color: t.textMuted }]}>Bu kategoride mekan bulunamadı.</Text>

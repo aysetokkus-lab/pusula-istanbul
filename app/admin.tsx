@@ -104,13 +104,18 @@ export default function AdminPanel() {
         return;
       }
 
-      // Moderator yap
-      const { error: updateErr } = await supabase
+      // Moderator yap — RLS sessiz red'e karsi defansif: .select().single() ile
+      // donen veriyi kontrol et. UPDATE 0 satir etkilerse PostgREST hata atmaz,
+      // ama .single() data'yi null donecegi icin yakalariz. (BUG FIX v1.0.12)
+      const { data: guncel, error: updateErr } = await supabase
         .from('profiles')
         .update({ rol: 'moderator' })
-        .eq('id', profil.id);
+        .eq('id', profil.id)
+        .select()
+        .single();
 
       if (updateErr) throw updateErr;
+      if (!guncel) throw new Error('Yetki sorunu — kayıt güncellenmedi.');
 
       Alert.alert('Başarılı', `${profil.isim} ${profil.soyisim} moderatör olarak atandı.`);
       setModEmail('');
@@ -132,12 +137,18 @@ export default function AdminPanel() {
           text: 'Kaldır',
           style: 'destructive',
           onPress: async () => {
-            const { error } = await supabase
+            // RLS sessiz red'e karsi defansif: .select().single() ile donen
+            // veriyi kontrol et. (BUG FIX v1.0.12)
+            const { data: guncel, error } = await supabase
               .from('profiles')
               .update({ rol: 'user' })
-              .eq('id', id);
+              .eq('id', id)
+              .select()
+              .single();
             if (error) {
               Alert.alert('Hata', error.message);
+            } else if (!guncel) {
+              Alert.alert('Hata', 'Yetki sorunu — kayıt güncellenmedi.');
             } else {
               Alert.alert('Başarılı', 'Moderatörlük kaldırıldı.');
               moderatorlariCek();

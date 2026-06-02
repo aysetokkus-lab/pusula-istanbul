@@ -1,13 +1,27 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { supabase } from '../lib/supabase';
-import { useBildirimTercihleri, type BildirimKategori } from './use-bildirim-tercihleri';
 
 /* ═══════════════════════════════════════════
-   Expo Go'da expo-notifications desteklenmiyor
-   (SDK 53+). Sadece dev-build'de aktif.
+   use-bildirimler.ts (v1.1.0 sadelestirilmis)
+   ───────────────────────────────────────────
+   ESKI DAVRANIS (v1.0.x): Bu hook 6 kategori icin
+   Supabase Realtime listener kuruyordu, app foreground
+   iken local notification uretiyordu. App kapaliyken
+   bildirim gelmiyordu.
+
+   YENI DAVRANIS (v1.1.0): Bildirimlerin tamami SERVER
+   tarafindan Edge Function (push-gonder) ile uretiliyor.
+   Bu hook artik sadece:
+   - Notification handler kur (foreground'da push gosterimi)
+   - Android kanallarini olustur
+   - Bildirim izni iste (use-push-token.ts ile koordineli)
+
+   Tercih kontrolu: server-side, profiles.bildirim_tercihleri
+   kolonundan (bkz. push-gonder Edge Function).
+   Token yonetimi: use-push-token.ts hook'unda.
    ═══════════════════════════════════════════ */
+
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 let Notifications: typeof import('expo-notifications') | null = null;
@@ -32,53 +46,60 @@ if (!isExpoGo) {
 }
 
 /* ═══════════════════════════════════════════
-   Yardımcı: İzin isteme
-   ═══════════════════════════════════════════ */
-async function bildirimIzniIste(): Promise<boolean> {
-  if (!Notifications || !bildirimDestekleniyor) return false;
-  try {
-    const { status: mevcut } = await Notifications.getPermissionsAsync();
-    if (mevcut === 'granted') return true;
-    const { status } = await Notifications.requestPermissionsAsync();
-    return status === 'granted';
-  } catch {
-    bildirimDestekleniyor = false;
-    return false;
-  }
-}
+   Android kanallari (her kategori ayri kanal)
+   Channel ID'leri push-gonder Edge Function'da
+   KANAL_MAP ile birebir eslesmek zorunda.
 
-/* ═══════════════════════════════════════════
-   Yardımcı: Lokal bildirim gönder
-   ═══════════════════════════════════════════ */
-async function bildirimGonder(baslik: string, icerik: string, kanal: string, veri?: Record<string, any>) {
-  if (!Notifications || !bildirimDestekleniyor) return;
-  try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: baslik,
-        body: icerik,
-        data: veri || {},
-        ...(Platform.OS === 'android' && { channelId: kanal }),
-      },
-      trigger: null,
-    });
-  } catch {
-    bildirimDestekleniyor = false;
-  }
-}
+   ANDROID QUIRK (v1.1.0'da kesfedildi):
+   Bir kanal olusturulduktan sonra kod uzerinden importance,
+   ses, titresim ayarlari DEGISTIRILEMEZ. Sadece kullanici
+   Android Ayarlardan degistirebilir. v1.1.0 build'inde
+   `sound: 'default'` string'i hatali kanal olarak yorumlandi
+   ve ses gelmiyordu. Fix: eski kanallari delete + yeni
+   versiyon ID'leri ile yeniden olustur (ID'lere '-v2'
+   suffix eklendi). push-gonder Edge Function'i da yeni
+   ID'lere set edildi.
 
-/* ═══════════════════════════════════════════
-   Yardımcı: Android kanalları oluştur
+   ESKI ID -> YENI ID:
+   ulasim-uyari    -> ulasim-uyari-v2
+   trafik-uyari    -> trafik-uyari-v2
+   saha-durumu     -> saha-durumu-v2
+   etkinlikler     -> etkinlikler-v2
+   sohbet          -> sohbet-v2
+   sistem          -> sistem-v2
    ═══════════════════════════════════════════ */
+const ESKI_KANAL_IDLER = [
+  'ulasim-uyari',
+  'trafik-uyari',
+  'saha-durumu',
+  'etkinlikler',
+  'sohbet',
+  'sistem',
+];
+
 async function androidKanallariOlustur() {
   if (Platform.OS !== 'android' || !Notifications || !bildirimDestekleniyor) return;
+
+  // v1.1.1 fix: eski kanallari sil (varsa) — kullanici v1.1.0'dan guncelliyorsa
+  // sessiz kanal ayarlarini temizler. Yeni kanallar '-v2' ID'li.
+  for (const eskiId of ESKI_KANAL_IDLER) {
+    try {
+      await Notifications.deleteNotificationChannelAsync(eskiId);
+    } catch {
+      // kanal yoksa hata gelir, normal
+    }
+  }
+
+  // Yeni kanallar: sound 'default' string yerine sound: null degil,
+  // sound parametresi HIC verilmiyor — Expo varsayilan sistem sesi atar.
+  // vibrationPattern verildiginde enableVibrate: true otomatik.
   const kanallar = [
-    { id: 'ulasim-uyari', name: 'Ulaşım Uyarıları', importance: 4 },
-    { id: 'trafik-uyari', name: 'Trafik ve Yol Durumu', importance: 4 },
-    { id: 'saha-durumu', name: 'Saha Durumu', importance: 3 },
-    { id: 'etkinlikler', name: 'Etkinlikler', importance: 3 },
-    { id: 'sohbet', name: 'Sohbet Mesajları', importance: 4 },
-    { id: 'sistem', name: 'Sistem Güncellemeleri', importance: 2 },
+    { id: 'ulasim-uyari-v2', name: 'Ulaşım Uyarıları', importance: 4 },
+    { id: 'trafik-uyari-v2', name: 'Trafik ve Yol Durumu', importance: 4 },
+    { id: 'saha-durumu-v2', name: 'Saha Durumu', importance: 4 },
+    { id: 'etkinlikler-v2', name: 'Etkinlikler', importance: 3 },
+    { id: 'sohbet-v2', name: 'Sohbet Mesajları', importance: 4 },
+    { id: 'sistem-v2', name: 'Sistem Güncellemeleri', importance: 3 },
   ];
   try {
     for (const k of kanallar) {
@@ -86,231 +107,59 @@ async function androidKanallariOlustur() {
         name: k.name,
         importance: k.importance as any,
         vibrationPattern: [0, 250, 250, 250],
-        sound: 'default',
+        // sound parametresi VERILMEDI -> Expo/Android sistem default sesi kullanir
+        // (string 'default' bug'ina dusmemek icin)
+        enableVibrate: true,
+        showBadge: true,
       });
     }
-  } catch {
-    bildirimDestekleniyor = false;
+  } catch (e) {
+    console.warn('Android kanal olusturma hata:', e);
   }
 }
 
 /* ═══════════════════════════════════════════
-   Tip etiketleri
+   Bildirim'a tiklayinca uygulamayi acan handler
+   Veri payload'inda kategori varsa ilgili ekrana
+   yonlendirme buradan tetiklenebilir (v1.1.0 baslangic:
+   sadece app'i actir, ekrana yonlendirme v1.1.1'de).
    ═══════════════════════════════════════════ */
-const ULASIM_TIP: Record<string, string> = {
-  ariza: 'ARIZA', kesinti: 'KESİNTİ', gecikme: 'GECİKME', bilgi: 'BİLGİ', duyuru: 'DUYURU',
-};
+function tiklamaHandlerKur() {
+  if (!Notifications || !bildirimDestekleniyor) return null;
+  try {
+    return Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data || {};
+      // v1.1.0 ilk turda sadece log
+      // v1.1.1+: kategori bazli deep link (sohbet -> /(tabs)/sohbet, ulasim -> ana sayfa, vb.)
+      console.log('Bildirim tiklandi:', data);
+    });
+  } catch {
+    return null;
+  }
+}
 
 /* ═══════════════════════════════════════════
    Hook: useBildirimler
-   Tüm 6 kategoriyi tek hook'ta yönetir.
-   Tercihlere göre Supabase Realtime dinler.
+   _layout.tsx'te bir kere cagrilir.
+   Hicbir Supabase Realtime listener kurmaz
+   (eskiden 6 kanal vardi — hepsi server-side
+   trigger'a tasindi, bkz. DECISIONS.md #42).
    ═══════════════════════════════════════════ */
 export function useBildirimler() {
-  const { tercihler, yuklendi } = useBildirimTercihleri();
-  const kanallarRef = useRef<Record<string, any>>({});
-  const izinRef = useRef(false);
+  const handlerRef = useRef<ReturnType<typeof tiklamaHandlerKur>>(null);
 
-  // Kanal temizleme yardımcısı
-  const kanalKaldir = useCallback((ad: string) => {
-    if (kanallarRef.current[ad]) {
-      supabase.removeChannel(kanallarRef.current[ad]);
-      delete kanallarRef.current[ad];
-    }
-  }, []);
-
-  const kanalEkle = useCallback((ad: string, kanal: any) => {
-    kanallarRef.current[ad] = kanal;
-  }, []);
-
-  // ── 1. Başlangıç: İzin + Android kanalları ──
   useEffect(() => {
     (async () => {
       await androidKanallariOlustur();
-      izinRef.current = await bildirimIzniIste();
     })();
+
+    handlerRef.current = tiklamaHandlerKur();
+
     return () => {
-      // Tüm kanalları temizle
-      Object.keys(kanallarRef.current).forEach(k => {
-        supabase.removeChannel(kanallarRef.current[k]);
-      });
-      kanallarRef.current = {};
+      handlerRef.current?.remove();
+      handlerRef.current = null;
     };
   }, []);
-
-  // ── 2. Ulaşım Uyarıları (raylı sistem + trafik ayrı tercihle) ──
-  // IBB Ulaşım kaynaklı uyarılar: tercihler.trafik
-  // Diğer tüm raylı sistem uyarıları: tercihler.ulasim
-  const TRAFIK_KAYNAK = 'x:IBBUlasim';
-
-  useEffect(() => {
-    if (!yuklendi) return;
-    const AD = 'bildirim-ulasim';
-    // Her iki tercihten biri bile açıksa subscription gerekli
-    if (!tercihler.ulasim && !tercihler.trafik) { kanalKaldir(AD); return; }
-
-    const ch = supabase
-      .channel(AD)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ulasim_uyarilari' }, (p: any) => {
-        const y = p.new;
-        if (!y || !y.aktif) return;
-
-        // Cozulmus uyarilar icin bildirim GONDERME
-        if (y.cozuldu) return;
-
-        // 1 saatten eski tweet'ler icin bildirim GONDERME
-        // (uygulama acildiginda eski tweet'ler senkronize olabilir)
-        const tweetYasi = Date.now() - new Date(y.tarih).getTime();
-        if (tweetYasi > 60 * 60 * 1000) return;
-
-        // Kaynak bazlı tercih kontrolü
-        const trafikKaynagi = y.kaynak === TRAFIK_KAYNAK;
-        if (trafikKaynagi && !tercihler.trafik) return;
-        if (!trafikKaynagi && !tercihler.ulasim) return;
-
-        const etiket = ULASIM_TIP[y.tip] || 'BİLGİ';
-        const kanal = trafikKaynagi ? 'trafik-uyari' : 'ulasim-uyari';
-        bildirimGonder(`[${etiket}] ${y.hat}`, y.icerik, kanal, { hat: y.hat, tip: y.tip, kaynak: y.kaynak });
-      })
-      .subscribe();
-    kanalEkle(AD, ch);
-    return () => kanalKaldir(AD);
-  }, [yuklendi, tercihler.ulasim, tercihler.trafik]);
-
-  // ── 3. Saha Durumu (canlı müze yoğunluk) ──
-  useEffect(() => {
-    if (!yuklendi) return;
-    const AD = 'bildirim-saha';
-    if (!tercihler.sahaDurumu) { kanalKaldir(AD); return; }
-
-    const ch = supabase
-      .channel(AD)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'canli_durum' }, (p: any) => {
-        const y = p.new;
-        if (!y) return;
-        // Sadece yüksek yoğunluk uyarısı gönder
-        const yogunlukSeviye = y.yogunluk || y.seviye || '';
-        if (yogunlukSeviye === 'cok_yogun' || yogunlukSeviye === 'yogun') {
-          bildirimGonder(
-            'Saha Durumu',
-            `${y.mekan_isim || y.mekan_id || 'Bir mekan'}: ${yogunlukSeviye === 'cok_yogun' ? 'Çok yoğun' : 'Yoğun'}${y.aciklama ? ' — ' + y.aciklama : ''}`,
-            'saha-durumu',
-            { mekan: y.mekan_id },
-          );
-        }
-      })
-      .subscribe();
-    kanalEkle(AD, ch);
-    return () => kanalKaldir(AD);
-  }, [yuklendi, tercihler.sahaDurumu]);
-
-  // ── 4. Yaklaşan Etkinlikler ──
-  useEffect(() => {
-    if (!yuklendi) return;
-    const AD = 'bildirim-etkinlik';
-    if (!tercihler.etkinlikler) { kanalKaldir(AD); return; }
-
-    const ch = supabase
-      .channel(AD)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'etkinlikler' }, (p: any) => {
-        const y = p.new;
-        if (!y || !y.aktif) return;
-        bildirimGonder(
-          'Yeni Etkinlik',
-          `${y.baslik}${y.tarih ? ' — ' + y.tarih : ''}${y.aciklama ? '\n' + y.aciklama : ''}`,
-          'etkinlikler',
-          { etkinlikId: y.id },
-        );
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'etkinlikler' }, (p: any) => {
-        const y = p.new;
-        const eski = p.old;
-        // Sadece aktif hale getirilen veya güncellenen etkinlikleri bildir
-        if (!y || !y.aktif) return;
-        if (eski && eski.aktif === y.aktif && eski.baslik === y.baslik) return;
-        bildirimGonder(
-          'Etkinlik Güncellendi',
-          `${y.baslik}${y.tarih ? ' — ' + y.tarih : ''}`,
-          'etkinlikler',
-          { etkinlikId: y.id },
-        );
-      })
-      .subscribe();
-    kanalEkle(AD, ch);
-    return () => kanalKaldir(AD);
-  }, [yuklendi, tercihler.etkinlikler]);
-
-  // ── 5. Sohbet Mesajları ──
-  useEffect(() => {
-    if (!yuklendi) return;
-    const AD = 'bildirim-sohbet';
-    if (!tercihler.sohbet) { kanalKaldir(AD); return; }
-
-    // Kendi kullanıcı ID'mizi al (kendimize bildirim göndermeyelim)
-    let benimId: string | null = null;
-    supabase.auth.getUser().then(({ data }) => { benimId = data.user?.id || null; });
-
-    const ch = supabase
-      .channel(AD)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sohbet_mesajlari' }, (p: any) => {
-        const y = p.new;
-        if (!y) return;
-        // Kendi mesajımıza bildirim gönderme
-        if (y.kullanici_id === benimId) return;
-        const gonderenAd = y.kullanici_isim || 'Bir rehber';
-        bildirimGonder(
-          'Yeni Mesaj',
-          `${gonderenAd}: ${(y.mesaj || y.icerik || '').substring(0, 100)}`,
-          'sohbet',
-          { mesajId: y.id },
-        );
-      })
-      .subscribe();
-    kanalEkle(AD, ch);
-    return () => kanalKaldir(AD);
-  }, [yuklendi, tercihler.sohbet]);
-
-  // ── 6. Sistem Güncellemeleri (admin değişiklikleri) ──
-  useEffect(() => {
-    if (!yuklendi) return;
-    const AD = 'bildirim-sistem';
-    if (!tercihler.admin) { kanalKaldir(AD); return; }
-
-    const ch = supabase
-      .channel(AD)
-      // Mekan saatleri değişikliği
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mekan_saatleri' }, (p: any) => {
-        const y = p.new;
-        const eski = p.old;
-        if (!y) return;
-        // Sadece saat değişikliklerini bildir
-        if (eski && eski.acilis === y.acilis && eski.kapanis === y.kapanis && eski.fiyat_yabanci === y.fiyat_yabanci) return;
-        const degisiklik = [];
-        if (eski?.acilis !== y.acilis || eski?.kapanis !== y.kapanis) degisiklik.push('saat');
-        if (eski?.fiyat_yabanci !== y.fiyat_yabanci) degisiklik.push('fiyat');
-        bildirimGonder(
-          'Saat Güncellendi',
-          `${y.isim}: ${degisiklik.join(' ve ')} değişti${y.acilis ? ' — ' + y.acilis + '/' + y.kapanis : ''}`,
-          'sistem',
-          { mekanId: y.mekan_id },
-        );
-      })
-      // Havalimanı sefer tarife değişikliği
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'havalimani_seferleri' }, (p: any) => {
-        const y = p.new;
-        if (!y) return;
-        bildirimGonder('Tarife Güncellendi', `${y.durak_adi || 'Bir güzergah'} tarife bilgisi değişti${y.fiyat ? ' — ' + y.fiyat : ''}`, 'sistem');
-      })
-      // Boğaz turu tarife değişikliği
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bogaz_turlari' }, (p: any) => {
-        const y = p.new;
-        if (!y) return;
-        bildirimGonder('Tarife Güncellendi', `${y.sirket_adi || 'Bir tur'} tarife bilgisi değişti`, 'sistem');
-      })
-      .subscribe();
-    kanalEkle(AD, ch);
-    return () => kanalKaldir(AD);
-  }, [yuklendi, tercihler.admin]);
 
   return { bildirimDestekleniyor };
 }

@@ -49,13 +49,27 @@ export async function revenueCatInit(): Promise<void> {
   }
 }
 
-/** Kullanici giris yapinca cagir — anonim kullaniciyi gercek kullaniciyla eslestirir. */
-export async function revenueCatLogin(userId: string): Promise<void> {
+/**
+ * Kullanici giris yapinca cagir — anonim kullaniciyi gercek kullaniciyla eslestirir.
+ * v1.1.0: Email ve isim de RC dashboard'a attribute olarak yazilir. Boylece destek
+ * vakalarinda dashboard'da email ile arama yapilabilir (DECISIONS #41 kapaklamasi).
+ */
+export async function revenueCatLogin(userId: string, email?: string, displayName?: string): Promise<void> {
   if (!rcBaslatildi) await revenueCatInit();
   if (!rcBaslatildi) return;
   try {
     await Purchases.logIn(userId);
-    console.log('RevenueCat logIn basarili, user:', userId);
+
+    // v1.1.0: Email + isim attribute'lari — RC dashboard'da kullaniciyi
+    // email ile arayabilmek icin gerekli. Anonim kullaniciyi tanimli yapar.
+    const attributes: Record<string, string> = {};
+    if (email) attributes['$email'] = email;
+    if (displayName) attributes['$displayName'] = displayName;
+    if (Object.keys(attributes).length > 0) {
+      await Purchases.setAttributes(attributes);
+    }
+
+    console.log('RevenueCat logIn basarili, user:', userId, email ? `(email set)` : '');
   } catch (e) {
     console.warn('RevenueCat logIn hatasi:', e);
   }

@@ -30,6 +30,8 @@ export default function AdminUlasimTarife() {
   const [seciliSefer, setSeciliSefer] = useState<HavalimaniSefer | null>(null);
   const [sehirdenHavStr, setSehirdenHavStr] = useState('');
   const [havdanSehirStr, setHavdanSehirStr] = useState('');
+  const [sehirdenHavGuzergah, setSehirdenHavGuzergah] = useState('');
+  const [havdanSehirGuzergah, setHavdanSehirGuzergah] = useState('');
   const [fiyatForm, setFiyatForm] = useState('');
   const [sureForm, setSureForm] = useState('');
 
@@ -76,6 +78,8 @@ export default function AdminUlasimTarife() {
     setYeniSeferHavalimani(sekme === 'havaist' ? 'IST' : 'SAW');
     setSehirdenHavStr('');
     setHavdanSehirStr('');
+    setSehirdenHavGuzergah('');
+    setHavdanSehirGuzergah('');
     setFiyatForm('');
     setSureForm('');
     setSeferModal(true);
@@ -103,6 +107,8 @@ export default function AdminUlasimTarife() {
     setSeciliSefer(s);
     setSehirdenHavStr((s.sehirden_hav || []).join(', '));
     setHavdanSehirStr((s.havdan_sehir || []).join(', '));
+    setSehirdenHavGuzergah(s.sehirden_hav_guzergah || '');
+    setHavdanSehirGuzergah(s.havdan_sehir_guzergah || '');
     setFiyatForm(s.fiyat || '');
     setSureForm(s.sure || '');
     setSeferModal(true);
@@ -128,6 +134,8 @@ export default function AdminUlasimTarife() {
         durak_adi: yeniSeferAdi.trim(),
         sehirden_hav: yeniSehirden,
         havdan_sehir: yeniHavdan,
+        sehirden_hav_guzergah: sehirdenHavGuzergah.trim() || null,
+        havdan_sehir_guzergah: havdanSehirGuzergah.trim() || null,
         fiyat: fiyatForm || null,
         sure: sureForm || null,
         aktif: true,
@@ -154,6 +162,8 @@ export default function AdminUlasimTarife() {
         .update({
           sehirden_hav: yeniSehirden,
           havdan_sehir: yeniHavdan,
+          sehirden_hav_guzergah: sehirdenHavGuzergah.trim() || null,
+          havdan_sehir_guzergah: havdanSehirGuzergah.trim() || null,
           fiyat: fiyatForm || null,
           sure: sureForm || null,
           guncelleme_tarihi: new Date().toISOString(),
@@ -414,11 +424,27 @@ export default function AdminUlasimTarife() {
               <TextInput style={[s.input, s.inputCokSatir]} value={sehirdenHavStr}
                 onChangeText={setSehirdenHavStr} multiline placeholder="08:00, 09:00, 10:00..." />
 
+              <View style={{ marginTop: 8 }}>
+                <Text style={s.inputLabel}>Şehir → Havalimanı Güzergahı</Text>
+                <Text style={s.ipucu}>Örnek: Aksaray Metro - O-3 - Mahmutbey - Basın Ekspres - Havalimanı</Text>
+                <TextInput style={[s.input, s.inputCokSatir]} value={sehirdenHavGuzergah}
+                  onChangeText={setSehirdenHavGuzergah} multiline
+                  placeholder="Bu yönde geçilen ana duraklar/yollar..." />
+              </View>
+
               <Text style={s.bolumBaslik}>
                 Havalimanı → Şehir ({havdanSehirStr.split(',').filter(s => s.trim()).length} sefer)
               </Text>
               <TextInput style={[s.input, s.inputCokSatir]} value={havdanSehirStr}
                 onChangeText={setHavdanSehirStr} multiline placeholder="08:00, 09:00, 10:00..." />
+
+              <View style={{ marginTop: 8 }}>
+                <Text style={s.inputLabel}>Havalimanı → Şehir Güzergahı</Text>
+                <Text style={s.ipucu}>Örnek: Havalimanı - Basın Ekspres - Mahmutbey - O-3 - Aksaray Metro</Text>
+                <TextInput style={[s.input, s.inputCokSatir]} value={havdanSehirGuzergah}
+                  onChangeText={setHavdanSehirGuzergah} multiline
+                  placeholder="Bu yönde geçilen ana duraklar/yollar..." />
+              </View>
 
               <TouchableOpacity style={s.kaydetBtn} onPress={seferKaydet}>
                 <Text style={s.kaydetBtnYazi}>Kaydet</Text>

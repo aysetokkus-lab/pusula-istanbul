@@ -46,6 +46,7 @@ KOLON_MAP = {
     'Fiyat Yabanci':      'fiyat_yabanci',
     'Fiyat Indirimli':    'fiyat_indirimli',
     'MuzeKart':           'muzekart',
+    'MuzeKart Not':       'muzekart_not',
     'Ozel Not':           'ozel_not',
     'Resmi Site':         'site',
     'Kaynak':             'kaynak',
@@ -111,7 +112,11 @@ def excel_oku(yol):
     return kayitlar
 
 def excel_degeri_normalize(deger, alan):
-    """Excel'den gelen degeri Python'a uygun hale getir."""
+    """Excel'den gelen degeri Python'a uygun hale getir.
+
+    KONVENSIYON (kapali_gun): NULL = kapali gun yok, 0 = Paz, 1 = Pzt, ..., 6 = Cmt
+    (JS Date.getDay() ile uyumlu, frontend GUNLER dizisi ile ayni)
+    """
     if deger is None: return None
     if isinstance(deger, str):
         s = deger.strip()

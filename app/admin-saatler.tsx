@@ -172,6 +172,7 @@ export default function AdminSaatler() {
     fiyat_yerli: '', fiyat_yabanci: '', fiyat_indirimli: '',
     ozel_not: '',
     muzekart: '' as string,
+    muzekart_not: '',
     mevsimsel: false,
     restorasyon: false,
     restorasyon_notu: '',
@@ -205,6 +206,7 @@ export default function AdminSaatler() {
       fiyat_yerli: '', fiyat_yabanci: '', fiyat_indirimli: '',
       ozel_not: '',
       muzekart: '',
+      muzekart_not: '',
       mevsimsel: false,
       restorasyon: false,
       restorasyon_notu: '',
@@ -225,6 +227,7 @@ export default function AdminSaatler() {
       fiyat_indirimli: m.fiyat_indirimli || '',
       ozel_not: m.ozel_not || '',
       muzekart: m.muzekart || '',
+      muzekart_not: m.muzekart_not || '',
       mevsimsel: m.mevsimsel,
       restorasyon: m.restorasyon,
       restorasyon_notu: m.restorasyon_notu || '',
@@ -251,6 +254,7 @@ export default function AdminSaatler() {
       fiyat_indirimli: form.fiyat_indirimli || null,
       ozel_not: form.ozel_not || null,
       muzekart: form.muzekart || null,
+      muzekart_not: form.muzekart_not.trim() || null,
       mevsimsel: form.mevsimsel,
       restorasyon: form.restorasyon,
       restorasyon_notu: form.restorasyon_notu || null,
@@ -737,6 +741,17 @@ export default function AdminSaatler() {
                   </TouchableOpacity>
                 ))}
               </View>
+              {(form.muzekart === 'gecerli' || form.muzekart === 'gecmez') && (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={s.inputLabel}>İstisna / Açıklama Notu (opsiyonel)</Text>
+                  <Text style={[s.inputLabel, { fontSize: 11, fontStyle: 'italic', marginTop: 2 }]}>
+                    Parantez içinde gösterilir. Örnek: "Harem'de geçmez", "Selamlık'ta geçmez"
+                  </Text>
+                  <TextInput style={s.input} value={form.muzekart_not}
+                    onChangeText={v => setForm(f => ({...f, muzekart_not: v}))}
+                    placeholder="Örnek: Harem'de geçmez" />
+                </View>
+              )}
 
               {/* Restorasyon */}
               <View style={s.switchSatir}>

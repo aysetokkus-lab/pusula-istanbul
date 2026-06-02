@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
 
 /* ═══════════════════════════════════════════
    Bildirim Kategorileri
@@ -94,6 +95,24 @@ const storageSet = async (key: string, value: string): Promise<void> => {
 };
 
 /* ═══════════════════════════════════════════
+   Tercihleri Supabase'e de yaz (v1.1.0)
+   Server-side push gonderirken bu kolon kontrol edilir.
+   Kullanici giris yapmadiysa sessizce atlanir.
+   ═══════════════════════════════════════════ */
+async function supabaseTercihYaz(tercihler: BildirimTercihleri): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase
+      .from('profiles')
+      .update({ bildirim_tercihleri: tercihler })
+      .eq('id', user.id);
+  } catch (e) {
+    console.warn('Bildirim tercihi Supabase senkronizasyon hata:', e);
+  }
+}
+
+/* ═══════════════════════════════════════════
    Hook: useBildirimTercihleri
    Birden fazla component'te kullanılabilir,
    tüm instance'lar senkron kalır.
@@ -131,6 +150,7 @@ export function useBildirimTercihleri() {
     setTercihler(prev => {
       const yeni = { ...prev, [kategori]: !prev[kategori] };
       storageSet(STORAGE_KEY, JSON.stringify(yeni)).catch(console.warn);
+      supabaseTercihYaz(yeni); // v1.1.0: server-side push filtre icin
       // Diğer instance'ları bilgilendir
       tercihDuyur(yeni);
       return yeni;
@@ -143,6 +163,7 @@ export function useBildirimTercihleri() {
     tercihDuyur(yeniTercihler);
     try {
       await storageSet(STORAGE_KEY, JSON.stringify(yeniTercihler));
+      await supabaseTercihYaz(yeniTercihler); // v1.1.0
     } catch (e) {
       console.warn('Bildirim tercihleri kaydetme hatası:', e);
     }

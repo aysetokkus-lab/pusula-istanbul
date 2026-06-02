@@ -4,7 +4,295 @@ Bu dosya **append-only** — eski surum bilgilerini silmeyiz, yeni surumler ust 
 
 ---
 
-## v1.0.11 (KOD HAZIR, BUILD BEKLIYOR — 3 Mayis 2026)
+## v1.1.1 (HOTFIX, BUILD HAZIRLIK — 2 Haziran 2026)
+
+**Yayin durumu:** v1.1.0 Android yayinda (2 Haz sabah), iOS hala review'da. v1.1.0'da iki sorun tespit edildi → v1.1.1 hotfix paketi hazirlandi:
+
+1. **Android push notification ses gelmiyor** — `setNotificationChannelAsync({ sound: 'default' })` string'i Android'de "default.wav" aramaya gidiyor, dosya yok, kanal sessiz olusturuluyor. v1.1.0 yuklu cihazlarda bildirim banner'i goruluyor ama ses cikmiyor. **Server-side hotfix (2 Haz oglen):** push-gonder Edge Function v2 deploy edildi, KANAL_MAP yeni `-v2` ID'lere point ediyor → v1.1.0 cihazlarda Android default kanala fallback → ses calar. Manuel ayar gerekmez. v1.1.1 build'inde de client-side kalici fix var: eski sessiz kanallar silinir, yeni kanallar `sound` parametresi verilmeden olusturulur. Bkz. DECISIONS #45.
+
+2. **Genel Duyuru silme UI'si yok** — v1.1.0 build'inde kart altinda gorunur "Sil" butonu paketlenmemis. Kullanici uzun bas yapmayi kesfetse bile o handler da paketlenmemis. Yetkili kullanici DB'den silmeden duyuru kaldiramiyor. Geçici çözüm: admin manuel SQL ile siler. **v1.1.1 fix:** kart altinda gorunur "Düzenle | Sabitle | Sil" butonlari + RLS sessiz reddi yakalama (DELETE ... RETURNING) + optimistic state update + basarisiz silme'de Alert.
+
+### Dahil Olan Dosya Degisiklikleri
+
+- `app.json`: version 1.1.0 → 1.1.1, iOS buildNumber 40 → 41, Android versionCode 41 → 42
+- `hooks/use-bildirimler.ts`: eski 6 kanal silinir (`deleteNotificationChannelAsync`), yeni 6 kanal `-v2` suffix'li ID'lerle olusur, `sound` parametresi VERILMEDI (Expo varsayilan = sistem ses)
+- `hooks/use-genel-duyuru.ts` (untracked'tan tracked'a): `duyuruSil` artik `.select('id')` ile silinen satiri geri ister; bos array = RLS reddi; optimistic state update; hata varsa false doner
+- `components/genel-duyuru-panel.tsx` (untracked'tan tracked'a): kart altinda gorunur "Düzenle | Sabitle | Sil" butonlari (uzun bas yedek menude); silme basarisiz olursa Alert ile bilgilendirir
+
+### Release Notes (her iki platform, TR)
+> Bazi Android cihazlarda push bildirimlerinin sessiz gelmesi sorunu giderildi. Yetkili kullanicilarin genel duyurulari silebilmesi icin "Sil" butonu eklendi. Genel kararlilik iyilestirmeleri.
+
+### Apple Review Notes (EN)
+> Hotfix for v1.1.0:
+> 1. Fixed Android notification channel sound configuration — push notifications were arriving silently on Android due to a channel sound parameter that was being misinterpreted as a missing custom sound file.
+> 2. Restored UI for deleting general announcements (admin/moderator feature missing from v1.1.0 build).
+> No new features, no permission changes.
+
+### Server-side Hotfix Bilgisi
+v1.1.1 store onayi beklerken **mevcut v1.1.0 yayindaki tum kullanicilar icin ses sorunu zaten cozulmus durumda** (Edge Function v2 deploy). Genel Duyuru silme icin admin uygulamada UI yok ama Ayse veritabanindan manuel silebilir.
+
+### Yan Etkinlikler
+
+- **Havaist Senkron Pipeline kuruldu** (DECISIONS #44 + SCRIPTS.md #2): `scripts/havaist-senkron.mjs` + scheduled task `havaist-senkron` (gunluk 07:00). hava.ist resmi backend API'sinden 14 IST kaydi otomatik senkronlanir. Aksaray fiyat 355₺→426₺, Kadikoy 390₺→468₺, 7 yeni hat eklendi (Beylikduzu, Otogar Esenler, Merter/Bakirkoy, Avcilar, Arnavutkoy, Silivri/Catalca, Sabiha Gokcen).
+
+---
+
+## v1.0.14 (HOTFIX, YAYINDA HER IKI PLATFORMDA — 27 Mayis 2026)
+
+**Yayin durumu:** 27 May sabah build edildi (iOS buildNumber 37 + Android versionCode 37, EAS autoIncrement ile manuel 34/35'ten daha yukseye atandi). iOS Apple Review'a gonderildi (Manual Release secildi, **expedited review istendi** — Critical hotfix notu). **Apple onayi sabahki submit'ten ~12 saat sonra geldi** (normal sure 24-48 saat — bayram gunu olmasina ragmen Apple "critical hotfix + small change" sinyalini iyi okudu). Ayni gun Google Play production track onayi geldi. Ayse her iki platformda manuel "Release"/"Yayinla" basarak v1.0.13'u v1.0.14 ile degistirdi. **v1.0.14 her iki platformda yayinda.** Crash kaybolma takibi onumuzdeki 24-48 saatte Play Console Vitals'tan yapilacak.
+
+**Tetikleyici:** v1.0.13 production'da `java.lang.IndexOutOfBoundsException: getChildDrawingOrder() returned invalid index 2 (child count is 2)` — Android crash. Play Console Vitals'ta **16 onaylanmis kullanici** etkilendi (12 farkli cihaz markasi, OEM uyumsuzluk degil kod bug'i kesin). Bilinen `react-native-screens` 4.x serisi ScreenStack drawing race condition bug'i. IRO maili sonrasi 20 gunde kullanici tabani buyuyunce bug yuzeye cikti (cogu yeni rehber Android). Bkz. ISSUES #79.
+
+### Tek Buyuk Degisiklik: react-native-screens 4.16.0 → 4.23.0
+
+Kod degisikligi yok, sadece package.json'da `react-native-screens: "4.23.0"` exact pin. Native modul upgrade ile ScreenStack drawing icindeki off-by-one race condition kapaniyor (4.16'dan 7 minor surum sonra birikmis iyilestirmeler).
+
+**Atlanan surumler:**
+- **4.24.0** atlandi — yarim kalmis surum, BottomTabs implementasyonu silinmis ama codegen referansi kalmis (iOS Xcode "RNSBottomTabsScreenComponentView undeclared identifier" patlatti). Bkz. ISSUES #80, DECISIONS #37.
+- **4.25.0+** atlandi — peer dep `react-native: >=0.82.0` ister, bizde 0.81.5 var (Expo SDK 54).
+
+**Plan B (gerekirse):** 4.23 ile crash devam ederse `patch-package` ile 4.24'teki ScreenStack defansif kodunu (currentVisibleBottom + updateA11yForVisibleScreens + shouldDisableFocusabilityBeneathTopScreen) 4.23 source'una transplant et.
+
+### Release Notes (her iki platform, TR)
+> Bazi kullanicilarda uygulamanin acilisinda veya ekran gecislerinde yasanan beklenmedik kapanma sorunu giderildi. Daha kararli bir deneyim icin ekran cizim altyapisi guncellendi.
+
+### Apple Review Notes (EN — submit sirasinda yazildi)
+> Critical hotfix for v1.0.13 production crash affecting 16+ confirmed Android users (Google Play Vitals data). Crash signature: java.lang.IndexOutOfBoundsException in com.swmansion.rnscreens.ScreenStack.performDraw — known bug in react-native-screens 4.16.0.
+>
+> Fix: Upgraded react-native-screens dependency from 4.16.0 to 4.23.0 (note: 4.24.0 was skipped due to upstream packaging issue with BottomTabs implementation). No application code modified.
+>
+> No new features, no UI changes, no permission changes.
+>
+> We respectfully request expedited review given the production impact.
+
+### Yan Etkinlikler (build paketinde olmayan ama 27 May'da yapilan)
+
+- **16 onaysiz kullaniciyi 2 grup halinde manuel onay** (Microsoft/Yahoo spam filtresi magdurlari). Bkz. DECISIONS #39, ISSUES #81.
+- **1 olu typo'lu hesap silindi** (Timuçin Aslan `.vom` → `.com` zaten aktif). Bkz. ISSUES #82.
+- **172 freemium kullaniciya KURBAN BAYRAMI PREMIUM HEDIYESI** — 1 Haziran 2026 00:00'a kadar premium gece grant. Atomic SQL ile abonelik_durumu='aktif', RC'de degisiklik yok (use-abonelik Supabase fallback).
+- **`scripts/manuel-onay-bilgilendirme.mjs` yeni mail araci** — Resend API direct, markali HTML, dry/test/all modlari. 1. grup 7 kisiye bilgilendirme maili gonderildi.
+- **`scripts/kurban-bayrami-hediye.mjs` + 07:00 one-shot scheduled task** — 168 mevcut freemium kullaniciya bayram hediye maili (runtime Supabase fetch + altin gradient hediye kutusu + external URL logo pattern, DECISIONS #40).
+- **27 May'da kayit olan 13 yeni rehber tespiti** — 17:00 Supabase analizi: +325% giris, +225% kayit (dune kiyasla). Asli Cetin (1999 dogumlu, TUREB 13745) 27 May 10:06 kayit -> 10:10 yillik abonelik = **IRO maili olmadan, tamamen organik kanaldan ilk yillik conversion** (revenuecat_id NULL kuyrugu var, v1.1.0 setAttributes plani kapatacak).
+- **11 yeni kayit kullaniciya bayram hediyesi grant + mail** (aksam) — Atomic UPDATE (Suha sabah listesinde, Asli yillik abone) + `scripts/yeni-kayit-bayram-hediye.mjs` (hardcode 11 alici, "hos geldin + bayram hediyesi" toplu olarak farkli ton + "aylik 99 TL veya yillik 699 TL (%41 avantajli)" italic kutuda yumusak teskik). 11/11 basarili gonderim.
+- **IRO maili durum duzeltmesi (Ayse'nin notu)** — IRO 7 May'da yayinlanmadi (yeniden talep gonderilecek). STATE.md + CLAUDE.md'deki "IRO sonrasi" referanslari temizlendi. Son 20 gunun 107+ rehber + bugunku 13 yeni kayit + Asli'nin yillik conversion'i TAMAMEN organik kanaldan. Bu IRO mail cikinca dalganin daha buyuk olacagini gosteren bir sinyal.
+
+---
+
+## v1.0.13 (YAYINDA HER IKI PLATFORMDA — 6 Mayis 2026)
+
+**Yayin durumu:** App Store review onayi geldi (~24 saat icinde), manuel release yapildi. Google Play production'da yayinda. v1.0.12 (iOS REVIEW'da, Android kismen yayilmis) v1.0.13 ile degistirildi — her iki magazada artik v1.0.13 aktif. **IRO maili gonderme on kosulu tamamlandi.**
+
+
+
+**Stratejik baglam:** Ayse'nin gozlemi tetikledi — "rehberler uygulamayi catir catir kullanip kayit bile olmuyor". Insta'da paylasan, ama kayitsiz kalan rehberler yuzunden ne sayim var, ne pazarlama listesi, ne premium conversion firsati. v1.0.13 bunu kokten cozer + IRO mailini gondermeden once kayit zorunlulugu yerine oturmus olur.
+
+**Iki buyuk degisiklik:**
+
+### 1. Kayit Zorunlulugu (auth gate)
+
+Onceki freemium akisinda misafirler tab'lara direkt giriyordu. v1.0.13'te uygulama acildiginda **oturum yoksa giris ekranina yonlendirilir**. "Misafir devam" yok. Kayit formu degismedi (Ad-Soyad, e-posta, sifre, TUREB ruhsat no).
+
+**Kod:** `app/_layout.tsx` routing useEffect'ine yeni kural eklendi:
+```typescript
+if (!oturum && !girisEkraninda) {
+  router.replace('/giris');
+  return;
+}
+```
+
+`Stack initialRouteName` da oturuma bagli — `oturum ? "(tabs)" : "giris"` — splash sonrasi flicker'i onler.
+
+**Korunan ekranlar:** giris, hos-geldin, gizlilik-politikasi, kullanim-kosullari, abone-ol, sifre-sifirla. Bunlar oturumsuz da erisilebilir kalir (yasal sayfalar Apple gerekligi, abone-ol paywall, sifre-sifirla deep link recovery).
+
+### 2. Freemium Kapsam Sikilastirma
+
+Saraylar bedava + premium duvarlar diger noktalara konuldu. Asagidaki yerler artik premium gerektirir:
+
+- **Muze · Saray · Cami sekmesi** (`muzeler.tsx`): Saraylar (Milli Saraylar) sekmesi bedava, **Muzeler** + **Ozel Muzeler** + **Camiler** sekmeleri premium duvar. Ekstra: deep link bypass kapatildi (arama sayfasindan saray-disi mekana tiklama da premium'a yonlendirir).
+- **Bogaz Turlari sekmesi** (`bogaz.tsx`): Turyol kart sayfasi bedava, **"Tum sefer saatleri" dugmesi** premium duvar (metin "Tüm sefer saatleri (Premium) →" olarak guncellendi). **Dentur** ve **Sehir Hatlari** sekmeleri tamamen premium duvar.
+- **Ana sayfa Sultanahmet Camii bandi** (`(tabs)/index.tsx`): Bant gorunur (anlik AÇIK/KAPALI durumu vitrin olarak), banta tiklayinca acilan saatler ekrani premium duvar. Bant alt yazisi premium olmayanlar icin "Detaylar için Premium ›".
+- **Acil sekmesi sozlesmeler** (`acil.tsx`): Iki sozlesme (Müşteri-Rehber + Acente-Rehber) indirme satirlari premium duvar. Bolum basligi "Sözleşme Örnekleri (Premium)" olarak guncellendi.
+
+**Bedava kalan ozellikler:** Havalimani Ulasim, MuzeKart, Acil numaralar (112), Arama, Hava durumu, Namaz vakitleri, Galataport gemi takvimi.
+
+**Mevcut premium ozellikler degismedi:** Rehber Sohbeti, Canli Saha Durumu, Ulasim/Trafik Uyarilari, Etkinlikler.
+
+### Mevcut Kullanici Etki Analizi (4 grup)
+
+1. **Premium aboneler** (~8-10 kisi): Etkilenmez, oturum acik, tum sayfa onlara acik.
+2. **Kayitli ucretsiz kullanicilar**: Oturum acik, giris ekranina atilmazlar. Premium duvarlari fark ederler — tepki gelebilir, planin parcasi.
+3. **Misafir/kayitsiz kullanicilar** (en buyuk grup): Splash sonrasi giris ekrani gorur. Ya kayit olur (zafer), ya kapatip gider (temizlik). Insta-paylasan ama kayit olmayan rehberler bu gruptan.
+4. **Otomatik guncelleme kapali olanlar (~%15)**: Eski v1.0.12 ile takilirlar. v1.1.0'da eklenecek "in-app guncelleme uyarisi" ile cozulecek.
+
+### Stratejik Sebebi (DECISIONS.md #35)
+
+Conversion mimari hatasi vardi: kayit olmadan core value veriyorduk. v1.0.13 once "kayit kapisini kapat", **2-3 hafta saf veri** topla, sonra premium gate'leri tekrar ayarla. Iki buyuk degisikligi ayni surume koymak olcum temizligini bozar; ama IRO maili yaklasiyor — kayit zorunlulugu maili gondermeden once oturmus olmali. Bu sebeple v1.0.13'e iki degisiklik birden alindi (premium gating + kayit zorunlulugu) — disiplinin istisnasi, IRO firsatinin onceligi.
+
+### Build Numaralari
+- version 1.0.13
+- iOS buildNumber 32
+- Android versionCode 33
+
+### Apple Review Notes (English, App Store Connect)
+
+> Version 1.0.13 introduces required registration. The app no longer allows guest access because it provides a meaningful service tied to the registered account: peer-to-peer messaging between licensed tour guides, personalized push notifications for live field updates, and subscription-based premium features. This is consistent with App Store Review Guideline 5.1.1(iv).
+>
+> Test account: aysetokkus@hotmail.com / 123456 (active premium)
+> Free-tier test account: demo.test@pusulaistanbul.app / 123456 (registered, no subscription)
+
+### Release Notes (TR, her iki platform)
+
+> Üyelik sistemi yenilendi: uygulamayı kullanmak için artık hesap açmak gerekiyor. Müze ve Saray Cami sekmesinde Saraylar herkese açık; Müzeler, Özel Müzeler ve Camiler için Premium gerekir. Boğaz Turlarında Turyol genel görünümü herkese açık; Dentur, Şehir Hatları ve tüm sefer saatleri Premium oldu. Sultanahmet Camii saat penceresi ve sözleşme indirmeleri Premium kapsamına alındı.
+
+### Bekleyen Adimlar (6 May 2026 itibariyle TAMAMLANDI)
+- ✓ iOS production build alindi
+- ✓ Android APK telefonda test edildi (Samsung S22)
+- ✓ `eas submit --platform all --latest` calistirildi
+- ✓ Apple review onaylandi (~24 saat)
+- ✓ Google Play review onaylandi, manuel "Yayinla" basildi
+- **Sonraki adim:** IRO maili gonderme zamani — Ayse hazir oldugunda gonderebilir, teknik on kosul tamam
+
+---
+
+## v1.0.12 (ATLANDI — v1.0.13 ile degistirildi, 6 Mayis 2026)
+
+**Akibeti:** Google Play'de 4-6 May arasinda kismen yayildi (v1.0.13 yayinlanana kadar). iOS App Store'da review'da iken v1.0.13 submit edildi, v1.0.13 onayi gelince v1.0.12 atlandi. Bu sebeple v1.0.12 icindeki uc fix de v1.0.13 yayinda otomatik olarak canliya cikti — separate bir yayin gerekmedi.
+
+---
+
+## v1.0.12 (Google Play YAYINDA, iOS bekliyor — 4 Mayis 2026 aksam)
+
+Uc degisiklik: (1) admin moderator atama akisinda RLS sessiz red'e karsi defansif kod, (2) havalimani ulasim sayfasina yon-spesifik guzergah bilgisi ozelligi, (3) MuzeKart sekmesinde mekan adina parantez ici istisna notu (Topkapi Harem, Dolmabahce Selamlik vb.).
+
+### Yayin durumu
+- **Google Play Production: 4 May 2026 aksam YAYINDA** — submit + onay + manuel "Yayinla" tamamlandi. Kullanicilara ~24-48 saatte yayilir.
+- iOS App Store: 4 May 2026 aksam submit edildi — **REVIEW'DA**, onay bekleniyor.
+
+### Sorun (4 Mayis 2026, Ela Karaman atama vakasi)
+Ayse admin panelden Ela Karaman'i (kelebekiamarket@gmail.com) moderator olarak atadi, frontend "Basarili: Ela Karaman moderator olarak atandi" Alert'i gosterdi. Ama DB'de Ela'nin `rol` alani hala `user`. Iki kok sebep arka arkaya cozuldu:
+
+1. **profiles.email kolonu yoktu** — admin.tsx `select('email')` calistiriyordu, hata: `column profiles.email does not exist`. Cozuldu: schema'ya kolon eklendi + auth.users sync trigger (DECISIONS #33).
+
+2. **profiles UPDATE RLS policy admin'e izin vermiyordu** — sadece `auth.uid() = id` kontrolu vardi, admin baskasinin satirini UPDATE edemiyordu. RLS satiri gizledi, UPDATE 0 satir etkiledi, PostgREST hata atmadi, frontend "basarili" yalanini gosterdi. Cozuldu: `is_admin()` SECURITY DEFINER helper + yeni "Admin tum profilleri guncelleyebilir" UPDATE policy (DECISIONS #34).
+
+### Fix (admin.tsx defansif kod, v1.0.12)
+DB'de RLS duzeltildi ama gelecekte baska bir RLS bug'i ayni sessiz reddi yaratmasin diye admin.tsx'in iki fonksiyonu defansif yazildi:
+
+```typescript
+// moderatorAta + moderatorKaldir
+const { data: guncel, error } = await supabase
+  .from('profiles')
+  .update({ rol: '...' })
+  .eq('id', profil.id)
+  .select()
+  .single();
+if (error) throw error;
+if (!guncel) throw new Error('Yetki sorunu — kayıt güncellenmedi.');
+```
+
+`.select().single()` UPDATE'in sonucunu donduruyor. RLS satiri gizlerse `data` null donuyor, kullaniciya "Yetki sorunu" alert'i gosteriliyor. DECISIONS.md "RLS Sessiz Reddedebilir" pattern'inin uygulamasi.
+
+Bu pattern artik Pusula'da uc fonksiyonda kullaniliyor: `durumKaldir`, `moderatorAta`, `moderatorKaldir`. Yeni admin operasyonlari da bu sablonu izlemeli.
+
+### Yan kazanim (DB seviyesinde, build gerektirmez)
+- `profiles.email` kolonu + sync trigger (96 mevcut profile auto-doldu)
+- `is_admin()` helper fonksiyonu
+- "Admin tum profilleri guncelleyebilir" RLS policy
+
+### Yeni Ozellik — Havalimani Ulasim Guzergah Bilgisi (4 Mayis 2026)
+
+Aylar boyunca eksik kalan bir kullanici talebi: rehberler havalimani transfer seferlerinin **hangi yollardan/duraklarrdan gectigini** bilmek istiyordu. Saat tablosu yeterli degildi.
+
+**DB:** `havalimani_seferleri` tablosuna iki yeni TEXT kolon:
+- `sehirden_hav_guzergah` — Sehir -> Havalimani yonu icin guzergah aciklamasi
+- `havdan_sehir_guzergah` — Havalimani -> Sehir yonu icin (genelde ters istikamet ama farkli yollar olabilir)
+
+**Frontend (`app/(tabs)/ulasim.tsx`):** Durak modal'inda saatler grid'inin altina yon-spesifik guzergah kutucugu. Sol mavi accent bar, "GÜZERGAH" basligi, multi-line aciklama. **Sadece dolu olduğunda gorunur** — bos kayitlar icin ekrani kalabalik etmez.
+
+**Admin (`app/admin-ulasim-tarife.tsx`):** Sefer duzenleme modal'inda her saat alanindan sonra ona ait guzergah TextInput'u (multiline). Placeholder ornekleri:
+- Sehir -> Hav: `Aksaray Metro - O-3 - Mahmutbey - Basin Ekspres - Havalimani`
+- Hav -> Sehir: `Havalimani - Basin Ekspres - Mahmutbey - O-3 - Aksaray Metro`
+
+**Yayin sonrasi:** v1.0.12 yayina cikinca admin panelden Ayse mevcut duraklarin guzergahlarini manuel doldurur. Doldurulmamis kayitlar icin frontend kutucugu gostermez (geriye uyumluluk).
+
+**Tasarim notu:** Iki ayri kolon, cunku farkli yollar olabilir. Ornegin Aksaray icin sehirden gidiste E-5 / Yenikapi rotasi kullanilabilir, donuste TEM / Mahmutbey daha hizli olabilir. Tek kolon yerine iki kolon esneklik saglar.
+
+### Yeni Ozellik — MuzeKart Mekanlar Listesinde Parantez Ici Istisna Notu (4 Mayis 2026)
+
+**Sorun:** MuzeKart sekmesindeki "MuzeKart Geçen Yerler" listesinde Topkapi ve Dolmabahce sadece isimle yer aliyordu. Ama bu mekanlarda **sarayin tamami MuzeKart kapsaminda degil**:
+- Topkapi'da **Harem bolumu** ek bilet gerektirir
+- Dolmabahce'de **Selamlik bolumu** ek bilet gerektirir
+
+Bu bilgi rehberin sahada bilmesi gereken kritik bir ayrinti.
+
+**DB:** `mekan_saatleri` tablosuna `muzekart_not TEXT` kolonu eklendi. Topkapi -> "Harem'de geçmez", Dolmabahce -> "Selamlik'ta geçmez" otomatik dolduruldu (migration ile).
+
+**Frontend (`app/(tabs)/muzeKart.tsx`):** Geçen ve geçmeyen yerler listesinde mekan adinin yaninda parantez ici (italik) not gosterilir. Sadece dolu olduğunda gosterilir, bos kayitlar icin sade isim kalir.
+
+**Admin (`app/admin-saatler.tsx`):** MuzeKart durumu (Geçer/Geçmez) secildiginde yeni bir "Istisna / Aciklama Notu" TextInput'u gorulur. Format aciklamasi placeholder'da: "Harem'de geçmez", "Selamlik'ta geçmez".
+
+**Excel pipeline:** `mekan-saatleri-veri-giris.xlsx`'e "MuzeKart Not" kolonu eklendi (MuzeKart kolonundan sonra), Topkapi + Dolmabahce dolu. `excel-full-sync-sql.py` ve `excel-diff-sql.py` KOLON_MAP'lerine ve SYNC_ALANLAR'a "muzekart_not" eklendi — gelecek sync'lerde dahil olur.
+
+**Tasarim notu — neden ayri kolon, "ozel_not" yerine:** `ozel_not` zaten mekan ile ilgili genel bilgi (saat istisnalari, gizem, vb.). MuzeKart-spesifik istisna AYRI bir konu — listede gosterim icin spesifik bir alan gerek. Karistirmamak icin yeni kolon dogru karar.
+
+### app.json (bumpsiz hazir)
+- version: 1.0.11 → **1.0.12**
+- iOS buildNumber: 29 → **30**
+- Android versionCode: 30 → **31**
+
+### Build & yayin
+1. EAS build her iki platform — `eas build --platform all --profile production`
+2. iOS + Android submit + Manual Release
+3. Onay sonrasi manuel "Release"
+
+### Release Notes — Store (TR, kullaniciya gorunen "Whats New")
+```
+Havalimanı ulaşım sayfasına güzergah bilgisi eklendi. MüzeKart listesinde saraylar için istisna bilgisi (Topkapı Harem, Dolmabahçe Selamlık) gösterimi. Performans ve kararlilik iyilestirmeleri.
+```
+
+**Karar gerekcesi:** Yeni ozellikler (guzergah + muzekart istisna notu) kullaniciya pozitif duyuru — spesifik olmasi marka guvenine zarar vermez. Internal RLS fix'i ise "performans ve kararlilik" altinda gizliyoruz cunku son kullaniciya gorunmuyor.
+
+### App Review Information — iOS Reviewer Notes (EN, kullanici GORMEZ)
+```
+v1.0.12 — Three changes:
+
+1. Internal admin operation safety improvement.
+Fixed: admin moderator assignment flow now correctly detects RLS policy denials. Previously a server-side RLS rule could silently block the UPDATE while the client thought it succeeded. Adds a defensive check on the returned row to surface the failure as a user-facing error.
+
+2. New feature: airport transit route information.
+Added two columns to the airport_routes table (sehirden_hav_guzergah, havdan_sehir_guzergah) and surfaced them in the airport route detail modal. Admins can now describe the streets/stations a transit line passes through; users see this when they tap a stop. Optional, only shown when filled.
+
+3. New feature: MuseumPass exception note for venues.
+Added a muzekart_not column to the venues table to surface partial-coverage info (e.g., "Topkapı Palace MuseumPass valid except Harem section"). Shown in italic parentheses next to the venue name in the MuseumPass tab list. Optional, only shown when filled.
+
+No permissions changes, no IAP changes.
+
+Test account: aysetokkus@hotmail.com / 123456 (admin role for testing the features).
+```
+
+### DERSLER
+- **`.select()` after UPDATE** — PostgREST UPDATE 0 satir etkiledigi durumlarda hata atmaz. `.select().single()` ile etkilenen satiri geri al, null kontrolu yap. Bu sablon artik tum kritik admin operasyonlarinda zorunlu.
+- **RLS yetki modeli iki katmanli:** Kendi profili icin ALL policy + admin icin UPDATE policy. Birden fazla PERMISSIVE policy `OR` mantigiyla birlesir. Yeni rol tipleri eklenirse (orn. content_moderator) ayri policy yazilir, mevcutlar genisletilmez.
+- **Yon-spesifik metadata icin iki ayri kolon** — Havalimani guzergahi ornek: gidis ve donus farkli yollar olabilir. Tek kolonla "iki yon icin de gecerli" varsayimi gercekligi yansitmaz. Ayri kolonlar marjinal storage maliyeti ile esneklik kazandirir.
+
+---
+
+## v1.0.11 (YAYINDA — 4 Mayis 2026)
+
+İki bagimsiz fix tek surumde toplandi: 1 Mayis'ta tespit edilen UX bug + 3 Mayis'ta tani konulan sistematik kod bug'i.
+
+### Yayin durumu
+- iOS App Store: 4 May 2026 (~24 saat onay)
+- Google Play Production: 4 May 2026 (~24 saat onay, beklenen 3-7 gunden cok daha hizli)
+- Manual release ikisinde de basildi
+
+### Build numaralari (yayinda)
+- iOS buildNumber: **29**
+- Android versionCode: **30**
+
+(Not: STATE.md'de daha onceki cevaplarda buildNumber 28/versionCode 29 yazilmisti — son "Yayinla" oncesi yeniden build alindi, gercek buildNumber 29/versionCode 30.)
+
+
 
 Iki bagimsiz fix tek surumde toplandi: 1 Mayis'ta tespit edilen UX bug + 3 Mayis'ta tani konulan sistematik kod bug'i.
 
@@ -50,12 +338,23 @@ Detay: DECISIONS.md #31.
 3. Android submit + Yonetilen yayinlanma — `eas submit --platform android --latest`
 4. Onay sonrasi manuel "Release This Version" + "Yayinla"
 
-### Release Notes (TR)
+### Release Notes — Store (TR, kullaniciya gorunen "Whats New")
 ```
-v1.0.11 — Daha tutarli abonelik bilgisi
+Performans ve kararlilik iyilestirmeleri.
+```
 
-• Bazi abone kullanicilarda plan ve bitis tarihi bilgisinin profilde gorunmemesi sorunu giderildi.
-• Abonelik ekranlarindaki "Apple ID" ifadesi platform-bagimsiz "Hesabiniz" olarak guncellendi.
+**Karar gerekcesi:** v1.0.11 fix'leri kullanicinin gorunur dunyasinda hicbir sey degistirmiyor — abonelik validasyonu zaten RC entitlement'tan geciyordu, NULL profile durumunda da kullanici premium goruyordu. Spesifik release notes ("plan/bitis bilgisi gorunmuyordu") kullanicinin kafasinda "demek bir sey calismiyormus" sorusu yaratir, marka guvenine zarar verir. Generic "performans ve kararlilik" formulu hem profesyonel hem de hicbir aksaklik imasi vermez.
+
+### App Review Information — iOS Reviewer Notes (EN, kullanici GORMEZ)
+```
+v1.0.11 — Internal data sync improvement and minor UX text fix.
+
+- Fixed: subscription metadata (plan + expiration) not always written to user profile cache after RevenueCat sync. Behavior unchanged for end users (subscription validation goes through RC entitlements directly).
+- Fixed: error message in restore-purchases flow used "Apple ID" hardcoded text; now generic "your account" wording for cross-platform correctness.
+
+No new features, no permissions changes, no IAP changes.
+
+Test account: aysetokkus@hotmail.com / 123456 (premium subscription granted via Supabase fallback for review testing).
 ```
 
 ### DERSLER

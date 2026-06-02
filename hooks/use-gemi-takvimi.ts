@@ -65,9 +65,14 @@ export function useGemiTakvimi() {
     fetchGemiler();
   }, [fetchGemiler]);
 
-  // Bugunku gemi
+  // Bugunku tum gemiler (bir gunde birden fazla gemi olabilir — v1.1.0 fix)
   const bugun = new Date().toISOString().split('T')[0];
-  const bugunGemi = gemiler.find((g) => g.tarih === bugun) || null;
+  const bugunGemileri = gemiler.filter((g) => g.tarih === bugun);
+  // Geriye uyumluluk: ilk gemiyi `bugunGemi` olarak da ver (deprecated)
+  const bugunGemi = bugunGemileri[0] || null;
+
+  // Bugunden sonraki gemiler (bugun haric)
+  const gelecekGunlerGemileri = gemiler.filter((g) => g.tarih > bugun);
 
   // Gelecek gemiler (bugun dahil, zaten sorgu bugundan itibaren cekildi)
   const gelecekGemiler = gemiler;
@@ -79,6 +84,8 @@ export function useGemiTakvimi() {
   return {
     gemiler,
     bugunGemi,
+    bugunGemileri,
+    gelecekGunlerGemileri,
     gelecekGemiler,
     haftaninGemileri,
     yukleniyor,

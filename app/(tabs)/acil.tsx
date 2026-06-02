@@ -1,9 +1,11 @@
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAcilRehber } from '../../hooks/use-acil-rehber';
 import { useTema } from '../../hooks/use-tema';
+import { useAbonelik } from '../../hooks/use-abonelik';
 
 /* ═══════════════════════════════════════════
    Fallback veriler — Supabase'den veri gelmezse
@@ -25,7 +27,13 @@ const FALLBACK_LINK = [
 export default function Acil() {
   const insets = useSafeAreaInsets();
   const { t, isDark } = useTema();
+  const { premiumMi } = useAbonelik();
   const { turizmPolisi, acilNumaralar, meslekKuruluslari, faydaliLinkler, yukleniyor, hata } = useAcilRehber();
+
+  const sozlesmeAc = (url: string) => {
+    if (!premiumMi) { router.push('/abone-ol'); return; }
+    Linking.openURL(url);
+  };
 
   const ara = (numara: string) => Linking.openURL(`tel:${numara}`);
   const ac = (url: string) => Linking.openURL(url);
@@ -134,28 +142,28 @@ export default function Acil() {
         ))}
       </View>
 
-      {/* SÖZLEŞME ÖRNEKLERİ */}
+      {/* SÖZLEŞME ÖRNEKLERİ — Premium */}
       <View style={s.bolum}>
-        <Text style={[s.bolumBaslik, { color: t.textMuted }]}>Sözleşme Örnekleri</Text>
+        <Text style={[s.bolumBaslik, { color: t.textMuted }]}>Sözleşme Örnekleri{premiumMi ? '' : ' (Premium)'}</Text>
         <TouchableOpacity
           style={[s.listeSatir, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}
-          onPress={() => Linking.openURL('https://pusulaistanbul.app/musteri-rehber-sozlesmesi.docx')}
+          onPress={() => sozlesmeAc('https://pusulaistanbul.app/musteri-rehber-sozlesmesi.docx')}
           activeOpacity={0.7}
         >
           <View style={s.listeBilgi}>
             <Text style={[s.listeIsim, { color: t.text }]}>Müşteri — Rehber Sözleşmesi</Text>
-            <Text style={[s.sozlesmeAlt, { color: t.textSecondary }]}>Word belgesi olarak indir</Text>
+            <Text style={[s.sozlesmeAlt, { color: t.textSecondary }]}>{premiumMi ? 'Word belgesi olarak indir' : 'İndirmek için Premium gerekir'}</Text>
           </View>
           <Text style={s.listeOk}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.listeSatir, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}
-          onPress={() => Linking.openURL('https://pusulaistanbul.app/acente-hizmet-sozlesmesi.docx')}
+          onPress={() => sozlesmeAc('https://pusulaistanbul.app/acente-hizmet-sozlesmesi.docx')}
           activeOpacity={0.7}
         >
           <View style={s.listeBilgi}>
             <Text style={[s.listeIsim, { color: t.text }]}>Acente — Rehber Hizmet Sözleşmesi</Text>
-            <Text style={[s.sozlesmeAlt, { color: t.textSecondary }]}>Word belgesi olarak indir</Text>
+            <Text style={[s.sozlesmeAlt, { color: t.textSecondary }]}>{premiumMi ? 'Word belgesi olarak indir' : 'İndirmek için Premium gerekir'}</Text>
           </View>
           <Text style={s.listeOk}>›</Text>
         </TouchableOpacity>

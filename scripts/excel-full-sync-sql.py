@@ -45,6 +45,7 @@ KOLON_MAP = {
     'Fiyat Yabanci':      'fiyat_yabanci',
     'Fiyat Indirimli':    'fiyat_indirimli',
     'MuzeKart':           'muzekart',
+    'MuzeKart Not':       'muzekart_not',
     'Ozel Not':           'ozel_not',
     'Resmi Site':         'site',
     'Kaynak':             'kaynak',
@@ -61,7 +62,7 @@ SYNC_ALANLAR = [
     'kis_acilis', 'kis_kapanis', 'kis_gise_kapanis',
     'kapali_gun', 'haftasonu_acilis', 'haftasonu_kapanis',
     'cuma_kapali_bas', 'cuma_kapali_bit',
-    'fiyat_yerli', 'fiyat_yabanci', 'fiyat_indirimli', 'muzekart',
+    'fiyat_yerli', 'fiyat_yabanci', 'fiyat_indirimli', 'muzekart', 'muzekart_not',
     'ozel_not', 'site', 'kaynak',
 ]
 
@@ -134,6 +135,9 @@ def excel_oku(yol):
     return kayitlar
 
 def excel_degeri_normalize(deger, alan):
+    # KONVENSIYON (kapali_gun): NULL = kapali gun yok, 0 = Paz, 1 = Pzt, ..., 6 = Cmt
+    # (JS Date.getDay() ile uyumlu, frontend GUNLER dizisi ile aynı)
+    # Excel'de bos hucre -> NULL (kapali gun yok). Sayi yaz -> o gun kapali.
     if deger is None: return None
     if isinstance(deger, str):
         s = deger.strip()

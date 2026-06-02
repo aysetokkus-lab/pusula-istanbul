@@ -7,6 +7,9 @@ import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../../lib/supabase';
 import { CanliDurumOzet } from '../../components/canli-durum-panel';
+import { GenelDuyuruPanel } from '../../components/genel-duyuru-panel';
+import { GuncellemeBandi } from '../../components/guncelleme-bandi';
+import { PinliMesajBandi } from '../../components/pinli-mesaj-bandi';
 import { UlasimUyariBandi } from '../../components/ulasim-uyari';
 import { TrafikUyariBandi } from '../../components/trafik-uyari';
 import { EtkinliklerBandi } from '../../components/etkinlikler';
@@ -152,7 +155,8 @@ export default function AnaSayfa() {
   const { mekan: sultanahmetMekan } = useMekanDetay('sultanahmet_camii');
 
   // Galataport gemi takvimi (cruisetimetables.com'dan otomatik cekilir)
-  const { bugunGemi: bugunGemiData, gelecekGemiler: gelecekGemilerData, haftaninGemileri, yukleniyor: gemiYukleniyor, hata: gemiHata, yenile: gemileriYenile } = useGemiTakvimi();
+  // v1.1.0: ana ekranda sadece bugunkuler, gelecek gunler modal'da
+  const { bugunGemileri, gelecekGunlerGemileri, gelecekGemiler, yukleniyor: gemiYukleniyor, hata: gemiHata, yenile: gemileriYenile } = useGemiTakvimi();
 
   const [saat, setSaat] = useState('');
   const [tarih, setTarih] = useState('');
@@ -186,9 +190,8 @@ export default function AnaSayfa() {
   }, []);
 
   const bugun = bugunStr();
-  const bugunGemi = bugunGemiData;
-  const gelecekGemiler = gelecekGemilerData.slice(0, 15);
-  const sonrakiGemi = gelecekGemiler[0];
+  // bugunGemi/gelecekGemiler/sonrakiGemi olu kodlar kaldirildi (v1.1.0)
+  // — bugunGemileri ve gelecekGunlerGemileri hook'tan direkt geliyor
   const simdi = new Date();
   const cumaGunu = simdi.getDay() === 5;
   const saatNum = simdi.getHours();
@@ -324,6 +327,9 @@ export default function AnaSayfa() {
         </View>
       </LinearGradient>
 
+      {/* ═══ 1b. GUNCELLEME BANDI (v1.1.0) — yeni surum varsa gozukur ═══ */}
+      <GuncellemeBandi />
+
       {/* ═══ 2. CLOCK/DATE + GREETING STRIP ═══ */}
       <View style={styles(t).whiteSeparator} />
       <LinearGradient
@@ -352,6 +358,10 @@ export default function AnaSayfa() {
         </View>
       </LinearGradient>
 
+      {/* ═══ 2b. SAHADAN ONEMLI (v1.1.0) — pin'li sohbet mesajlari ═══ */}
+      <View style={styles(t).whiteSeparator} />
+      <PinliMesajBandi />
+
       {/* ═══ 3. SAHA DURUMU (Premium) ═══ */}
       <View style={styles(t).whiteSeparator} />
       {premiumMi ? (
@@ -373,9 +383,14 @@ export default function AnaSayfa() {
           </LinearGradient>
         </TouchableOpacity>
       )}
+
+      {/* ═══ 3b. GENEL DUYURULAR (v1.1.0) ═══ */}
+      <View style={styles(t).whiteSeparator} />
+      <GenelDuyuruPanel />
+
       {/* ═══ 4. SULTANAHMETCAMİİ BAND ═══ */}
       <View style={styles(t).whiteSeparator} />
-      <TouchableOpacity onPress={() => setSultanahmetModal(true)} activeOpacity={0.7}>
+      <TouchableOpacity onPress={() => premiumMi ? setSultanahmetModal(true) : router.push('/abone-ol')} activeOpacity={0.7}>
         <LinearGradient
           colors={['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']}
           start={{ x: 0, y: 0 }}
@@ -397,7 +412,7 @@ export default function AnaSayfa() {
               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: sahDurum.renk }} />
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{sahDurum.durum}</Text>
             </View>
-            <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>Detaylar için dokun ›</Text>
+            <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{premiumMi ? 'Detaylar için dokun ›' : 'Detaylar için Premium ›'}</Text>
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -508,7 +523,7 @@ export default function AnaSayfa() {
           end={{ x: 0.5, y: 1 }}
           style={styles(t).bandGloss}
         />
-        <Text style={styles(t).bandTitle}>Galataport — Haftalık Gemi Takvimi</Text>
+        <Text style={styles(t).bandTitle}>Galataport — Bugünkü Gemiler</Text>
         <TouchableOpacity onPress={() => setGemiModal(true)}>
           <Text style={styles(t).viewAllText}>Tüm Liste</Text>
         </TouchableOpacity>
@@ -518,37 +533,54 @@ export default function AnaSayfa() {
           <ActivityIndicator size="small" color={t.primary} />
           <Text style={[styles(t).placeholderText, { color: t.textMuted, marginTop: 4 }]}>Gemi takvimi yükleniyor...</Text>
         </View>
-      ) : haftaninGemileri.length > 0 ? (
+      ) : bugunGemileri.length > 0 ? (
         <View>
-          {haftaninGemileri.map((g, i) => {
-            const bugunMu = g.tarih === bugun;
-            return (
-              <TouchableOpacity
-                key={`hafta-${g.tarih}-${i}`}
-                onPress={() => setGemiModal(true)}
-                style={[styles(t).haftaGemiSatir, { backgroundColor: bugunMu ? `${Palette.istanbulMavi}10` : t.bgCard, borderLeftColor: bugunMu ? Palette.istanbulMavi : t.divider }]}
-                activeOpacity={0.7}>
-                <View style={styles(t).haftaGemiTarih}>
-                  <Text style={[styles(t).haftaGemiGun, { color: bugunMu ? Palette.istanbulMavi : t.text }]}>{g.tarih.split('-')[2]}</Text>
-                  <Text style={[styles(t).haftaGemiAy, { color: t.textSecondary }]}>{AYLAR_TR[parseInt(g.tarih.split('-')[1])-1].slice(0,3)}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles(t).haftaGemiIsim, { color: t.text }]}>{g.gemi}</Text>
-                  <Text style={[styles(t).haftaGemiSirket, { color: t.textSecondary }]}>{g.sirket} {g.yolcu > 0 ? `· ${g.yolcu.toLocaleString('tr-TR')} yolcu` : ''}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  {g.gelisSaat ? <Text style={[styles(t).haftaGemiSaat, { color: t.text }]}>G {g.gelisSaat}</Text> : null}
-                  {g.gidisSaat ? <Text style={[styles(t).haftaGemiSaat, { color: t.textMuted }]}>C {g.gidisSaat}</Text> : null}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+          {bugunGemileri.map((g, i) => (
+            <TouchableOpacity
+              key={`bugun-${g.tarih}-${i}`}
+              onPress={() => setGemiModal(true)}
+              style={[styles(t).haftaGemiSatir, { backgroundColor: `${Palette.istanbulMavi}10`, borderLeftColor: Palette.istanbulMavi }]}
+              activeOpacity={0.7}>
+              <View style={styles(t).haftaGemiTarih}>
+                <Text style={[styles(t).haftaGemiGun, { color: Palette.istanbulMavi }]}>{g.tarih.split('-')[2]}</Text>
+                <Text style={[styles(t).haftaGemiAy, { color: t.textSecondary }]}>{AYLAR_TR[parseInt(g.tarih.split('-')[1])-1].slice(0,3)}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles(t).haftaGemiIsim, { color: t.text }]}>{g.gemi}</Text>
+                <Text style={[styles(t).haftaGemiSirket, { color: t.textSecondary }]}>{g.sirket} {g.yolcu > 0 ? `· ${g.yolcu.toLocaleString('tr-TR')} yolcu` : ''}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                {g.gelisSaat ? <Text style={[styles(t).haftaGemiSaat, { color: t.text }]}>G {g.gelisSaat}</Text> : null}
+                {g.gidisSaat ? <Text style={[styles(t).haftaGemiSaat, { color: t.textMuted }]}>C {g.gidisSaat}</Text> : null}
+              </View>
+            </TouchableOpacity>
+          ))}
+          {gelecekGunlerGemileri.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setGemiModal(true)}
+              style={[styles(t).gemiExpandSatir, { backgroundColor: t.bgCard, borderColor: t.divider }]}
+              activeOpacity={0.7}>
+              <Text style={[styles(t).gemiExpandText, { color: t.primary }]}>
+                Önümüzdeki günler · {gelecekGunlerGemileri.length} gemi
+              </Text>
+              <Text style={[styles(t).gemiExpandArrow, { color: t.primary }]}>›</Text>
+            </TouchableOpacity>
+          )}
           <Text style={[styles(t).gemiKaynak, { color: t.textMuted }]}>cruisetimetables.com · Otomatik güncellenir</Text>
         </View>
       ) : (
         <TouchableOpacity onPress={() => setGemiModal(true)} style={[styles(t).placeholderSection, { backgroundColor: t.bgSecondary }]} activeOpacity={0.7}>
-          <Text style={[styles(t).placeholderText, { color: t.textMuted }]}>Bu hafta gemi yok{gemiHata ? ' (veri alınamadı)' : ''}</Text>
-          {gelecekGemiler.length > 0 && <Text style={[styles(t).placeholderText, { color: t.primary, fontSize: 12, marginTop: 2 }]}>Sonraki: {gelecekGemiler[0].gemi} — {tarihFormat(gelecekGemiler[0].tarih)}</Text>}
+          <Text style={[styles(t).placeholderText, { color: t.textMuted }]}>Bugün gemi yok{gemiHata ? ' (veri alınamadı)' : ''}</Text>
+          {gelecekGunlerGemileri.length > 0 && (
+            <Text style={[styles(t).placeholderText, { color: t.primary, fontSize: 12, marginTop: 2 }]}>
+              Sonraki: {gelecekGunlerGemileri[0].gemi} — {tarihFormat(gelecekGunlerGemileri[0].tarih)}
+            </Text>
+          )}
+          {gelecekGunlerGemileri.length > 1 && (
+            <Text style={[styles(t).placeholderText, { color: t.textMuted, fontSize: 11, marginTop: 2 }]}>
+              ve {gelecekGunlerGemileri.length - 1} gemi daha — Tümünü gör
+            </Text>
+          )}
         </TouchableOpacity>
       )}
 
@@ -1275,6 +1307,27 @@ function styles(t: TemaRenkleri) {
     haftaGemiSaat: {
       fontSize: 11,
       fontFamily: 'Poppins_400Regular',
+    },
+    // v1.1.0: bugun-disi gemiler icin expand satir
+    gemiExpandSatir: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      marginHorizontal: 16,
+      marginTop: 4,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    gemiExpandText: {
+      fontSize: 13,
+      fontFamily: 'Poppins_600SemiBold',
+    },
+    gemiExpandArrow: {
+      fontSize: 22,
+      fontFamily: 'Poppins_400Regular',
+      lineHeight: 22,
     },
     gemiKaynak: {
       fontSize: 10,

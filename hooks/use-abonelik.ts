@@ -87,15 +87,18 @@ export function useAbonelik(): AbonelikDurumu {
         return;
       }
 
-      // Kullaniciyi RevenueCat'e tanimla (RC _layout'ta anonim baslatildi)
-      await revenueCatLogin(user.id);
-
-      // Tek query ile hem rol hem abonelik durumunu cek
+      // Tek query ile hem rol hem abonelik durumunu cek (RC login icin de isim/email lazim)
       const { data: profil, error } = await supabase
         .from('profiles')
-        .select('rol, abonelik_durumu, abonelik_plani, abonelik_bitis')
+        .select('rol, abonelik_durumu, abonelik_plani, abonelik_bitis, isim, soyisim')
         .eq('id', user.id)
         .single();
+
+      // Kullaniciyi RevenueCat'e tanimla (v1.1.0: email + isim attribute'lari da yazilir)
+      const displayName = profil
+        ? `${profil.isim || ''} ${profil.soyisim || ''}`.trim() || undefined
+        : undefined;
+      await revenueCatLogin(user.id, user.email, displayName);
 
       // Profil bulunamazsa (yeni kayit)
       if (error || !profil) {

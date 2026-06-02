@@ -38,6 +38,7 @@ export interface MekanSaat {
   fiyat_yabanci: string | null;
   fiyat_indirimli: string | null;
   muzekart: string | null;
+  muzekart_not: string | null;  // Parantez ici aciklama: "Harem'de geçmez", "Selamlik'ta geçmez" vb.
   ozel_not: string | null;
   kaynak: string | null;
   site: string | null;

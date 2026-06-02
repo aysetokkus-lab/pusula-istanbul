@@ -11,6 +11,7 @@ interface ModalVeri {
   durak: string;
   saatler: string[];
   yon: string;
+  guzergah: string | null;  // Yon'e gore guzergah aciklamasi (admin panelinden duzenlenebilir)
 }
 
 export default function Ulasim() {
@@ -77,7 +78,12 @@ export default function Ulasim() {
             const snrk = sonraki(saatler);
             return (
               <TouchableOpacity key={durak.id} style={[s.durakKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}
-                onPress={() => setModal({ durak: durak.durak_adi, saatler, yon: yon === 'gidis' ? 'Şehir → Havalimanı' : 'Havalimanı → Şehir' })}>
+                onPress={() => setModal({
+                  durak: durak.durak_adi,
+                  saatler,
+                  yon: yon === 'gidis' ? 'Şehir → Havalimanı' : 'Havalimanı → Şehir',
+                  guzergah: yon === 'gidis' ? durak.sehirden_hav_guzergah : durak.havdan_sehir_guzergah,
+                })}>
                 <View style={s.durakUst}>
                   <View style={s.durakBilgi}>
                     <Text style={[s.durakAdi, { color: t.text }]}>{durak.durak_adi}</Text>
@@ -125,6 +131,12 @@ export default function Ulasim() {
                   );
                 })}
               </View>
+              {modal?.guzergah ? (
+                <View style={[s.guzergahKutu, { backgroundColor: t.bg, borderColor: t.kartBorder }]}>
+                  <Text style={[s.guzergahBaslik, { color: t.textSecondary }]}>Güzergah</Text>
+                  <Text style={[s.guzergahYazi, { color: t.text }]}>{modal.guzergah}</Text>
+                </View>
+              ) : null}
             </ScrollView>
             <TouchableOpacity style={s.kapat} onPress={() => setModal(null)}>
               <Text style={s.kapatYazi}>Kapat</Text>
@@ -169,10 +181,13 @@ const s = StyleSheet.create({
   modalBaslik: { marginBottom: 16, borderBottomWidth: 1, paddingBottom: 12 },
   modalBaslikYazi: { color: '#0077B6', fontSize: 20, fontWeight: '700' },
   modalAlt: { fontSize: 13, marginTop: 4 },
-  saatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 16 },
+  saatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 8 },
   saatKutu: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#0096C7' },
   saatGecti: { opacity: 0.5 },
   saatYazi: { fontSize: 15, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  guzergahKutu: { borderRadius: 10, padding: 14, marginTop: 8, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: '#0077B6', borderWidth: 1 },
+  guzergahBaslik: { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
+  guzergahYazi: { fontSize: 14, lineHeight: 20 },
   kapat: { backgroundColor: '#0077B6', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8 },
   kapatYazi: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

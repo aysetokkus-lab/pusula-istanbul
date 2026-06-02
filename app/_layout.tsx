@@ -8,11 +8,12 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold, Pop
 import * as SplashScreen from 'expo-splash-screen';
 import { supabase } from '../lib/supabase';
 import { useBildirimler } from '../hooks/use-bildirimler';
+import { usePushToken } from '../hooks/use-push-token';
 import { useAbonelik } from '../hooks/use-abonelik';
 import { revenueCatInit } from '../lib/revenuecat';
 import { TemaProvider } from '../hooks/use-tema';
-import { useXUlasim } from '../hooks/use-x-ulasim';
-import { X_SENKRON_ARALIK_DK } from '../lib/config';
+// v1.1.0: X API senkronu Edge Function'a (ulasim-senkron) tasindi, client-side artiklari kaldirildi.
+// Bkz. DECISIONS #36, INFRASTRUCTURE.md Bolum 13.
 
 SplashScreen.preventAutoHideAsync();
 
@@ -178,14 +179,11 @@ export default function RootLayout() {
   // Tüm bildirim kategorilerini uygulama seviyesinde başlat
   useBildirimler();
 
-  // X (Twitter) senkronizasyonu — tek global timer
-  // Bilesenlerde (ulasim-uyari, trafik-uyari) ayri senkron KALDIRILDI.
-  const { senkronize } = useXUlasim();
-  useEffect(() => {
-    senkronize();
-    const interval = setInterval(() => senkronize(), X_SENKRON_ARALIK_DK * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // Push token al + Supabase'e kaydet (server-side push gonderim icin — v1.1.0)
+  usePushToken();
+
+  // X (Twitter) senkronizasyonu kaldirildi — server-side Edge Function 'ulasim-senkron'
+  // pg_cron ile 15 dk'da bir tetikleniyor (6 May 2026'dan beri). Bkz. DECISIONS #36.
 
   // Abonelik durumu kontrolü (premium özellik gating için)
   const abonelik = useAbonelik();
@@ -225,10 +223,10 @@ export default function RootLayout() {
     return () => clearTimeout(t);
   }, [sifreSifirlamaPending, fontsLoaded, oturum, abonelik.yukleniyor]);
 
-  // Freemium routing:
-  // - Uygulamayi acik birak (misafir de girebilir)
-  // - Giris ekranindaki kullanici oturum acarsa → onboarding veya tabs
-  // - Admin ekranlari korumali (giris gerekli)
+  // Kayit zorunlu routing (v1.0.13):
+  // - Oturum yoksa → giris ekranina yonlendir (yasal/paywall ekranlari haric)
+  // - Oturum varsa + giris ekraninda → ana ekrana yonlendir
+  // - Sifre sifirlama ve onboarding korumali ekranlar
   useEffect(() => {
     if (oturum === null || !fontsLoaded || abonelik.yukleniyor) return;
 
@@ -236,20 +234,24 @@ export default function RootLayout() {
     const girisEkraninda = mevcut === 'giris';
     const hosgeldinEkraninda = mevcut === 'hos-geldin';
     const gizlilikEkraninda = mevcut === 'gizlilik-politikasi' || mevcut === 'kullanim-kosullari';
-    const adminEkraninda = mevcut?.toString().startsWith('admin');
     const aboneOlEkraninda = mevcut === 'abone-ol';
     const sifreSifirlamaEkraninda = mevcut === ('sifre-sifirla' as typeof mevcut);
 
     // Korunan ekranlar — bunlardayken yönlendirme YAPMA
-    // sifre-sifirla: recovery session'ı aktifken bu ekranda kalmamız gerekiyor
+    // - hos-geldin: kayit sonrasi onboarding (oturum YENI acildi)
+    // - gizlilik/kullanim: yasal sayfalar, herkese acik
+    // - abone-ol: paywall, herkes erisebilmeli (Apple zorunlu)
+    // - sifre-sifirla: recovery session'i aktifken bu ekranda kalmamiz gerekiyor
     if (hosgeldinEkraninda || gizlilikEkraninda || aboneOlEkraninda || sifreSifirlamaEkraninda) return;
 
     // Recovery modunda iken hiçbir koşulda redirect yapma
     // Ref synchronous okunur (state async, race oluyor) — ikisini birden kontrol et
     if (sifreSifirlamaRef.current || sifreSifirlamaModu) return;
 
-    // Admin ekranlarına girmeye çalışan oturumsuz kullanıcıyı giriş'e yönlendir
-    if (!oturum && adminEkraninda) {
+    // KAYIT ZORUNLULUGU (v1.0.13):
+    // Oturum yoksa, korunan ekranlar disinda her yerde giriş ekranina yonlendir.
+    // Onceki freemium akisinda misafir tab'lara girebiliyordu — kapatildi.
+    if (!oturum && !girisEkraninda) {
       router.replace('/giris');
       return;
     }
@@ -272,7 +274,7 @@ export default function RootLayout() {
     <TemaProvider>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}
-        initialRouteName="(tabs)">
+        initialRouteName={oturum ? "(tabs)" : "giris"}>
         <Stack.Screen name="giris" />
         <Stack.Screen name="sifre-sifirla" />
         <Stack.Screen name="abone-ol" />

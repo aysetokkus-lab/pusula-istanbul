@@ -21,14 +21,14 @@ export default function MuzeKart() {
   const { mekanlar, yukleniyor } = useMekanSaatleri();
   const styles = createStyles(t);
 
-  // Supabase'den muzekart durumuna gore filtrele
+  // Supabase'den muzekart durumuna gore filtrele — isim + opsiyonel parantez ici not (orn. "Harem'de geçmez")
   const gecenYerler = useMemo(() =>
-    mekanlar.filter(m => m.muzekart === 'gecerli').map(m => m.isim),
+    mekanlar.filter(m => m.muzekart === 'gecerli').map(m => ({ isim: m.isim, not: m.muzekart_not })),
     [mekanlar]
   );
 
   const gecmeyenYerler = useMemo(() =>
-    mekanlar.filter(m => m.muzekart === 'gecmez').map(m => m.isim),
+    mekanlar.filter(m => m.muzekart === 'gecmez').map(m => ({ isim: m.isim, not: m.muzekart_not })),
     [mekanlar]
   );
 
@@ -87,10 +87,13 @@ export default function MuzeKart() {
         ) : gecenYerler.length === 0 ? (
           <Text style={[styles.bosYazi, { color: t.textMuted }]}>Henüz veri yok</Text>
         ) : (
-          gecenYerler.map((isim, i) => (
+          gecenYerler.map((y, i) => (
             <View key={i} style={styles.gecenSatir}>
               <View style={[styles.durumDot, { backgroundColor: Palette.acik }]} />
-              <Text style={styles.satirIsim}>{isim}</Text>
+              <Text style={styles.satirIsim}>
+                {y.isim}
+                {y.not ? <Text style={styles.satirNot}> ({y.not})</Text> : null}
+              </Text>
             </View>
           ))
         )}
@@ -104,10 +107,13 @@ export default function MuzeKart() {
         ) : gecmeyenYerler.length === 0 ? (
           <Text style={[styles.bosYazi, { color: t.textMuted }]}>Henüz veri yok</Text>
         ) : (
-          gecmeyenYerler.map((isim, i) => (
+          gecmeyenYerler.map((y, i) => (
             <View key={i} style={styles.gecmeyenSatir}>
               <View style={[styles.durumDot, { backgroundColor: Palette.kapali }]} />
-              <Text style={styles.satirIsim}>{isim}</Text>
+              <Text style={styles.satirIsim}>
+                {y.isim}
+                {y.not ? <Text style={styles.satirNot}> ({y.not})</Text> : null}
+              </Text>
             </View>
           ))
         )}
@@ -148,6 +154,7 @@ function createStyles(t: TemaRenkleri) {
     gecmeyenSatir: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Palette.kapali + '15', borderRadius: 8, padding: 12, marginBottom: 6 },
     durumDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10, marginTop: 4 },
     satirIsim: { color: t.text, fontSize: 13, fontWeight: '600', flex: 1 },
+    satirNot: { color: t.textSecondary, fontSize: 12, fontWeight: '400', fontStyle: 'italic' },
     bosYazi: { textAlign: 'center', fontSize: 13, marginVertical: 16 },
     satisKart: { backgroundColor: t.bgCard, borderRadius: 12, padding: 14, marginBottom: 10, borderLeftWidth: 4 },
     satisUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },

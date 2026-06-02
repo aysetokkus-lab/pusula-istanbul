@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBogazTurlari, type BogazTuru } from '../../hooks/use-bogaz-turlari';
 import { useTema } from '../../hooks/use-tema';
+import { useAbonelik } from '../../hooks/use-abonelik';
 
 const ADALAR_LINKLERI = [
   { sirket: 'Şehir Hatları', url: 'https://sehirhatlari.istanbul/tr/seferler/ic-hatlar/adalar-hatlari-176', renk: '#0077B6' },
@@ -15,6 +17,7 @@ const ADALAR_LINKLERI = [
 export default function Bogaz() {
   const insets = useSafeAreaInsets();
   const { t, isDark } = useTema();
+  const { premiumMi } = useAbonelik();
   const { turlar, yukleniyor } = useBogazTurlari();
   const [saatModal, setSaatModal] = useState<{ baslik: string; saatler: string[] } | null>(null);
 
@@ -106,8 +109,13 @@ export default function Bogaz() {
                   )}
                 </View>
                 <TouchableOpacity style={[s.tumBtn, { borderColor: turyol.renk }]}
-                  onPress={() => setSaatModal({ baslik: `TURYOL — ${cokluKalkis ? turyol.kalkis_noktalari.map((d: any) => d.durak).join(' / ') : turyol.kalkis_yeri}`, saatler })}>
-                  <Text style={[s.tumBtnYazi, { color: turyol.renk }]}>Tüm sefer saatleri →</Text>
+                  onPress={() => {
+                    if (!premiumMi) { router.push('/abone-ol'); return; }
+                    setSaatModal({ baslik: `TURYOL — ${cokluKalkis ? turyol.kalkis_noktalari.map((d: any) => d.durak).join(' / ') : turyol.kalkis_yeri}`, saatler });
+                  }}>
+                  <Text style={[s.tumBtnYazi, { color: turyol.renk }]}>
+                    {premiumMi ? 'Tüm sefer saatleri →' : 'Tüm sefer saatleri (Premium) →'}
+                  </Text>
                 </TouchableOpacity>
                 {turyol.ozel_not && (
                   <View style={[s.uyariKutu, { backgroundColor: t.bgSecondary }]}><Text style={s.uyariYazi}>{turyol.ozel_not}</Text></View>
@@ -117,8 +125,25 @@ export default function Bogaz() {
             );
           })()}
 
-          {/* DENTUR */}
-          {aktifSirket === 'dentur' && dentur && (() => {
+          {/* DENTUR — Premium */}
+          {aktifSirket === 'dentur' && !premiumMi && (
+            <TouchableOpacity onPress={() => router.push('/abone-ol')} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 4 }}>
+              <LinearGradient
+                colors={['#00A8E8','#0077B6','#0096C7','#48CAE4']}
+                start={{x:0,y:0}} end={{x:1,y:1}}
+                style={{ borderRadius: 14, padding: 22 }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Dentur Avrasya — Premium</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 13, lineHeight: 19, marginBottom: 14 }}>
+                  Kabataş ve Beşiktaş kalkışlı tüm sefer saatleri ve fiyatları için Pusula İstanbul Premium gerekir.
+                </Text>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Abone Ol →</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+          {aktifSirket === 'dentur' && premiumMi && dentur && (() => {
             const saatler = getSaatler(dentur);
             const sonraki = saatler.find(sa => saatDk(sa) > simdiDk);
             return (
@@ -157,8 +182,25 @@ export default function Bogaz() {
             );
           })()}
 
-          {/* ŞEHİR HATLARI */}
-          {aktifSirket === 'sehirhatlari' && (
+          {/* ŞEHİR HATLARI — Premium */}
+          {aktifSirket === 'sehirhatlari' && !premiumMi && (
+            <TouchableOpacity onPress={() => router.push('/abone-ol')} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 4 }}>
+              <LinearGradient
+                colors={['#00A8E8','#0077B6','#0096C7','#48CAE4']}
+                start={{x:0,y:0}} end={{x:1,y:1}}
+                style={{ borderRadius: 14, padding: 22 }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Şehir Hatları — Premium</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 13, lineHeight: 19, marginBottom: 14 }}>
+                  Kısa ve Uzun Boğaz turu güzergahları, durak saatleri ve gidiş-dönüş bilgisi için Pusula İstanbul Premium gerekir.
+                </Text>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Abone Ol →</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+          {aktifSirket === 'sehirhatlari' && premiumMi && (
             <View style={s.bolum}>
               <View style={[s.sirketBaslikKutu, { borderLeftColor: '#0077B6' }]}>
                 <Text style={[s.sirketAdi, { color: '#0077B6' }]}>ŞEHİR HATLARI</Text>

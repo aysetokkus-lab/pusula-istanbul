@@ -21,6 +21,8 @@ import { router, useFocusEffect } from 'expo-router';
 import { useKufurFiltre } from '../../hooks/use-kufur-filtre';
 import { useOkunmamisMesaj } from '../../hooks/use-okunmamis-mesaj';
 import { useAbonelik } from '../../hooks/use-abonelik';
+import { useAdmin } from '../../hooks/use-admin';
+import { usePinliMesajlar } from '../../hooks/use-pinli-mesajlar';
 
 /* ═══════════════════════════════════════════
    Tipler
@@ -31,6 +33,10 @@ interface Mesaj {
   kullanici_isim: string;
   mesaj: string;
   created_at: string;
+  pinned?: boolean;        // v1.1.0: admin/moderator sabitleyebilir
+  pinned_at?: string | null;
+  pinned_by?: string | null;
+  pinned_by_isim?: string | null;
 }
 
 interface KullaniciBilgi {
@@ -98,6 +104,8 @@ export default function SohbetEkrani() {
   const styles = createStyles(t);
   const flatListRef = useRef<FlatList>(null);
   const { premiumMi, yukleniyor: abonelikYukleniyor } = useAbonelik();
+  const { isYetkili } = useAdmin();  // admin/moderator: dogrudan mesaj silme yetkisi (v1.1.0)
+  const { pinle, pinKaldir } = usePinliMesajlar();  // v1.1.0: sabitle/pin kaldir
 
   // Okunmamış mesaj badge yönetimi
   const { sohbeteGirdi, sohbettenCikti } = useOkunmamisMesaj();
@@ -197,6 +205,22 @@ export default function SohbetEkrani() {
             // FlatList'i yeniden render etmeye zorla
             setGuncelSayac((c) => c + 1);
           }, 50);
+        }
+      )
+      // v1.1.0: admin/moderator mesaj silince diger cihazlarda da anlik kaybolsun
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'sohbet_mesajlari',
+        },
+        (payload: any) => {
+          const silinen = payload.old as { id?: string };
+          if (!silinen?.id) return;
+          console.log('REALTIME MESAJ SILINDI:', silinen.id);
+          setMesajlar((prev) => prev.filter((m) => m.id !== silinen.id));
+          setGuncelSayac((c) => c + 1);
         }
       )
       .subscribe((status) => {
@@ -409,29 +433,112 @@ export default function SohbetEkrani() {
     );
   }, [kullanici]);
 
-  /* ─── Mesaj aksiyonları menüsü (Raporla / Engelle) ─── */
+  /* ─── Admin/Moderator: Mesajı doğrudan sil (v1.1.0) ─── */
+  const mesajSil = useCallback(async (mesaj: Mesaj) => {
+    Alert.alert(
+      'Mesajı Sil',
+      `"${mesaj.mesaj.substring(0, 100)}${mesaj.mesaj.length > 100 ? '...' : ''}"\n\nBu mesaj kalıcı olarak silinecek. Devam edilsin mi?`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('sohbet_mesajlari')
+                .delete()
+                .eq('id', mesaj.id);
+              if (error) throw error;
+              // Lokalde de mesajı kaldır (realtime gecikmesi olabilir)
+              setMesajlar(prev => prev.filter(m => m.id !== mesaj.id));
+            } catch (e: any) {
+              Alert.alert('Hata', e?.message || 'Mesaj silinemedi. Lütfen tekrar deneyin.');
+            }
+          },
+        },
+      ]
+    );
+  }, []);
+
+  /* ─── Mesaj aksiyonları menüsü ─── */
+  /* Kendi mesaj:    Vazgeç + Sil
+     Başkasının:     Vazgeç + Raporla + Engelle + (yetkili ise) Sil */
   const mesajAksiyonlari = useCallback((mesaj: Mesaj) => {
     if (!kullanici) return;
-    // Kendi mesajinda aksiyon menusu gosterme
-    if (mesaj.kullanici_id === kullanici.id) return;
+
+    const kendi = mesaj.kullanici_id === kullanici.id;
+
+    if (kendi) {
+      // Kendi mesaj: sadece silme secenegi (v1.1.0)
+      Alert.alert(
+        'Mesajınız',
+        `"${mesaj.mesaj.substring(0, 100)}${mesaj.mesaj.length > 100 ? '...' : ''}"`,
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          {
+            text: 'Mesajı Sil',
+            style: 'destructive',
+            onPress: () => mesajSil(mesaj),
+          },
+        ]
+      );
+      return;
+    }
+
+    // Baskasinin mesaji: raporla / engelle / (yetkili ise) sabitle + sil
+    const butonlar: any[] = [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Mesajı Raporla',
+        onPress: () => mesajRaporla(mesaj),
+      },
+      {
+        text: 'Kullanıcıyı Engelle',
+        style: 'destructive',
+        onPress: () => kullaniciEngelle(mesaj.kullanici_id, mesaj.kullanici_isim, mesaj.mesaj),
+      },
+    ];
+
+    if (isYetkili) {
+      // v1.1.0: Pin/Sabit kaldir (kritik saha bilgisini ana sayfada one cikar)
+      butonlar.push({
+        text: mesaj.pinned ? 'Sabitten Kaldır' : 'Sabitle (Yetkili)',
+        onPress: async () => {
+          if (mesaj.pinned) {
+            const ok = await pinKaldir(mesaj.id);
+            if (!ok) Alert.alert('Hata', 'Sabit kaldırılamadı.');
+          } else {
+            Alert.alert(
+              'Mesajı Sabitle',
+              'Bu mesaj 48 saat boyunca ana sayfada "Sahadan Önemli" altında gösterilecek ve tüm kullanıcılara push bildirim gönderilecek. Devam edilsin mi?',
+              [
+                { text: 'Vazgeç', style: 'cancel' },
+                {
+                  text: 'Sabitle ve Bildir',
+                  onPress: async () => {
+                    const ok = await pinle(mesaj.id);
+                    if (!ok) Alert.alert('Hata', 'Sabitlenemedi.');
+                  },
+                },
+              ]
+            );
+          }
+        },
+      });
+      butonlar.push({
+        text: 'Mesajı Sil (Yetkili)',
+        style: 'destructive',
+        onPress: () => mesajSil(mesaj),
+      });
+    }
 
     Alert.alert(
       mesaj.kullanici_isim,
       `"${mesaj.mesaj.substring(0, 100)}${mesaj.mesaj.length > 100 ? '...' : ''}"`,
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'Mesajı Raporla',
-          onPress: () => mesajRaporla(mesaj),
-        },
-        {
-          text: 'Kullanıcıyı Engelle',
-          style: 'destructive',
-          onPress: () => kullaniciEngelle(mesaj.kullanici_id, mesaj.kullanici_isim, mesaj.mesaj),
-        },
-      ]
+      butonlar
     );
-  }, [kullanici, mesajRaporla, kullaniciEngelle]);
+  }, [kullanici, mesajRaporla, kullaniciEngelle, mesajSil, isYetkili, pinle, pinKaldir]);
 
   /* ─── Yenile ─── */
   const yenile = async () => {

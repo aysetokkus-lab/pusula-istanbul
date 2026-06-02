@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
+import Constants from 'expo-constants';
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +29,14 @@ import {
   BILDIRIM_KATEGORI_BILGI,
   type BildirimKategori,
 } from '../../hooks/use-bildirim-tercihleri';
+
+/* ═══════════════════════════════════════════
+   Surum (app.json'dan dinamik — v1.1.0 fix)
+   Onceden hardcoded "1.0.0" idi, yeni surum cikarinca
+   guncellenmiyordu. Artik expo-constants ile app.json'dan
+   okunup hem hakkinda modal'da hem destek mailinde gosterilir.
+   ═══════════════════════════════════════════ */
+const APP_VERSION = Constants.expoConfig?.version ?? '?';
 
 /* ═══════════════════════════════════════════
    Tipler
@@ -284,7 +293,7 @@ export default function ProfilEkrani() {
   /* ─── Geri bildirim gonder ─── */
   const geriBildirimGonder = () => {
     const konu = encodeURIComponent('Pusula İstanbul - Geri Bildirim');
-    const govde = encodeURIComponent(`\n\n---\nKullanıcı: ${kullanici?.profil.isim} ${kullanici?.profil.soyisim}\nE-posta: ${kullanici?.email}\nSürüm: v1.0.0`);
+    const govde = encodeURIComponent(`\n\n---\nKullanıcı: ${kullanici?.profil.isim} ${kullanici?.profil.soyisim}\nE-posta: ${kullanici?.email}\nSürüm: v${APP_VERSION}`);
     const url = `mailto:info@pusulaistanbul.app?subject=${konu}&body=${govde}`;
     import('react-native').then(({ Linking }) => {
       Linking.openURL(url).catch(() => {
@@ -669,7 +678,7 @@ export default function ProfilEkrani() {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setHakkindaAcik(false)}>
           <View style={[styles.modalKutu, { backgroundColor: t.modalBg }]}>
             <Text style={[styles.modalBaslik, { color: t.text, textAlign: 'center' }]}>Pusula İstanbul</Text>
-            <Text style={[styles.hakkindaAlt, { color: t.textSecondary }]}>Pusula İstanbul v1.0.0</Text>
+            <Text style={[styles.hakkindaAlt, { color: t.textSecondary }]}>Pusula İstanbul v{APP_VERSION}</Text>
             <Text style={[styles.hakkindaAlt, { color: t.textSecondary, marginTop: 4 }]}>
               Profesyonel turist rehberleri için güncel saha bilgi uygulaması
             </Text>

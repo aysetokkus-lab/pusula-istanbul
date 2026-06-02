@@ -76,6 +76,9 @@ Bu dosya tum cozulmus bug'larin kaydi — yeni bir bug ile karsilastiginda once 
 27. **Cozuldu tespiti calismiyor** — X API tweet'leri en yeniden eskiye donduruyor, ayni batch'te ariza+cozum gelince "normale donmustur" once isleniyor → Tweet'ler eskiden yeniye siralanarak isleniyor
 53. **Cift X API senkronizasyonu** — ulasim-uyari.tsx ve trafik-uyari.tsx bagimsiz useXUlasim() + setInterval → Bilesenlerdeki senkron kaldirildi, tek global timer _layout.tsx'e tasindi
 - **X API deduplication (v1.0.5)** — Module-level mutex + 30sn minimum aralik (use-x-ulasim.ts)
+79. **X API senkronu sadece app aciksa calisiyor** (6 May 2026) — `hooks/use-x-ulasim.ts` her 15 dk'da bir cagriliyordu AMA sadece kullanici uygulamayi acmissa. 6 May 15:00'te Marmaray Fatih intihar arizasi → 16:18'de "cift hattan isletilmeye baslanmis" duzelme tweet'i Marmaraytcdd'den geldi → 33 dk sonra Ayse uygulamayi actiginda hala arizali gorunuyordu. Cunku o 33 dk'da kimse app'i acmamis, duzelme tweet'i hic ingest edilmemisti. Geriye donuk: 13 Nis, 9 Nis, 7 Nis, 31 Mart Marmaray "uzucu olay" arizalarinin hicbiri otomatik kapatilmamis. → **Cozum:** `supabase/functions/ulasim-senkron/index.ts` Edge Function olarak port edildi, `pg_cron` ile `*/15 * * * *` schedule kuruldu. Bot artik server-side, kullanici sayisindan bagimsiz. Bkz. DECISIONS #36.
+80. **EXPO_PUBLIC_X_BEARER_TOKEN bundle'a gomulu** (6 May 2026) — `lib/config.ts` line 10: `EXPO_PUBLIC_X_BEARER_TOKEN`. Expo'da bu prefix env'i client bundle'ina gomuyor. APK decompile riski. → **Cozum:** Twitter'da bearer token Regenerate (eski otomatik gecersiz oldu), yeni token sadece Supabase Edge Function secret'a kondu. Mevcut bundle'lar artik gecersiz token tasiyor — zararsiz no-op (UNIQUE constraint dedup yapar). v1.1.0 build'inde `EXPO_PUBLIC_X_BEARER_TOKEN` EAS env'den silinecek, `lib/config.ts`/`hooks/use-x-ulasim.ts` temizlenecek.
+81. **Geriye donuk Marmaray arizalari cozuldu=false kaldi** (6 May 2026) — Bot bug'i 5 Marmaray "uzucu olay" arizasi kaydini birakmisti (aktif=false ama cozuldu=false), veri tutarsizligi. → **Cozum:** Toplu UPDATE `cozuldu = true, cozulme_tarihi = COALESCE(cozulme_tarihi, tarih + interval '90 minutes')` Marmaray arizalari icin + benzeri tum hatlar icin 24h+ eski aktif=false ariza/gecikme/kesinti kayitlari icin.
 
 ### Havalimani Ulasim Veri Pipeline
 28. **Havalimani verisi yanlis tabloya eklendi (bogaz_turlari)** — 11 Havaist/Havabus kaydi yanlis tabloya → REST API DELETE
@@ -159,6 +162,18 @@ Bu dosya tum cozulmus bug'larin kaydi — yeni bir bug ile karsilastiginda once 
 
 71. **RC'de email araması bos donuyor (2 Mayis 2026 fark edildi)** — `gokteke@yahoo.com` ile RC search "No results found" donduruyor. Aslinda customer mevcut, ama email attribute set edilmemis. RC anonymous user merge'inde `Purchases.logIn(user.id)` cagrildi ama `Purchases.setAttributes({'$email': user.email})` cagrilmadi. **Gecici cozum:** UUID ile arama (Supabase'den UUID al, RC'de UUID ile ara — anonymous alias'a geri donuyor). **Kalici cozum:** v1.1.0'da `lib/revenuecat.ts`'e ekleme. Detay: STATE.md "v1.1.0 PLANLANAN OZELLIKLER" #7.
 
+### 4 Mayis 2026 — Mekan Verisi + Admin Panel Bugs
+
+72. **15 mekanda yanlis "Pazar kapali" gosterimi (4 Mayis 2026)** — Yerebatan, TIEM, Galata Kulesi, Kiz Kulesi, Camlica Kulesi, Serefiye, Ayasofya Muzesi (tarih ve deneyim), Arkeoloji, Islam Bilim, Adam Mickiewicz, Mehmet Akif, Santralistanbul, Yildiz Cini, Havalimani Muzesi, Akvaryum (PASIF) — hepsi her gun acik mekanlardi ama app'te "Pazar kapali" yazisi cikiyordu. Kok sebep: **konvensiyon yanilgisi**. Excel'de Ayse "0 = her gun acik" mantigiyla doldurmus, frontend `GUNLER = ['Paz','Pzt',...,'Cmt']` (JS Date.getDay() ile uyumlu, Pazar=0) konvansiyonunda yorumlamis → `GUNLER[0]` = 'Paz' goruntulemis. **Cozum:** Konvensiyon netlestirildi: NULL = yok, 0..6 = gunun JS Date.getDay() indeksi. 15 kayit DB'de NULL'a cevrildi, Excel'de hucreler bosaltildi, sync script'i ayni konvensiyona hizalandi, kaynak SQL guncellendi. Detay: DECISIONS.md #32.
+
+73. **Admin moderator atama: column profiles.email does not exist (4 Mayis 2026)** — `app/admin.tsx`'in moderator atama akisi (line 84-88) `profiles` tablosunda `email` kolonu sorguluyordu, ama Supabase standardinda email `auth.users`'da durur, `profiles`'ta yoktu. Schema bug'i. **Cozum:** `profiles` tablosuna `email TEXT` kolonu eklendi, `auth.users`'tan 96 mevcut profil dolduruldu, iki trigger kuruldu (auth.users -> profiles email senkronu + profiles INSERT'te email auto-fill), case-insensitive index eklendi. Frontend kodu degismedi. Detay: DECISIONS.md #33.
+
+74. **Moderator atama "Basarili" diyor ama DB'de rol guncelenmiyor (4 Mayis 2026)** — `profiles.email` schema fix sonrasi moderator atama akisi calisti gibi gorundu (frontend "Basarili: Ela Karaman moderator olarak atandi" alert'i), ama DB'de Ela'nin `rol` alani hala `user`. Kok sebep: **RLS sessiz reddi varyanti**. Profiles UPDATE icin RLS policy sadece `auth.uid() = id` kontrolu yapiyordu — admin (Ayse) baskasinin (Ela'nin) satirini UPDATE etmeye calistiginda RLS satiri gizledi, UPDATE 0 satir etkiledi, PostgREST hata atmadi. **Cozum:** `is_admin()` SECURITY DEFINER helper + yeni "Admin tum profilleri guncelleyebilir" UPDATE policy. Frontend defansif kod ekle: `.select().single()` ile data null kontrolu (v1.0.12). Detay: DECISIONS.md #34.
+
+75. **Galataport gemi takvimi 5 haftadir donmus + tarih kaymasi + eksik gemiler (4 Mayis 2026)** — Kullanici Mayis 4-11 araliginda app'te gunde tek gemi gorduyunu raporladi, ama cruisetimetables.com'da multi-gemi var. Inceleme sonucu: DB'de 204 kayit, hepsi 29 Mart 2026 13:24'te tek seferde insert edilmis, 5 hafta hic guncellenmemis. Otomatik mekanizma yok (ne scheduled task, ne edge function, ne pg_cron). Ustelik 29 Mart insert'i hatali — gemilerin geliS/gidiS tarihleri 1-3 gun kaymis, cogu multi-gemi gunu sadece tek gemi gosteriyor (ornegin 8 May'da kaynakta 3 gemi vardi, DB'de 1). **Cozum:** Firecrawl ile cruisetimetables.com'un Mayis-Aralik 2026 ay sayfalarini yeniden scrape et (8 ay), DB temizle, dogru 224 kayit insert et. Sirket adlari DB normalize formatinda (kisaltilmis, ornegin "Regent Seven Seas Cruises" → "Regent Seven Seas"). **Kalici cozum (v1.1.0):** Scheduled task yaz, gunluk veya haftalik calistir. Bkz. STATE.md "v1.1.0 PLANLANAN OZELLIKLER" #9.
+
+76. **Pusula Play Store sadece Turkiye'de yayinda + IAP fiyatlari sadece TR (4 Mayis 2026)** — Bir kullanici "Bu oge ulkenizde kullanilamiyor" uyarisi aldi (Turkiye'de oldugu halde — Google hesabi Turkiye disinda olabilir). Kontrol ettik: Pusula Play Console'da yayin bolgesi olarak sadece Turkiye seciliydi. Apple App Store'da 175 ulkede yayinda, Play tarafi geride kalmis. **Cozum 1:** Play Console → Production → Ulkeler/bolgeler → Tum ulkeleri sec → Yayinlamaya gonder (managed publishing review akisinda). **Cozum 2:** IAP urunleri (`com.pusulaistanbul.app.aylik` ve `com.pusulaistanbul.app.yillik:yillik-yeni`) icin "Set prices" dialog'undan Turkiye baz fiyatindan otomatik donusum: Aylik 83,33 TRY (= 99,99/1,20), Yillik 583,33 TRY (= 699,99/1,20) baz fiyatlar. Google %20 KDV ekleyerek Turkiye'de 99,99/699,99 koruyor, diger ulkelere yerel para birimine donusturuyor (~1,99 USD aylik, ~13,99 USD yillik). Apple zaten otomatik global fiyat ayarlamasi yapiyordu (Base Country: Turkey TRY, sayfada "Apple may automatically adjust prices..." aciklamasi). **Ders:** Yeni urun yayinlanirken global hedef goz onunde tutulmali, fiyat sablonu Turkiye'den baslayip otomatik donusum guvenli yontem.
+
 ---
 
 ## BILINEN SINIRLAR (KABUL EDILEN ISTISNALAR)
@@ -191,6 +206,25 @@ Bu bolumdeki sorunlar **kasten cozulmemis** — fix-yarari/yatirim-edilecek-zama
 
 ---
 
+## ACIK SORUNLAR (v1.0.14 ICIN)
+
+### 77. Namaz Vakitleri SVG ikonu iOS'ta yarim render (5 Mayis 2026)
+- **Konum:** Ana sayfa 8'li grid, "Namaz Vakitleri" karti
+- **Dosya:** `assets/icons/namaz-vakitleri.svg`
+- **Belirti:** iOS'ta cami silueti yarim gorunuyor (sag minare/kubbe kesik), Android'de iki minare tam gorunuyor
+- **Olasi sebep:** SVG viewBox="0 0 682.667 682.667" + transform="matrix(1.33333 0 0 -1.33333 0 682.667)" kombinasyonu. iOS react-native-svg negatif olcek + matrix dönüsümünü Android'den farkli isliyor, bazi path'ler clipping disinda kaliyor.
+- **Cozum yolu (v1.0.14):** SVG'yi yeniden duzenle — transform kaldirip path'leri direkt pozitif koordinata yaz, viewBox'i element bounds'una sigdir. Veya basit bir alternatif cami SVG'si ile degistir.
+- **Aciliyet:** Dusuk — gorsel kozmetik, fonksiyon etkilenmedi. v1.0.13'e dahil edilmedi (review'a gonderildi).
+
+### 78. Abone-ol fiyat para birimi sembolu vs alt yazi tutarsiz (5 Mayis 2026)
+- **Konum:** `app/abone-ol.tsx`, plan kartlari + alt yazi
+- **Belirti:** Test ortaminda (Mac M1 Designed for iPad / sandbox tester ABD) plan kartlarinda fiyat "$1.99" / "$12.99" gorunurken yillik kart altindaki hesap yazi "1,08 TL/ay" (USD/12 hesabi + hardcoded "TL" etiketi)
+- **Etki:** Sadece test ortami. Gercek Turkiye Apple ID kullanicisi 99,99 TL / 699,99 TL ve dogru aylik denkligi gorur.
+- **Cozum yolu (v1.0.14):** Alt yazidaki "TL/ay" hardcoded'unu kaldir, RC `priceString` veya `currencyCode`'unu kullan. Format: `${birFiyat.toFixed(2)} ${currency}/ay`.
+- **Aciliyet:** Dusuk-orta — production'da gercek kullanici etkilenmiyor ama test/demo sirasinda kafa karistirici, screenshot'lara da olumsuz yansiyabilir.
+
+---
+
 ## COZUM PATTERNLERI (Ozetlenmis)
 
 Yeni bir bug ile karsilastiginda dene:
@@ -200,3 +234,40 @@ Yeni bir bug ile karsilastiginda dene:
 4. **Deep link / auth** — Pending Pattern uygulanmis mi? Stack mount durumu kontrol ediliyor mu?
 5. **EAS env eksik** — `eas env:list --environment production` ile dogrula. EXPO_PUBLIC_ ise `--visibility sensitive`.
 6. **Apple reject** — Paid Apps Agreement Active mi? Subscription Group Localization var mi? EULA linki eklenmis mi? Manual release secilmis mi?
+
+### 79. v1.0.13 ScreenStack Drawing Crash — IndexOutOfBoundsException (27 Mayis 2026)
+- **Konum:** Android tarafi, `com.swmansion.rnscreens.ScreenStack.performDraw` (react-native-screens 4.16.0 native kod)
+- **Belirti:** Bazi kullanicilarda uygulama acildiktan sonra (kayit/giris veya bir ekrana gecis sirasinda) "Pusula Istanbul ile ilgili bir sorun olustu" Android crash dialog'u
+- **Stack trace:** `java.lang.IndexOutOfBoundsException: getChildDrawingOrder() returned invalid index 2 (child count is 2)` — ekran geçişi sirasinda child view listesi tutarsizliği, off-by-one race condition
+- **Etki:** Play Console Vitals'ta 16 onaylanmis kullanici (~%15 yeni organik rehberden), 12 farkli cihaz markasi (Samsung baskin, Xiaomi, Huawei, Realme, Vivo, Tecno dahil — dagilim cok genis, OEM uyumsuzluk degil kod bug'i)
+- **Cozum (v1.0.14):** react-native-screens 4.16.0 → 4.23.0 upgrade. Bkz. DECISIONS #37.
+- **Aciliyet:** **Cozuldu (27 May gece)** — v1.0.14 her iki platformda yayinda (Apple expedited onayi ~12 saat icinde, Google Play onayi ayni gun). 24-48 saat icinde Play Console Vitals'tan yeni crash gelmemesi dogrulanacak. Gelirse Plan B: patch-package ile 4.24'teki defansif kodu 4.23'e transplant.
+
+### 80. react-native-screens 4.24.0 Yarim Surum — BottomTabs Implementation Eksik (27 Mayis 2026)
+- **Konum:** node_modules/react-native-screens 4.24.0 paketi
+- **Belirti:** EAS iOS build patladi (Xcode):
+  ```
+  use of undeclared identifier 'RNSBottomTabsScreenComponentView'
+  unknown type name 'RNSBottomTabsScreenComponentView'; did you mean 'RNSTabsScreenComponentView'?
+  ```
+- **Tani:** `npm pack react-native-screens@4.24.0 && tar -xzf` ile paket icerigi acildi → BottomTabs iOS implementasyonu 0 dosya, Android 0 dosya, JS spec 0 — ama codegen baska bir yerden hala `RNSBottomTabsScreenComponentView` ariyor. Yarim kalmis surum. 4.25.0'da BottomTabs yeniden eklendi (RN 0.82 ile birlikte).
+- **Etki:** 4.16'dan 4.24'e upgrade ile fix gelen ScreenStack defansif kodu (currentVisibleBottom field + updateA11yForVisibleScreens + shouldDisableFocusabilityBeneathTopScreen) erisilemez kaldi. 4.25.0+ peer dep `react-native: >=0.82.0` ister, bizde 0.81.5 — onlar da kapali.
+- **Cozum:** 4.24'u atla, **4.23.0** kullan (BottomTabs iOS 28 dosya + Android 4 dosya, saglam). Plan B (gerekirse): `patch-package` ile 4.24'teki ScreenStack defansif kodunu 4.23'e transplant.
+- **Aciliyet:** Cozuldu — 4.23.0'a inildi, v1.0.14 her iki platform build edildi.
+
+### 81. Microsoft (Hotmail/Outlook) + Yahoo Spam Filtresi - 16 Kullanici Onay Maili Goremedi (1-27 Mayis 2026)
+- **Belirti:** IRO maili sonrasi 20 gunde 16 kullanici kayit yapip hesabini aktive edemedi. Resend dashboard'da Supabase Auth onay mailleri **"Delivered"** statusunda (Microsoft/Yahoo mail sunucularina ulasmis) ama kullanici gelen kutusunda goremedi — Onemsiz e-posta / Junk / Spam klasorlerinde gomulmus.
+- **Etkilenen domain dagilimi:** Hotmail.com (14), Hotmail.de (1), Yahoo.com (1), laposte.net (1), superonline.com (1), gmail.com (1, ama yeniden kayit oldugunda doğru `.com` ile aktif)
+- **Etkilenen 16 kullanici:**
+  - 1. grup (27 May 01:37 manuel onay): ezeybey@hotmail.com, soysalmustafa@hotmail.com, yavuzdo@hotmail.com, alikaracayli@hotmail.com.tr, sevgi_tr_lv@hotmail.com, kvanlioglu@hotmail.com, fevziye22@yahoo.com
+  - 2. grup (27 May 03:14 manuel onay, daha eski 1-6 May kayitlari): omur.kahraman@hotmail.com, ersin.yigid@gmail.com, abdullah_er21@hotmail.de, tinapinto73@hotmail.com, melikekorkmaz@hotmail.com, aliakkaya@laposte.net, merttaner@hotmail.com, buraksan@superonline.com
+- **Cozum:** SQL ile `email_confirmed_at = NOW()` manuel onay + markali Pusula Istanbul bilgilendirme maili (scripts/manuel-onay-bilgilendirme.mjs). 1. grup 7 kisiye 27 May sabah bilgilendirme maili gonderildi (Resend Delivered). 2. grup 8 kisi bilgilendirme maili icin yeni oturum bekliyor. Bkz. DECISIONS #39.
+- **Aciliyet:** Devam ediyor — Microsoft spam filtresi yapisal bir sorun, her IRO benzeri pazarlama hamlesinde tekrarlayacak. v1.1.0 idea: admin panel "Onaysiz Kullanicilar (>24 saat)" widget'i + tek tikla manuel onay + bilgilendirme.
+
+### 82. Timuçin Alp Aslan — Email Typo .vom (9 Mayis 2026)
+- **Konum:** auth.users + public.profiles, kullanici email kolonu
+- **Belirti:** 9 May 09:21'de `timucin.aslan1956@gmail.vom` yanlis email ile kayit yapildi (`.vom` typo). 2 dakika sonra (09:23) ayni kullanici dogru email `timucin.aslan1956@gmail.com` ile yeniden kayit yapip onayladi ve aktif kullaniyor. Eski `.vom` hesabi olu kaldi (email_confirmed_at NULL, last_sign_in_at NULL).
+- **Tespit:** 27 May'da Microsoft spam pattern tanisi sirasinda onaysiz freemium listesinde fark edildi. Ayse'nin baslangictaki tahmini ("buyuk ihtimal email adresini yanlis yazmis") burada gerceklesti — 8 onaysizdan 1'i gerçek typo, 7'si Microsoft spam.
+- **Cozum:** `DELETE FROM public.profiles WHERE id = ...` + `DELETE FROM auth.users WHERE id = ...` — olu hesap silindi. Dogru `.com` hesabi zaten aktif, kullanici hayati etkilenmedi.
+- **Aciliyet:** Cozuldu.
+

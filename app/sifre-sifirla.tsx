@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { supabase } from '../lib/supabase';
 import { useTema } from '../hooks/use-tema';
@@ -20,6 +21,7 @@ import { Palette, type TemaRenkleri } from '../constants/theme';
 export default function SifreSifirla() {
   const { t } = useTema();
   const styles = createStyles(t);
+  const insets = useSafeAreaInsets();  // v1.1.0: edge-to-edge icin
 
   const [yeniSifre, setYeniSifre] = useState('');
   const [yeniSifreTekrar, setYeniSifreTekrar] = useState('');
@@ -133,7 +135,7 @@ export default function SifreSifirla() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={styles.icerik}
+        contentContainerStyle={[styles.icerik, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

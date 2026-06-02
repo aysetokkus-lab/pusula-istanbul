@@ -325,14 +325,104 @@ Hero > Screenshots > Features > Premium > Legal > Footer
 
 ## 10. X (TWITTER) API
 
-- **Bearer Token:** `.env`'de + EAS env (sensitive)
+- **Bearer Token:** Sadece Supabase Edge Function secret'inda (`X_BEARER_TOKEN`). 6 May 2026'dan itibaren EXPO_PUBLIC_ prefix'i KALDIRILMASI bekleniyor (v1.1.0 build'inde) — su an hala EAS production env'de mevcut ama ARTIK GECERSIZ (6 May'da Twitter Developer Portal'dan **Regenerate** edildi, eski token revoke oldu).
 - 4 hesap takip ediliyor:
-  - Metro hatlari (M1-M14)
-  - Tramvay (T1-T5)
-  - Funikuler/Marmaray
+  - **@metroistanbul** — Metro hatlari (M1-M14), tramvay (T1-T5), funikuler (F1-F4)
+  - **@TCDDTasimacilik** — TCDD genel
+  - **@Marmaraytcdd** — Marmaray ozelinde
   - **@4444154 (IBB Ulasim Yonetim Merkezi)** — trafik, kopru, metrobus, yol calismasi
-- **Otomatik odeme aktif** (kredi tukenmesi onlendi — 27 Nisan'da bir kere oldu)
-- v1.1.0'da scheduled task'a tasinacak (mobile'dan merkezi cozume)
+- **Plan:** Pay-per-use (Twitter Developer Portal). Otomatik odeme aktif.
+- **Maliyet (6 May 2026 oncesi — client-side bot):** Aylik ~$20 (4 hesap × her aktif cihaz × her 15 dk)
+- **Maliyet (6 May 2026 sonrasi — server-side bot):** Tahminen aylik ~$3-5 sabit (4 hesap × tek sunucu × her 15 dk)
+- **Mimari:** v1.0.13'e kadar `hooks/use-x-ulasim.ts` client-side. 6 May 2026'dan itibaren Supabase Edge Function `ulasim-senkron` (Bolum 13).
+
+---
+
+## 13. ULASIM-SENKRON EDGE FUNCTION (6 Mayis 2026)
+
+X API tweet senkronizasyonu artik server-side bir Supabase Edge Function tarafindan yapiliyor. pg_cron ile her 15 dakikada bir tetiklenir.
+
+### Ne Yapiyor
+4 X hesabindan tweet ceker (`metroistanbul`, `TCDDTasimacilik`, `Marmaraytcdd`, `IBBUlasim`), regex ile hat/tip tespiti yapar, ulasim uyarisi olanlari `ulasim_uyarilari` tablosuna yazar. "Cozuldu" tipi tweet'lerde ayni hattaki aktif uyarilari `cozuldu=true, aktif=false` yapar. 48 saatten eski cozulmus uyarilari ve 7 gunden eski tum uyarilari da pasifle eder.
+
+### Dosyalar
+- **Edge Function kodu:** `supabase/functions/ulasim-senkron/index.ts` (288 satir)
+  - Kaynak: `hooks/use-x-ulasim.ts`'in birebir port'u (regex'ler, hesap listeleri, mantik korundu)
+  - Farklar: (a) Deno + Supabase JS v2, (b) service role key ile RLS bypass, (c) custom header secret check
+- **Migration:** Supabase Migrations'ta `ulasim_senkron_cron_v2` adiyla saklandi
+
+### Konfigurasyon (Supabase)
+- **Function adi:** `ulasim-senkron`
+- **Slug:** `ulasim-senkron`
+- **verify_jwt:** `false` (custom header check ile yerine getirildi)
+- **URL:** `https://rzlfghjpsximthlolfxo.supabase.co/functions/v1/ulasim-senkron`
+
+### Edge Function Secrets (Dashboard → Edge Functions → Secrets)
+- `X_BEARER_TOKEN` — Twitter Developer Portal'dan alinmis Bearer Token (6 May 2026'da Regenerate edildi)
+- `CRON_SECRET` — Rastgele 32-byte hex (6 May 2026 set edildi). Supabase Vault'taki `pusula_cron_secret` ile **AYNI** deger olmali.
+
+### Vault Secret (Database)
+- **Ad:** `pusula_cron_secret`
+- **Aciklama:** "Edge Function cron tetikleyicisi icin paylasilmis secret"
+- **Kullanim:** `(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'pusula_cron_secret' LIMIT 1)`
+
+### pg_cron Job
+- **Job adi:** `ulasim-senkron-15dk`
+- **Schedule:** `*/15 * * * *` (her 15 dakikada bir)
+- **Komut:** `net.http_post()` ile Edge Function'a HTTP POST atar, header'da Vault'tan cektigi `pusula_cron_secret`'i `x-pusula-cron-secret` olarak yollar.
+
+### Manuel Tetikleme
+```sql
+SELECT net.http_post(
+  url := 'https://rzlfghjpsximthlolfxo.supabase.co/functions/v1/ulasim-senkron',
+  headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'x-pusula-cron-secret', (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'pusula_cron_secret' LIMIT 1)
+  ),
+  body := '{}'::jsonb,
+  timeout_milliseconds := 60000
+) AS request_id;
+```
+
+### Sonuc Kontrolu
+```sql
+SELECT id, status_code, content::text AS body, error_msg, created
+FROM net._http_response
+ORDER BY created DESC LIMIT 5;
+```
+Basarili: `status_code=200`, `body={"ok":true,"yeni":N,"guncellenen":M,"hatalar":[],"zaman":"..."}`.
+
+### Auth Akisi (kim neyi cagiriyor)
+1. **pg_cron** her 15 dk job'i tetikler
+2. Job, Vault'tan `pusula_cron_secret`'i okur
+3. `net.http_post()` ile Edge Function'a HTTP POST atar, header'da `x-pusula-cron-secret: <secret>`
+4. Edge Function `verify_jwt=false` oldugu icin JWT istemez
+5. Edge Function ilk satirda `req.headers.get('x-pusula-cron-secret') === Deno.env.get('CRON_SECRET')` kontrolu yapar
+6. Esit degilse 401 Unauthorized doner, Esitse devam eder
+7. Service role key ile Supabase client olusturur (RLS bypass), tweet ingest eder
+
+### Extension'lar (Database)
+- `pg_cron` (extensions schema)
+- `pg_net` (extensions schema)
+- `supabase_vault` (zaten kurulu)
+
+### Client-Side Hook'un Durumu (geciste)
+`hooks/use-x-ulasim.ts` ve `app/_layout.tsx`'teki `useXUlasim()` cagrisi v1.0.13'te HALA AKTIF. Yeni `EXPO_PUBLIC_X_BEARER_TOKEN` (eski token revoke edildi) ile artik calismiyor — fetch 401 doner, fonksiyon early return yapar. Ayrica yeni tweet ingest etmeye calissa bile `tweet_id` UNIQUE constraint nedeniyle Edge Function'in zaten yazdigi tweet'leri yazamaz.
+
+**v1.1.0 temizlik adimi (build gerektirir):**
+1. `app/_layout.tsx` line 183-188: `useXUlasim()` import + cagri sil
+2. `hooks/use-x-ulasim.ts` dosyasini sil
+3. `lib/config.ts` line 10-13: `X_BEARER_TOKEN` ve `X_SENKRON_ARALIK_DK` sil
+4. `eas env:delete --name EXPO_PUBLIC_X_BEARER_TOKEN --environment production`
+
+### Maliyet Etkisi
+- Once: 4 hesap × ~25 aktif kullanici × her 15 dk = saatte ~400 X API cagrisi
+- Sonra: 4 hesap × tek sunucu × her 15 dk = saatte 16 cagri
+- **%96 quota tasarrufu**, kullanici sayisindan bagimsiz
+
+### Bkz.
+- DECISIONS.md #36 — Tam karar metni
+- ISSUES.md #79-#81 — Bug fix kayitlari
 
 ---
 
@@ -378,13 +468,28 @@ Hero > Screenshots > Features > Premium > Legal > Footer
 
 ### Scheduled Task Klasoru (Mac)
 - `/Users/aysetokkus/Documents/Claude/Scheduled` — task SKILL.md'leri burada
+- Cowork uygulamasi acik degilse task **calismaz**; sonraki acilista tetiklenir
+- Bir kerelik (`fireAt`) task'lar otomatik disable olur, recurring (`cronExpression`) task'lar suresiz devam eder
+
+### Aktif Scheduled Task'lar (28 May 2026 itibariyle)
+- **`sehir-hatlari-iptal-seferleri`** — aktif (recurring), gunluk iptal sefer kontrolu
+- **`saraylar-saatleri-guncelle`** — devre disi (1 May 2026'da kapatildi, admin panelden manuel)
+- **`muzeler-saatleri-guncelle`** — devre disi (1 May 2026'da kapatildi, admin panelden manuel)
+- **`havalimani-tarife-guncelle`** — devre disi (4 May 2026'da kapatildi, eski Firecrawl-based). **YERINE GECEN:** `havaist-senkron` aktif (2 Haz 2026).
+- **`havaist-senkron`** — aktif (recurring `0 7 * * *`, 2 Haz 2026'da kuruldu). hava.ist resmi backend API'sinden (`s.hava.ist/api.php`) tum HVL ve HVIST hatlarini gunluk olarak senkronize eder. Sadece `firma='havaist'`, `havalimani='IST'` satirlari (Havabus/SAW dahil DEGIL). Idempotent: degisim yoksa no-op, push tetiklenmez. Gercek bir fiyat/saat degisikliginde DB guncellenir, `push_havalimani_trigger` kullaniciya bildirim gonderir. Script: `scripts/havaist-senkron.mjs`. Audit log: `scripts/data/havaist-senkron-log.json`. Tek run ~12sn, 14 IST kaydi tarar. Bkz. DECISIONS #44, Bolum 12.
+- **`kurban-bayrami-hediye-mail-gonderim`** — one-shot, `fireAt=2026-05-27T07:00:00+03:00`, ~84sn surer, otomatik disable olur. Prompt'unda `node scripts/kurban-bayrami-hediye.mjs --all` calistirir, 168 freemium kullaniciya kurban bayrami premium hediye maili gonderir. Bkz. STATE.md (TAMAMLANANLAR 0000f).
+- **`bayram-hediye-otomatik`** — aktif (recurring `*/15 * * * *`, 28 May 2026'da kuruldu), kampanya: 28 May 00:00 - 1 Haz 00:00 +03 araliginda yeni kayit olan kullanicilara otomatik premium hediye (1 Haz'a kadar) + hos geldin maili. Script: `scripts/bayram-hediye-otomatik.mjs`. Idempotent (SQL filtresi `abonelik_durumu != 'aktif'`). Oto-kapanis: 1 Haz 00:00 +03 sonrasi no-op. Audit log: `scripts/data/bayram-hediye-otomatik-log.json`. **1 Haziran sabahi manuel disable EDILMELI** (recurring oldugu icin no-op cikti her 15 dk surer). Bkz. STATE.md.
 
 ---
 
 ## 12. HAVALIMANI ULASIM VERI PIPELINE'I (Detayli)
 
 ### Genel Bakis
-"Havalimani Ulasim" sekmesi (`app/(tabs)/ulasim.tsx`) Supabase `havalimani_seferleri` tablosundan veri ceker. Bu tablo Havaist (IST) ve Havabus (SAW) seferlerini, fiyatlarini ve sefer saatlerini icerir. Veriler `havalimani-tarife-guncelle` scheduled task'i ile haftalik guncellenir.
+"Havalimani Ulasim" sekmesi (`app/(tabs)/ulasim.tsx`) Supabase `havalimani_seferleri` tablosundan veri ceker. Bu tablo Havaist (IST) ve Havabus (SAW) seferlerini, fiyatlarini ve sefer saatlerini icerir.
+
+**ONEMLI MIMARI DEGISIM (2 Haziran 2026):** Veri kaynaklari ayrildi:
+- **Havaist (firma='havaist', havalimani='IST')** — `havaist-senkron` scheduled task'i ile hava.ist resmi backend API'sinden gunluk otomatik senkron edilir. 14 IST kaydi (10 HVL + 4 HVIST). Bkz. DECISIONS #44.
+- **Havabus (firma='havabus', havalimani='SAW')** — Bu API'de yok. Admin panel (`app/admin-ulasim-tarife.tsx`) ile manuel yonetilir; gerekirse Firecrawl ile havabus.com'dan scrape edilebilir.
 
 ### Tablo Yapisi: `havalimani_seferleri`
 ```
@@ -435,13 +540,28 @@ guncelleme_tarihi    | timestamp | Son guncelleme zamani
 - Yenisahra: 270₺, ~45 dk (Kadikoy hattinin ara duragi)
 - Sakarya: 500₺, ~95 dk (sehirlerarasi hat)
 
-### Veri Kaynaklari ve Scraping
-1. **bilet.hava.ist** — Havaist resmi bilet satisi. Fiyatlar kesin. Firecrawl ile scrape edilebilir.
-2. **havabus.com** — Havabus resmi site. URL pattern: `havabus.com/yolcuservisi/...aspx` (eski `/istanbul/...` 404 veriyordu). Her rota icin detay sayfasi:
-   - havabus.com/yolcuservisi/...aspx (Taksim, Kadikoy, Yenisahra)
-   - havabus.com/yolcuservisi/...sakarya... (Sakarya)
-3. **birgun.net** — Ocak 2026 tarife tablosu (eksik Havaist fiyatlari icin)
-4. **bilet.havabus.com** — Havabus online bilet sistemi (alternatif fiyat kaynagi)
+### Veri Kaynaklari
+
+#### Havaist (Aktif Pipeline — 2 Haz 2026'dan beri)
+**Resmi backend API: `https://s.hava.ist/api.php`** — `www.hava.ist` web sitesinin altinda calisan resmi backend. Firecrawl/scrape gerekmez. Iki endpoint:
+
+1. **`POST /api.php?query=get-from-stations`** — Tum duraklari (57 kayit) ve her birinin baglandigi hat bilgisini (line_id, type, shortname) doner.
+   - Headers: `Origin: https://www.hava.ist`, `Referer: https://www.hava.ist/`, `X-Requested-With: XMLHttpRequest`, `Content-Type: application/x-www-form-urlencoded`
+   - Body: bos
+
+2. **`POST /api.php?query=get-to-stations-price`** — Belirli bir hattin belirli bir yondeki sefer saatleri, fiyat, sure, gunduzergah listesi.
+   - Body: `branch_id=1&line_id=<id>&from_station_id=<sid>&lineType=<ibb|havaist>`
+   - `from_station_id=3` (havalimani) → outbound (havalimanindan sehre)
+   - `from_station_id=<non-airport_master>` → inbound (sehirden havalimanina) — bir hat icin tum non-airport stationlar ayni saatleri doner, ilk olani al
+   - Tipik response: `{shortname, name, peron, total_distance, travel_time, price, stations, all_trips, warning, ...}`
+
+**Hat ekosistemi (12 benzersiz hat):**
+- **HVL kodlu (lineType='ibb'):** HVL-1 Aksaray, HVL-2 Beylikduzu, HVL-3 Otogar(Esenler), HVL-4 Merter/Bakirkoy, HVL-6 Kadikoy, HVL-7 Avcilar, HVL-8 Halkali, HVL-9 Taksim (Beşiktaş, 4.Levent ara)
+- **HVIST kodlu (lineType='havaist'):** HVIST-5A Arnavutkoy, HVIST-7 Silivri/Catalca, HVIST-11 Sultanahmet-Catladikapi, HVIST-13 Sabiha Gokcen (IST-SAW transferi)
+
+#### Havabus (Manuel Yonetim)
+1. **havabus.com** — Havabus resmi site (admin panelden veya Firecrawl ile manuel)
+2. **bilet.havabus.com** — Online bilet sistemi (alternatif fiyat kaynagi)
 
 ### Uygulama Kodu Akisi
 ```
@@ -454,19 +574,80 @@ ulasim.tsx (UI) → useUlasimTarife hook → supabase.from('havalimani_seferleri
 - SAW seferleri → `firma='havabus'`, `havalimani='SAW'`
 - Realtime: `havalimani-seferleri-degisim` channel
 
-### Haftalik Otomatik Guncelleme
-Scheduled task: `havalimani-tarife-guncelle`
-- Periyot: Haftada 1 (Pazartesi sabahi)
-- Yontem: Firecrawl MCP ile scrape → Supabase REST API PATCH
+### Otomatik Guncelleme (Havaist)
+Scheduled task: **`havaist-senkron`** (gunluk 07:00, recurring `0 7 * * *`)
+- Yontem: hava.ist resmi API → Supabase REST API UPSERT (Node script)
+- Script: `scripts/havaist-senkron.mjs` (modlar: yok=normal, `--dry`, `--auto`, `--verbose`)
 - API: `https://rzlfghjpsximthlolfxo.supabase.co/rest/v1/havalimani_seferleri`
 - Headers: `apikey: <SERVICE_ROLE_KEY>`, `Authorization: Bearer <SERVICE_ROLE_KEY>`
-- PATCH ornegi: `?firma=eq.havabus&durak_id=ilike.*taksim*`
+- Filtre: Yalnizca `firma=eq.havaist&havalimani=eq.IST` satirlari
+- Idempotent: arraysEqual + scalar karsilastirmasi, fark yoksa PATCH atmaz (push tetiklenmez)
+- Audit log: `scripts/data/havaist-senkron-log.json`
+- Tek run ~12sn, 14 DB satirini tarar
+
+### Otomatik Guncelleme (Havabus — Ayri Pipeline)
+Su an aktif scheduled task **yok**. SAW kayitlari (Taksim 440₺, Kadikoy 270₺) admin panelden yonetilir, gerektiginde Firecrawl ile havabus.com scrape edilebilir veya Excel pipeline kurulabilir (v1.1.0 madde olarak duruyor).
 
 ### SQL Dosyalari
-- **`havalimani_guncelle.sql`** (proje kokunde) — Toplu fiyat + sefer saati update'lerini icerir, Supabase SQL Editor'de calistirilir
+- **`havalimani_guncelle.sql`** (proje kokunde, eski) — 15 Nis 2026 manuel migration. Artik kullanilmiyor, havaist tarafini script yonetiyor.
 - **`havabus_insert.py`** — KULLANMA, eski yanlis dosya (bogaz_turlari'na yanlis insert yapiyordu)
+
+### Ilk Migration Notu (2 Haz 2026)
+Ilk havaist-senkron run'unda 7 UPDATE + 7 INSERT yapildi (14 IST kaydi). Kullaniciya 7 push spam'ini onlemek icin `push_havalimani_trigger` migration sirasinda gecici DISABLE edildi, senkron sonrasi tekrar ENABLE edildi. Sonraki gunluk run'larda zaten cok az/sifir degisiklik bekleniyor — trigger her zaman aktif kalir.
 
 ### Saraylar Skill (Iliskili Pipeline)
 `saraylar-saatleri-guncelle` scheduled task:
 - millisaraylar.gov.tr URL pattern: `/Lokasyon/{ID}/Capitalized-English-Name`
 - Eski Turkce slug'lar yanlis lokasyonlari donuyordu, yeni pattern skill'e yazildi
+
+---
+
+## 14. Manuel Mail Gonderim Aracligi (27 May 2026 eklendi)
+
+### Genel Bakis
+
+Supabase Auth Custom SMTP otomatik mail gonderimi disinda, **ad-hoc kurumsal mail** gondermek icin yazilmis Node script'leri. Microsoft (Hotmail/Outlook) ve Yahoo spam filtreleri Resend'den gelen Supabase Auth mailleri zaman zaman spam'e atiyor — manuel onay sonrasi kullaniciya "hesabiniz aktif" bildirimi yapmak icin gerekli. Ya da kampanya (kurban bayrami hediyesi gibi) bilgilendirmesi.
+
+### Mevcut Araclar
+
+**`scripts/manuel-onay-bilgilendirme.mjs`** (27 May 2026)
+- Microsoft/Yahoo spam filtresine takilan kullanicilara markali "hesabiniz onaylandi" maili gondermek icin
+- Subject: "Pusula Istanbul Hesabiniz Hakkinda Bilgilendirme"
+- Markali HTML template: gradient header + 80x80 windrose logo base64 inline + buyuk basligli "PUSULA ISTANBUL" + alt yazi "PROFESYONEL TURİST REHBERİNİN DİJİTAL ASİSTANI"
+- ALICILAR array script icinde hard-code, vakalara gore guncellenir
+- Modlari:
+  - `--dry`: icerigi yazdir, mail gonderme
+  - `--test <email>`: tek bir test maili kendine
+  - `--all`: ALICILAR listesindeki herkese 500ms aralikla (rate limit dostu)
+
+**Cinsiyet hitabi (Bey/Hanim):** Az sayidaki kullanici icin manuel atanir. Toplu mail icinde cinsiyetsiz format ("Sayin {ad} {soyad}") tercih edilir — yanlis hitap riski sifirlanir.
+
+### Resend API Key Ayrımı
+
+Iki ayri API key var, **karistirma**:
+
+| Key Adi | Kullanim | .env / Vault konumu |
+|---|---|---|
+| `pusula-supabase-prod` | Supabase Auth Custom SMTP (kayit/sifre sifirlama otomatik mailleri) | Supabase Dashboard → Auth → SMTP Configuration |
+| `manuel-bilgilendirme` (`re_H7PYreCJ...`) | Manuel mail script'leri | `.env` dosyasi → `RESEND_API_KEY=re_...` |
+
+`scripts/manuel-onay-bilgilendirme.mjs` `.env`'den `RESEND_API_KEY`'i okur. **Asla `EXPO_PUBLIC_` prefixi alma** (public bundle'a kacar). `.gitignore`'a `.env` dahil edilmis durumda.
+
+### Yeni Vaka Workflow (Toplu Onaysiz Kullanici Bildirimi)
+
+1. **DB sorgu:** `SELECT email, isim, soyisim FROM auth.users JOIN profiles WHERE email_confirmed_at IS NULL AND ...` (hangi spam filtreye duştügüne bak)
+2. **Manuel onay SQL:** `UPDATE auth.users SET email_confirmed_at = NOW() WHERE email IN (...)`
+3. **Script ALICILAR listesini guncelle:** isim, soyisim, email, hitap
+4. **Onay akisi:** `--dry` → `--test ayse.tokkus@gmail.com` → `--all`
+5. **Sonuc dogrulama:** https://resend.com/emails sayfasinda "Delivered" status
+
+### Gelecek Script Adaylari (yeni oturum yazilacak)
+
+- **`scripts/kurban-bayrami-hediye.mjs`** — 172 freemium kullaniciya bayram hediyesi bilgilendirme maili. Runtime Supabase fetch ile alici listesini canli ceker (`abonelik_bitis = '2026-06-01 00:00+03' AND rol NOT IN ('admin','moderator')`). Cinsiyetsiz hitap "Sayin {ad} {soyad}". Subject: "Pusula Istanbul'dan Bayram Hediyesi". Body: bayram tebrik + 5 gun premium duyurusu + v1.0.14 guncelleme + "Hayirli bayramlar". 27 May'dan yeni oturuma birakildi.
+
+### Bilinen Sinirlar
+
+- Resend free tier: 100 mail/gun. Pusula Pro: 50K/ay, 100/gun limit yok.
+- Microsoft Outlook IMAP'i bazi mailleri "Onemsiz e-posta"da gosterip ana inbox'a yansitmiyor (web vs mobile farkli klasor takibi). Resend "Delivered" status'una ragmen kullanici goremeyebilir — ek olarak WhatsApp/Messenger ile manuel iletisim her zaman alternatif.
+- HTML email template'lerinde `text-transform: uppercase` KULLANMA — Turkce karakter bozar. Direkt buyuk harf yaz. Bkz. DECISIONS #38.
+

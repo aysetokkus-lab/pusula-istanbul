@@ -12,6 +12,8 @@ export interface HavalimaniSefer {
   not_bilgi: string | null;
   sehirden_hav: string[];
   havdan_sehir: string[];
+  sehirden_hav_guzergah: string | null;  // Sehir -> Havalimani guzergahi (admin panelinden duzenlenebilir)
+  havdan_sehir_guzergah: string | null;  // Havalimani -> Sehir guzergahi
   aktif: boolean;
   kaynak: string | null;
   tarife_donemi: string | null;

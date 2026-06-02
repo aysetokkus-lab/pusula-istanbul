@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pusula İstanbul",
     "slug": "pusula-istanbul",
-    "version": "1.0.11",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pusulaistanbul",
@@ -11,9 +11,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pusulaistanbul.app",
-      "buildNumber": "28",
+      "buildNumber": "41",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Konumunuz yakındaki müze ve ulaşım bilgilerini göstermek için kullanılır.",
+        "NSPhotoLibraryUsageDescription": "Yetkili kullanıcılar duyuru görseli yüklemek için fotoğraflara erişim sağlar.",
+        "NSPhotoLibraryAddUsageDescription": "Duyuru görsellerini cihaza kaydetmek için izin gerekir.",
         "CFBundleAllowMixedLocalizations": true
       },
       "config": {
@@ -22,13 +24,14 @@
     },
     "android": {
       "package": "com.pusulaistanbul.app",
-      "versionCode": 29,
+      "versionCode": 42,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#005A8D",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": false,
+      "edgeToEdgeEnabled": true,
       "permissions": [
         "INTERNET",
         "RECEIVE_BOOT_COMPLETED",

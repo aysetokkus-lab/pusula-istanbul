@@ -1,6 +1,237 @@
 # Pusula Istanbul - Mevcut Durum
 
-Son guncelleme: **3 Mayis 2026** — use-abonelik.ts NULL profile bug'i kalici cozumlendi (v1.0.11 fix kodda hazir), 4 etkilenen kullanicinin profili manuel SQL ile dogrulandi/dolduruldu, RC'de Ebru/Betul/Nadriye/Selim'in hepsi iOS Apple'dan satin almis (sifir yeni Play Store config bug magduru — sadece Mustafa+Sebnem)
+Son guncelleme: **2 Haziran 2026 (oglen)** — v1.1.0 ANDROID YAYINDA (review tamamlandi), iOS hala review'da. **IKI YENI ISIN BITTIGI YOGUN OGLEDEN SONRA:**
+
+**(1) Havaist Senkron Pipeline kuruldu** — hava.ist resmi backend API'sinden (`s.hava.ist/api.php`) gunluk otomatik tarife/saat senkronu, `scripts/havaist-senkron.mjs` + `havaist-senkron` scheduled task (cron `0 7 * * *`). 14 IST kaydi (eski 7 + yeni 7: Beylikduzu, Otogar Esenler, Merter/Bakirkoy, Avcilar, Arnavutkoy, Silivri/Catalca, Sabiha Gokcen). Aksaray fiyat 355₺→426₺, Kadikoy 390₺→468₺, Taksim/Beşiktaş 34→30 sefer guncellendi. Eski Firecrawl-based `havalimani-tarife-guncelle` task'i DEAD, yenisi gunluk idempotent. Bkz. DECISIONS #44 + SCRIPTS.md #2 + INFRASTRUCTURE.md Bolum 12.
+
+**(2) Android Notification Channel ses bug'i tespit edilip cozuldu** — v1.1.0 Android'de push bildirim banner'i gozukuyor ama **ses cikmiyordu**. Kok sebep: `setNotificationChannelAsync({ sound: 'default' })` string'i Android'de "default.wav" aramaya gidiyor, dosya yok, kanal sessiz olusturuluyor. Android kurali: kanal ayari olusturulduktan sonra kod ile degistirilemez (immutable). **Iki asamali fix:**
+   - **Asama 1 (server, deploy edildi):** Edge Function `push-gonder` v2 deploy — `KANAL_MAP`'te tum kategoriler `-v2` suffix'li ID'lere point ediyor. v1.1.0 cihazlarda bu ID'ler bulunamaz → Android default kanala fallback → ses cikar (manuel ayar gerek yok, tum v1.1.0 kullanicisi otomatik duzeldi).
+   - **Asama 2 (client, v1.1.1 paketinde):** `hooks/use-bildirimler.ts` `deleteNotificationChannelAsync` ile eski 6 kanal siliyor, yeni 6 kanal `-v2` ID + `sound` parametresi VERILMEDEN olusuyor (Expo varsayilan = sistem ses).
+   - **Genel duyuru silme defansif fix:** `hooks/use-genel-duyuru.ts` + `components/genel-duyuru-panel.tsx` — RLS sessiz reddi yakalama (DELETE ... RETURNING ile satir kontrolu), optimistic state update, basarisiz silme'de Alert.
+   - Bkz. DECISIONS #45 + ISSUES.md. iOS build 39 App Store Connect'e submit edildi (Manual Release), Android versionCode 40 Play Console DRAFT → Yayın'a kullanıma sunuldu (Yönetilen Yayınlanma açık). Apple Review 24-72 saat, Google Review 6-24 saat. Onay sonrası Ayşe manuel "Release / Yayınla" basacak, sonra Supabase `app_versions` UPDATE ile eski sürümdeki kullanıcılara güncelleme bandı tetiklenecek. Onceki gun (1 Haziran 2026, gece): DEVASA gun. Sabah bayram kampanyasi kapanis ve veri temizligi (193 hediye → 192 'suresi_dolmus'), sonra **v1.1.0 paketi tamamen kuruldu**: push notification altyapisi (token + Edge Function + 8 trigger + client refactor), genel duyuru ozelligi (foto + push), in-app guncelleme uyari bandi, edge-to-edge Android 15, profil surum no dinamiklestirme, X API client-side cleanup, kritik sohbet pin sistemi (push entegre), RC email attribute, 36 kullanici revenuecat_id geri-doldurma, etkinlik takvimi TZ fix, sohbet dogrudan silme (admin + kendi), Galataport ana sayfa sadeleştirme. Apple APNs Key (V7FM2HN5N7) ve Firebase projesi (pusula-istanbul) kuruldu, EAS credentials'a yuklendi. 16 degisiklik. v1.0.x sürümlerinden hiçbiriyle kıyaslanamayacak büyüklükte.
+
+---
+
+## SON OTURUMDA NE YAPILDI (1 Haziran 2026 — Tam Gun)
+
+### Sabah - Bayram Kampanyasi Kapanis + Veri Temizligi
+
+1. **`bayram-hediye-otomatik` scheduled task disable edildi** (~08:00 TR) — recurring `*/15 * * * *` cron'un no-op gurultusunu durdurmak icin. Description'a "DEVRE DISI (1 Haz 2026)" notu. Audit log: `scripts/data/bayram-hediye-otomatik-log.json` (196 run, 6 user, 0 hata).
+
+2. **Bayram kampanyasi kapsamli rapor** — `claude-context/raporlar/bayram-hediye-otomatik-rapor.md`. Bulgular: 193 hediye, %13.5 engagement (26/193 giris), 3 yillik conversion (Asli+Ceren+Melike), 0 teknik hata, %75 oto-task yakalama orani.
+
+3. **3 yillik conversion icin `revenuecat_id` elle baglandi** — Ayse RC dashboard'dan `active.csv` indirdi. CSV'den `first_purchase_at` timestamp'leri abonelik_bitis ile capraz eslestirildi. Asli (87122d26...), Ceren (cefc02ab...), Melike (1e538543...) → her 3'unde `profile.id == RC app_user_id` keşfi (DECISIONS #41).
+
+4. **192 freemium kullanici 'suresi_dolmus' yapildi** — bayram bitisinden sonra DB kozmetik temizlik. `UPDATE profiles SET abonelik_durumu='suresi_dolmus' WHERE abonelik_bitis='2026-05-31 21:00:00+00' AND abonelik_durumu='aktif'`. Kullanici tarafi zaten freemium gosteriyordu (use-abonelik.ts client-side `bitis > now()` kontrolu var), ama DB tarafi temizlendi.
+
+5. **DECISIONS #41 dokumantasyon** — profile.id == RC app_user_id keşfi DECISIONS.md'ye eklendi, sonraki destek vakalari icin altin bilgi.
+
+### Push Notification Altyapisi (v1.1.0)
+
+6. **Supabase token kolonlari** — `profiles` tablosuna 4 yeni kolon: `expo_push_token TEXT`, `push_token_platform TEXT CHECK in ('ios','android')`, `push_token_guncellendi TIMESTAMPTZ`, `bildirim_tercihleri JSONB`. Partial index `idx_profiles_push_token`.
+
+7. **hooks/use-push-token.ts (yeni)** — Login/logout'a duyarli, EAS projectId (`4b230ae7-f56f-4c77-af07-acfcdea0efe6`) ile `Notifications.getExpoPushTokenAsync()` cagirir, Supabase'e yazar. Idempotent (ayni token tekrar yazmaz). Logout'ta token NULL'a cevrilir.
+
+8. **Edge Function `push-gonder` deploy** — `verify_jwt=false`, `x-pusula-cron-secret` header auth. Payload: `{kategori, baslik, icerik, veri?, kullanici_id_haric?, test_token?}`. Premium gate `PREMIUM_KATEGORILER = ['sahaDurumu','ulasim','trafik','etkinlikler']`, sohbet+admin freemium'a da gider. Expo Push API'sine 100'erlik batch. DeviceNotRegistered hatasi alan token'lari otomatik NULL'a cevirir.
+
+9. **8 Supabase trigger kuruldu** — `public.push_gonder_async(kategori, baslik, icerik, veri, kullanici_id_haric)` helper SQL function (pg_net ile fire-and-forget HTTP POST, vault'tan `pusula_cron_secret` okur). Trigger'lar:
+   - `push_ulasim_trigger` — `ulasim_uyarilari` INSERT (kaynak='x:IBBUlasim' ise trafik, degilse ulasim kategori)
+   - `push_saha_trigger` — `canli_durum` INSERT (sadece yogun/cok_yogun)
+   - `push_etkinlik_trigger` — `etkinlikler` INSERT VEYA UPDATE (aktif=true)
+   - `push_sohbet_trigger` — `sohbet_mesajlari` INSERT (gonderen `kullanici_id` haric)
+   - `push_mekan_saatleri_trigger` — `mekan_saatleri` UPDATE (acilis/kapanis/fiyat degisikligi)
+   - `push_havalimani_trigger` — `havalimani_seferleri` UPDATE (fiyat/saat)
+   - `push_bogaz_trigger` — `bogaz_turlari` UPDATE (fiyat/saat)
+   - `push_duyuru_trigger` — `genel_duyurular` INSERT (aktif=true)
+
+10. **hooks/use-bildirimler.ts REFACTOR** — Eski 6 realtime listener (200+ satir) SILINDI. Artik sadece: izin alma + Android kanallari + tiklama handler. Server-side trigger'lar zaten ayni isi yapiyor, cift bildirim olmasin diye client tarafi temizlendi. Push handler `shouldShowAlert: true` ile foreground'da da push gosterir.
+
+11. **hooks/use-bildirim-tercihleri.ts** — `toggle()` ve `hepsiniGuncelle()` artik AsyncStorage + Supabase eszamanli yazar. `supabaseTercihYaz()` helper. Server-side push gonderim filtre icin gerekli — `push-gonder` Edge Function profiles.bildirim_tercihleri JSONB'sini sorgular.
+
+12. **app.json + .gitignore** — `android.googleServicesFile: "./google-services.json"` eklendi. iOS infoPlist'e `NSPhotoLibraryUsageDescription` + `NSPhotoLibraryAddUsageDescription` eklendi (genel duyuru foto secimi icin). `.gitignore`'a `google-services.json` eklendi.
+
+13. **Apple APNs Key oluşturuldu** — `https://developer.apple.com/account/resources/authkeys/` → Pusula Istanbul APNs Key, **Key ID: V7FM2HN5N7**, Sandbox & Production, Team Scoped (All Topics). `.p8` indirildi. `eas credentials` ile mevcut eski key (P946RU8GS4) **revoke + remove** edildi, yeni key (V7FM2HN5N7) Set Up edildi → `Push Key assigned to pusula-istanbul`.
+
+14. **Firebase projesi kuruldu** — `https://console.firebase.google.com` → `pusula-istanbul` (Spark plan). Android app eklendi (package: `com.pusulaistanbul.app`, nickname: Pusula Istanbul). `google-services.json` indirildi → projeye kopya. Project Settings → Service accounts → "Generate new private key" → Firebase Admin SDK JSON indirildi. `mv ~/Downloads/pusula-istanbul-4a055-firebase-adminsdk-fbsvc-73e59fb5a9.json ./firebase-service-account.json`. `eas credentials` → Android → Google Service Account → FCM V1 → Set up → Path: `./firebase-service-account.json`. FCM V1 push aktif.
+
+15. **expo-image-picker paketi yuklendi** — `npx expo install expo-image-picker` (SDK 54 uyumlu).
+
+### Genel Duyuru Ozelligi (Saha Bildirimine Yeni Box)
+
+16. **Supabase: `genel_duyurular` tablosu** — `id, baslik, icerik, gorsel_url, olusturan_id, olusturan_isim, aktif, sabitlendi, created_at, updated_at`. `REPLICA IDENTITY FULL` (DELETE realtime icin). RLS: SELECT herkes, INSERT/UPDATE/DELETE sadece admin/moderator.
+
+17. **Storage bucket `duyuru-gorseller`** — public read, admin/moderator write/delete, file_size_limit=10MB, allowed_mime_types=jpeg/png/webp. RLS policies: `Duyuru gorsel public read`, `Duyuru gorsel admin upload`, `Duyuru gorsel admin delete`.
+
+18. **Push trigger `trg_push_duyuru`** — INSERT (aktif=true) → 'etkinlikler' kategori, baslik 'Duyuru: <baslik>', icerik ilk 200 char, veri.duyuruId + veri.gorselUrl.
+
+19. **hooks/use-genel-duyuru.ts (yeni)** — CRUD + realtime (INSERT/UPDATE/DELETE) + foto upload (storage.upload → publicUrl).
+
+20. **components/genel-duyuru-panel.tsx (yeni)** — 4 komponent: `GenelDuyuruPanel` (ana ozet), `DetayModal` (uzun metin + thumbnail), `TamEkranGorselModal` (siyah arkaplan + ScrollView pinch-zoom maximumZoomScale=4 + Kapat butonu), `EkleModal` (admin form: baslik + icerik + galeri foto + sabitle toggle + "Yayinla ve Bildirim Gonder").
+
+21. **Ana sayfa entegrasyonu** — Saha durumu altina yerlestirildi. Sabitlenmis duyurular altin cerceveli, normaller mavi. Tiklayinca detay modal. Yetkili uzun bas → Sabitle/Kaldir + Sil.
+
+### Diger Ozellikler
+
+22. **hooks/use-gemi-takvimi.ts genisletildi** — `bugunGemi` (find — tek, geriye uyumluluk) yanina `bugunGemileri` (filter — array, bug fix: bir gunde birden fazla gemi olabilir) + `gelecekGunlerGemileri` (bugun haric) eklendi.
+
+23. **Ana sayfa Galataport bandi sadelesti** — eski `haftaninGemileri.map` 7 gun listesi → `bugunGemileri.map` sadece bugun. Altina "Onumuzdeki gunler · X gemi ›" tiklanabilir expand satiri. Bugun gemi yoksa "Sonraki: X" + "ve Y gemi daha". Mevcut modal kullaniliyor "Tum Liste" icin. Stil: `gemiExpandSatir`, `gemiExpandText`, `gemiExpandArrow` eklendi.
+
+24. **Sohbet ekrani — Admin/moderator dogrudan mesaj silme** — `useAdmin` import edildi. `mesajSil` callback (DELETE + lokal state'ten kaldir). `mesajAksiyonlari` menusunde isYetkili icin "Mesaji Sil (Yetkili)" butonu (kirmizi).
+
+25. **Sohbet ekrani — Kullanici kendi mesajini silme** — RLS: `kullanici_kendi_mesajini_sil` policy (kullanici_id=auth.uid()). `mesajAksiyonlari` menusu: kendi mesaj icin sadece "Vazgec + Sil", baskasinin icin Raporla/Engelle/(yetkili ise) Sil.
+
+26. **Sohbet ekrani — Realtime DELETE event eklendi** — Eskiden sadece INSERT dinleniyordu. Silinen mesaj diger cihazlarda anlik kaybolur.
+
+27. **Etkinlik takvimi timezone fix** — `components/tarih-saat-secici.tsx` `isoFormat` fonksiyonu artik `+03:00` (TR sabit, DST yok) ekliyor. Eski: `2026-06-15T08:00:00` (TZ yok) → PostgreSQL UTC sanip cihazda 11 TR gosteriyordu. Yeni: `2026-06-15T08:00:00+03:00` → PostgreSQL dogru parse, cihazda 8 TR. 1 mevcut etkinlik (29 May Fetih, gecmis) Ayse'nin pasif yapacagi sekilde.
+
+28. **Profil ekrani surum no dinamiklestirme** — `Constants.expoConfig?.version` ile app.json'dan otomatik okuma. Module-level `APP_VERSION = Constants.expoConfig?.version ?? '?'`. Iki yer: geri bildirim mailtosu gövdesi (`Sürüm: v${APP_VERSION}`) + Hakkında modal (`Pusula İstanbul v${APP_VERSION}`).
+
+29. **Edge-to-edge Android 15 uyumu** — `app.json` `edgeToEdgeEnabled: false → true`. 5 ana tab ekran zaten `insets.top` kullaniyordu (önceki sprint). Admin ekranlari, auth ekranlari (abone-ol, hos-geldin, gizlilik, kullanim, admin) zaten safe area uyumlu. `app/giris.tsx` ve `app/sifre-sifirla.tsx` eklendi: `useSafeAreaInsets()` + ScrollView contentContainer'a `paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20`. Test gerek (S22 Android 15+).
+
+30. **X API client-side cleanup** — `app/_layout.tsx`: `useXUlasim` import + `useEffect`+`setInterval` blogu SILINDI. `lib/config.ts`: `X_BEARER_TOKEN`, `X_SENKRON_ARALIK_DK`, `X_MAX_TWEET` sabitleri silindi (export {} kaldi). `hooks/use-x-ulasim.ts` dosyasi silindi (Ayse terminalde). `eas env:delete --variable-name EXPO_PUBLIC_X_BEARER_TOKEN` calistirildi. Server-side `ulasim-senkron` Edge Function 6 May'dan beri 15 dk'da bir tetikleniyor zaten.
+
+31. **In-app guncelleme uyari bandi** — Supabase `app_versions` tablosu: `platform (PK), version, store_url, updated_at`. RLS: SELECT herkes, ALL admin/moderator. Ilk kayitlar v1.0.14. `hooks/use-guncelleme-kontrol.ts`: Supabase'den platform'a gore son surum cek, lokal ile karsilastir (basit semver), AsyncStorage'da sessizlestirme kontrolu (surume ozel, 24 saat). `components/guncelleme-bandi.tsx`: mavi gradient serit (#48CAE4→#0096C7→#0077B6) + sol "Pusula'nin yeni surumu mevcut" + "v1.1.1 — Guncellemek icin dokunun" + sag X butonu (24 saat sustur). Tiklanir → Linking.openURL(store_url). Web'de hic gozukmez. Ana sayfa: gradient header altina yerlestirildi. **YAYIN AKIS:** v1.1.0 yayinlanip Ayse manuel Release/Yayinla bastiktan sonra: `UPDATE app_versions SET version='1.1.0', updated_at=NOW()`.
+
+32. **RC email attribute** — `lib/revenuecat.ts` `revenueCatLogin(userId, email?, displayName?)` 3 parametreli oldu. `Purchases.setAttributes({'$email': email, '$displayName': displayName})` ile RC dashboard'a yaziliyor. `hooks/use-abonelik.ts`: profile sorgusu artik isim+soyisim de cekiyor, displayName olusturup `revenueCatLogin`'a geciriyor. **Sonuc:** Yeni girisler RC dashboard'da email ile aranabilir hale gelecek (DECISIONS #41 destekleyici fix).
+
+33. **revenuecat_id geri-doldurma — 36 KULLANICI** — `UPDATE profiles SET revenuecat_id = id::text WHERE revenuecat_id IS NULL AND abonelik_durumu='aktif' AND abonelik_plani IN ('aylik','yillik') AND abonelik_bitis > NOW()+'7 days' AND rol NOT IN ('admin','moderator')`. Bayram hediyesi alanlar haric. Listede 1 May Play Store bug magdurlari (Mustafa, Sebnem, Orcun), 3 May NULL profile magdurlari (Ebru, Betul), Elvan, 9 ocak 2027 expired test/beta kayitlari, ve organik kullanicilar.
+
+34. **Kritik sohbet pin sistemi (v1.1.0 madde 12)** —
+    - Supabase: `sohbet_mesajlari` tablosuna `pinned BOOLEAN DEFAULT false`, `pinned_at TIMESTAMPTZ`, `pinned_by UUID`, `pinned_by_isim TEXT` kolonlari. Partial index `idx_sohbet_pinned`. RLS: `sohbet_pin_admin` policy (UPDATE admin/moderator). REPLICA IDENTITY FULL.
+    - Push trigger `trg_push_sohbet_pin`: UPDATE'te `pinned` false→true gectiyse 'sohbet' kategorisi ile push gonder, baslik "Sahadan Onemli", icerik ilk 200 char. `WHEN (OLD.pinned IS DISTINCT FROM NEW.pinned)` ile sadece pin degisikliklerinde tetiklenir.
+    - `hooks/use-pinli-mesajlar.ts` (yeni): son 48 saat pin'li mesajlari cek, realtime UPDATE/DELETE listener (48h omur dolanlari client filter'da cikar), `pinle(id)` ve `pinKaldir(id)` callbacks (`pinned_by_isim` profile'dan otomatik).
+    - `components/pinli-mesaj-bandi.tsx` (yeni): altin gradient header (`Palette.altin → #B8651A → Palette.altin`) "Sahadan Onemli" + sayac, 3 kart onizleme (numberOfLines=3), "X sabit mesaj daha — Sohbete git" expand, detay modal (mesaj + "Sohbete Git" butonu).
+    - Sohbet ekrani: `Mesaj` tipine `pinned`, `pinned_at`, `pinned_by`, `pinned_by_isim` (optional) eklendi. `usePinliMesajlar` hook import. mesajAksiyonlari menusune isYetkili icin "Sabitle (Yetkili)" / "Sabitten Kaldir" butonu. Pinleme oncesi onay dialog: "Bu mesaj 48 saat boyunca ana sayfada gosterilecek ve tum kullanicilara push gonderilecek".
+    - Ana sayfa: Saat/selamlama seridi ile Saha Durumu arasina yerlestirildi (clock strip altinda). En yuksek gorunurluk.
+
+35. **app.json version bump** — `1.0.14 → 1.1.0`, iOS `buildNumber: 37 → 38`. Android `versionCode: 37` (EAS autoIncrement ile build'de 38'e cikar).
+
+### Hala Yapilmamis — v1.1.1 veya Sonrasina Birakildi
+
+- **Madde 5 (eski 6):** Ana ekran widget (iOS/Android native widget, ayri teknik domain)
+- **Madde 7 (eski 8):** Supabase data hygiene scheduled task (RC webhook → expired aboneler temizlik)
+- **Madde 8 (eski 9):** Galataport gemi takvimi scheduled task (Firecrawl ile aylik scrape)
+- **Madde 9 (eski 10):** Havalimani + Bogaz Excel pipeline (mekan-saatleri pattern'i)
+- **Madde 11 (eski 12):** Admin panel hesap silme + KVKK mail tek tik butonu (4-5 saat, audit log + onay dialog + service role Edge Function)
+
+### v1.1.0 Build/Test Plani — YENI OTURUMDA
+
+**A) Build hazirlik:**
+1. Hala silinmesi gereken: `hooks/use-x-ulasim.ts` dosyasi (Ayse `rm` ile silmeyi unutmamali). DOGRULAMA: `ls hooks/use-x-ulasim.ts` → "No such file" cikmali.
+2. Hala silinmesi gereken: kok klasoreki `AuthKey_V7FM2HN5N7.p8` (eas credentials yuklendi, lokalde gereksiz + guvenlik). DOGRULAMA: `ls AuthKey*` → "No matches".
+3. `firebase-service-account.json` proje kokunde — gitignore'da `*-service-account.json` ile match olur, git'e karismaz. Sandbox'ta gerektiginde lazim. Aslen EAS'a yuklendigi icin lokalde silinebilir ama kalsa sorun degil.
+4. `google-services.json` proje kokunde — `app.json`'da `googleServicesFile: "./google-services.json"` config'iyle build sirasinda EAS kullanir. Asla silme.
+
+**B) iOS TestFlight build + submit:**
+```bash
+cd /Users/aysetokkus/istanbul-rehber
+export PATH="/opt/homebrew/opt/node@20/bin:$PATH"
+eas build --platform ios --profile production
+# Build basarili: ~15-25 dk
+eas submit --platform ios --latest
+# TestFlight Internal Testing'e otomatik gider (Manual Release secili production track, ama TestFlight Internal Testing onaysiz)
+```
+
+**C) Android preview APK (cihazda test):**
+```bash
+eas build --platform android --profile preview
+# Build basarili: ~20-30 dk
+# Indirme link'ini Samsung S22'ye gonder, sideload yukle (Bilinmeyen kaynaklara izin ver)
+```
+
+**D) iOS test (Mac M1 — iPhone7 iOS 15.8 TestFlight uyumsuz):**
+1. TestFlight uygulamasi Mac'te zaten kurulu olmali (Designed for iPad)
+2. Internal Testing → Gelistirici grubu (aysetokkus@hotmail.com tester eklenmis)
+3. Otomatik dagilim aktif, build geldigi an TestFlight'ta gozukur (~10-15 dk submit sonra)
+4. Yukle + ac + test
+
+**E) Test kontrolleri (her 6 kategori + yeni ozellikler):**
+- Edge-to-edge: gradient header status bar'a kadar uzaniyor mu, tab bar gesture bar ile cakismiyor mu, ekran kenarlarinda siyah bant kalmadi mi
+- Profil ekrani: Sürüm "v1.1.0" gözüküyor mu (artik dinamik)
+- Genel duyurular: Admin olarak "+ Yeni" → form → foto sec → yayinla → push ulasti mi diger cihazda, ana sayfada gözüktü mü, tikla → detay modal → foto tikla → tam ekran zoom
+- Sohbet pin: Admin olarak mesaja uzun bas → "Sabitle" → onay → ana sayfada "Sahadan Onemli" altin gradient bandı çıktı mı, push notification geldi mi (kapali cihaza), 48 saat sonra otomatik kaybolacak (client filter)
+- Sohbet doğrudan silme: Admin olarak mesaja uzun bas → "Mesajı Sil (Yetkili)" → diğer cihazda anlık kayboldu mu
+- Kendi mesaj silme: Sohbette kendi mesajına uzun bas → "Mesajı Sil" çıkıyor mu, sildikten sonra kayboluyor mu
+- Etkinlik takvimi: Admin → admin-etkinlik → yeni etkinlik 8:00 yaz → kaydet → app'da 8:00 gözüküyor mu (artık 11 değil)
+- Galataport bandı: Ana sayfada sadece bugünkü gemiler, "Önümüzdeki günler · X gemi ›" tıklanabilir
+- Güncelleme bandı: app_versions'da version'u manuel '1.1.1' yaparak test et → ana ekranda mavi bant çıkıyor mu, X ile sustur, tıklayınca mağazaya yönlendiriyor mu
+- Push notification gerçek senaryo: Cihaza push token kaydedildi mi (Supabase profiles.expo_push_token NULL değil mi), Edge Function manuel curl ile test: 
+```bash
+curl -X POST 'https://rzlfghjpsximthlolfxo.supabase.co/functions/v1/push-gonder' \
+  -H 'Content-Type: application/json' \
+  -H 'x-pusula-cron-secret: <vault_secret>' \
+  -d '{"kategori":"sohbet","baslik":"Test","icerik":"Push notification testi","test_token":"<expo_token>"}'
+```
+
+**F) Build sonrasi DB guncellemesi (sürüm yayına çıkınca):**
+```sql
+UPDATE public.app_versions SET version='1.1.0', updated_at=NOW();
+```
+Bu komut çalıştırılınca v1.0.14'te kalan kullanıcılar uygulamayı açtığında güncelleme bandını görür.
+
+---
+
+## 2 HAZIRAN 2026 (sabah) — v1.1.0 BUILD + SUBMIT + BUG FIX'LER
+
+### Build & Submit Akisi
+
+1. **iOS prebuild + production build** — `npx expo prebuild --clean` → CocoaPods 1.16.2 brew ile kuruldu (gem patladi, brew dustu). `eas build --platform all --profile production` ile baslatildi. Android ilk denemede `google-services.json missing` hatasi (gitignore'da idi). Fix: gitignore'dan cikarildi (Firebase docs zaten "source control'e ekleyin" diyor, public config). git commit `02349ef`. Ikinci denemede iOS production buildNumber 39 + Android versionCode 39 (autoIncrement) basariyla bitti.
+
+2. **EAS Update denemesi BASARISIZ** — Mac M1 TestFlight build'inde EAS Update push edildi (`eas update --branch production --message "Genel Duyuru: bant rengi + Düzenle/Sil butonları + Edit modu"`, group `31146bba-16d0-45a9-8d0b-7f0ee45c7489`). Defalarca kapat-ac'a ragmen Mac TestFlight bundle cache'i yenilemedi. Mac M1 "Designed for iPad" tarafindaki bilinen sorun olabilir. Yeni production build alindi.
+
+3. **Genel Duyuru ozelligi 4 kritik bug fix** —
+   - **Realtime publication eksik:** Yeni eklenen `genel_duyurular` tablosu `supabase_realtime` publication'a otomatik eklenmiyor. INSERT event'i client'a hic ulasmiyordu. Fix: `ALTER PUBLICATION supabase_realtime ADD TABLE public.genel_duyurular`.
+   - **Bant rengi uyumsuz:** Eski koyu mavi gradient `['#005A8D', '#0077B6', '#0096C7']`. Yeni: diger bantlarla uyumlu acik mavi `['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']`.
+   - **Yonetim aksiyonlari gorunmuyor:** Uzun bas menusu kullanici tarafindan kesfedilemedi. Fix: kart altina yetkili icin 3 gorunur buton (Duzenle | Sabitle | Sil). 1px ayrac, renkli text (primary mavi / altin / kapali kirmizi).
+   - **Edit modu yok:** Hook'a `duyuruGuncelle(id, params)` eklendi. EkleModal `duyuru?` prop'u ile edit modu desteklemeye basladi: initial value'lar duyuru'dan dolar, "Yayinla ve Bildirim Gonder" yerine "Guncelle" butonu (duzenleme push tetiklemez).
+
+4. **Sohbet/Saha bildirimi bloke olmustu — KRITIK trigger fix** — Yeni eklediğim push trigger'lari INSERT'leri bloke ediyordu cunku:
+   - `push_gonder_async` SQL hatasi (vault, pg_net) atinca INSERT geri aliniyordu
+   - `trg_push_saha` DECLARE'da `NEW.yogunluk`, `NEW.seviye`, `NEW.mekan_id`, `NEW.aciklama` referansliyordu — bu kolonlar `canli_durum` tablosunda **YOK**, gercek kolonlar: `nokta_id`, `durum`, `not_metni`, `bekleme_dk`
+   - DECLARE asamasinda kolon parse hatasi BEGIN/EXCEPTION'in disinda olur → INSERT fail
+   - **Fix 1:** Tum push trigger function'lari (`trg_push_sohbet`, `trg_push_saha`, `trg_push_etkinlik`, `trg_push_ulasim`, `trg_push_sohbet_pin`, `trg_push_duyuru`) icindeki `PERFORM push_gonder_async(...)` cagrilari `BEGIN ... EXCEPTION WHEN OTHERS THEN RAISE WARNING` icine alindi. Push fail olsa bile INSERT/UPDATE devam eder.
+   - **Fix 2:** `trg_push_saha` dogru kolonlarla yeniden yazildi (`durum`, `nokta_id`, `not_metni`, `bekleme_dk`). Filtre: `durum NOT IN ('cok_yogun', 'yogun', 'kalabalik', 'kapali', 'arıza', 'ariza')` ise push gonderme. 5 dk'dan eski kayitlar replay icin push gondermesin.
+   - **Ders (DECISIONS #43'e ek):** Trigger function'larin DECLARE bloklarinda NEW.kolon referansi yapilmasin — sadece BEGIN bloguna gec, exception-safe yap. **Yeni karar yazimi:** DECISIONS.md'ye sonradan #44 olarak eklenebilir ("Trigger function'larin DECLARE bloklari kolon-bagimsiz olmali").
+   - **Hala kontrol edilmemis trigger'lar:** `trg_push_mekan_saatleri`, `trg_push_havalimani`, `trg_push_bogaz`. Yine ayni kolon-isim bug'i olabilir. Admin panelden bir test update yapinca patlarsa hizli fix.
+
+5. **Production REBUILD + SUBMIT** —
+   - Kod degisiklikleri sonrasi: bant rengi, Duzenle/Sil butonlari, edit modu, trigger fix'leri
+   - `eas build --platform all --profile production` tekrar (kod guncellendigi icin) → iOS buildNumber 39 (autoIncrement zaten arttirmis), Android versionCode 40
+   - **iOS submit:** `eas submit --platform ios --latest` → App Store Connect'e v1.1.0 build 39 yuklendi
+   - **Android submit:** `eas submit --platform android --latest` → Play Console Yayın track'ine DRAFT olarak yuklendi (versionCode 40)
+
+6. **Mağaza submit'leri** —
+   - **App Store Connect:** Pusula İstanbul → App Store sekmesi → "+ Version" → 1.1.0 → "What's New" Türkçe release notes yapıştırıldı → Build 39 secildi → App Review Notes (test hesabi aysetokkus@hotmail.com / 123456) → "Manually release this version" secili → Submit for Review. Apple Review bekleniyor (24-72 saat).
+   - **Google Play Console:** Yayın → Üretim → DRAFT v1.1.0 (versionCode 40) → Sürümü düzenle → Türkçe sürüm notları yapıştırıldı → Sürümü incele → Yayına kullanıma sun. "Yönetilen yayınlanma" acik oldugu icin Google review sonrasi Ayse manuel "Yayınla" basacak.
+   - **Release notes (kullanici):** "Anlık bildirimler, yetkili duyuruları ve performans iyileştirmeleri." (kisa, Ayse'nin tarzina uygun)
+
+### v1.1.0 Yayina Cikinca Yapilacaklar (SONRAKI OTURUM)
+
+1. **Apple Review onaylanir** (mail gelir) → App Store Connect'te **Release This Version** bas
+2. **Google Review onaylanir** (mail gelir) → Play Console'da **Yayınla** bas
+3. **Iki platform da yayinda olunca Supabase guncellemesi:**
+   ```sql
+   UPDATE public.app_versions SET version='1.1.0', updated_at=NOW();
+   ```
+   Bu komut calistigi an v1.0.14'te kalan kullanicilar Pusula'yi actiginda **guncelleme uyari bandi** gorur.
+4. **STATE.md ve CHANGELOG.md guncelle** — yayina cikma tarihi
+5. **Push notification test edilmedi henuz** — yayina cikinca:
+   - Bir test cihazindan giris yap → profiles.expo_push_token dolacak
+   - Diger cihazdan sohbet mesaji at → push gelmeli (kapali iken bile)
+   - Saha bildirimi at → push gelmeli (yogun/cok_yogun durumda)
+   - Genel duyuru at → push gelmeli
+   - Sohbet pin et → "Sahadan Önemli" baslikli push
+
+
+
+ Apple expedited review onayi + Google Play onayi ayni gun icinde geldi (her ikisi de 24 saatten cok daha hizli — bayram gunu olmasina ragmen). Ayse manuel "Release"/"Yayinla" basarak v1.0.13'u v1.0.14 ile degistirdi. ScreenStack drawing crash kapaklandi, Play Console Vitals'ta yeni crash gozlemi onumuzdeki 24-48 saatte yapilacak. **NOT:** IRO maili 7 May'da YAYINLANMADI, Ayse yeniden talep gonderecek. Yani son 20 gunun 107+ yeni rehber kaydi + Asli Cetin organik yillik conversion'i (27 May 10:06 kayit -> 10:10 yillik satin alma) + bugunku 13 yeni kayit TAMAMEN ORGANIK trafik (kulaktan kulaga, App Store/Play Store kesfi, sosyal medya). IRO mail cikinca dalganin daha buyuk olacagi sinyali guclu. v1.0.13'te kritik bir Android crash bug'i ortaya cikti: **react-native-screens 4.16.0 ScreenStack drawing race condition** (java.lang.IndexOutOfBoundsException: getChildDrawingOrder()). Play Console Vitals'ta **16 onaylanmis kullanici etkilendi** (12 farkli cihaz markasi — Samsung baskin ama dagilim cok genis = kod bug'i kesin, OEM uyumsuzluk degil). **Cozum: 4.16.0 → 4.23.0 upgrade.** 4.24.0 atlandi (BottomTabs implementation eksik, yarim kalmis surum — iOS Xcode "RNSBottomTabsScreenComponentView undeclared identifier" patlatti). 4.25.0+ atlandi (RN 0.82 peer dep, bizde 0.81.5). Bkz. DECISIONS #37, ISSUES #79-80.
+
+**Bu sabah (27 May) yapilan bes buyuk is:**
+1. **v1.0.14 hotfix build + submit:** Her iki platform basariyla build edildi (artifact link'ler EAS), iOS Apple Review'a, Android Play Console DRAFT olarak yuklendi (incelemede). Apple Review Notes'ta crash detayi + react-native-screens 4.23 upgrade + expedited review request belirtildi. Onay bekleniyor (24-72 saat).
+2. **16 onaysiz kullaniciyi manuel onay (2 grup halinde):** Microsoft (Hotmail/Outlook) ve Yahoo spam filtresine takilan onay maillerinin magduru olan kullanicilar. Resend'de "Delivered" status'una ragmen kullaniciya gorunmemis. Bkz. DECISIONS #39, ISSUES #84. Ek olarak 1 typo'lu olu hesap silindi (Timucin Aslan `.vom` → `.com` zaten aktif).
+3. **172 freemium kullaniciya KURBAN BAYRAMI PREMIUM HEDIYESI:** abonelik_durumu='aktif', abonelik_plani='aylik', abonelik_bitis='2026-06-01 00:00:00+03'. 5 gun premium hediye, bayram boyunca sahada premium feature'lara kesintisiz erisim. RevenueCat'te degisiklik yok — sadece Supabase tarafi (use-abonelik Supabase fallback ile premiumMi=true).
+4. **Yeni mail aracligi:** `scripts/manuel-onay-bilgilendirme.mjs` yazildi (Resend API direct, runtime Supabase fetch yapabilen, dry-run + test + all modlari olan, markali HTML template ile). 7 kisi sabahki gruba bilgilendirme maili gitti. 8 kisi 2. grup BEKLIYOR (yeni oturum).
+5. **Bayram hediye maili scripti + scheduled task:** `scripts/kurban-bayrami-hediye.mjs` yazildi — manuel-onay-bilgilendirme.mjs pattern'i taban alindi ama farkliliklar: (a) ALICILAR hardcode degil, runtime'da Supabase'den fetch (abonelik_bitis=2026-06-01 + rol non-admin/moderator), (b) cinsiyetsiz hitap "Sayin {ad} {soyad}", (c) altin gradient hediye kutusu + mavi gradient guncelleme kutusu, (d) RFC2606 + test domain filtresi (example.com, example.org, example.net, test.com — 4 kayit otomatik atlandi, 172 → 168 gercek alici), (e) header tasarimi base64 inline logo'dan external URL'e cevrildi (`https://pusulaistanbul.app/logo-icon.png`), yatay "PUSULA [logo] ISTANBUL" banner. Bkz. DECISIONS #40. 2 test maili Ayse'ye gonderildi (Resend id'leri: cebf830a, fc49d885, 185b5291), tasarim onaylandi. **Gercek gonderim 27 May 07:00 TR'de scheduled task ile (taskId: `kurban-bayrami-hediye-mail-gonderim`, one-shot, fireAt=2026-05-27T07:00:00+03:00).**
 
 Bu dosya HER SURUM degisikliginde guncellenmeli. Yeni oturumda Claude buraya bakar, "su an ne yapiyoruz" anlar.
 
@@ -10,13 +241,18 @@ Bu dosya HER SURUM degisikliginde guncellenmeli. Yeni oturumda Claude buraya bak
 
 | Platform | Surum | Durum |
 |----------|-------|-------|
-| iOS App Store | **v1.0.10** | YAYINDA (1 Mayis 2026 — sifre sifirlama bug'i COZULDU) |
-| Android Play Production | **v1.0.10** | YAYINDA (1 Mayis 2026 — versionCode 28) |
-| Android Play Alpha | **v1.0.9** | Yayinda (12 test kullanicisi) — kapatilmasi planlandi |
+| iOS App Store | **v1.0.14** | **YAYINDA** (27 Mayis 2026 — buildNumber 37 — Apple onayi geldi, manuel "Release" basildi) |
+| iOS App Store | v1.0.13 | Eski yayin (v1.0.14 ile degisti) |
+| Android Play Production | **v1.0.14** | **YAYINDA** (27 Mayis 2026 — versionCode 37 — Google Play onayi geldi, manuel "Yayinla" basildi) |
+| Android Play Production | v1.0.13 | Eski yayin (v1.0.14 ile degisti) |
+| Android Play Alpha | **v1.0.9** | Yayinda (12 test kullanicisi) — hala kapatilmasi planlandi |
 
 ### Build Numaralari
-- **v1.0.10:** version 1.0.10, iOS buildNumber 27, Android versionCode 28 (yayinda)
-- **v1.0.11:** version 1.0.11, iOS buildNumber 28, Android versionCode 29 (`app.json` bumped, build/submit bekliyor)
+- **v1.0.10:** version 1.0.10, iOS buildNumber 27, Android versionCode 28 (eski yayin, atlandi)
+- **v1.0.11:** version 1.0.11, iOS buildNumber 29, Android versionCode 30 (4 May 2026 sabah yayinlandi)
+- **v1.0.12:** version 1.0.12, iOS buildNumber 30, Android versionCode 31 (atlandi, v1.0.13 ile degistirildi)
+- **v1.0.13:** version 1.0.13, iOS buildNumber 32, Android versionCode 33 (6 May yayina cikti)
+- **v1.0.14:** version 1.0.14, iOS buildNumber 37, Android versionCode 37 (27 May 2026 — **REVIEW'DA**, EAS autoIncrement ile 34/35 yerine 37 atandi)
 
 ### Cozulen Bug (v1.0.10 fix — YAYINDA)
 v1.0.9'da Pending Pattern eklenmisti AMA sadece cold-start'i cozmustu — warm-start (app arka planda iken mailden link tiklanmasi) hala bug'liydi. App ana ekrana acilip recovery session kuruluyordu ama `/sifre-sifirla` ekranina yonlendirme yapilmiyordu. Sebep: Expo Router'in route group escape sirasinda state batching ile race girmesi. **Fix: Pending Pattern useEffect'ine + PASSWORD_RECOVERY event handler'ina 150ms setTimeout defer eklendi** (bkz. DECISIONS.md "Pending Pattern" guncellenmis hali ve `_layout.tsx` line ~146 ve ~213). **1 Mayis 2026'da App Store ve Google Play'de yayina alindi — onay her iki platformdan da 24 saatten kisa surede geldi.**
@@ -93,25 +329,119 @@ v1.0.9'da Pending Pattern eklenmisti AMA sadece cold-start'i cozmustu — warm-s
 
 ---
 
-## AKTIF/BEKLEYEN GOREVLER (3 Mayis 2026 itibariyle)
+## AKTIF/BEKLEYEN GOREVLER (28 Mayis 2026 itibariyle)
+
+### TAMAMLANANLAR (28 May 2026 - Kurban Bayrami 2. gunu, sabah)
+
+0000k. ✓ **27 May gec saat freemium kalan 5 yeni kayda da bayram hediyesi** — Sorgu ile tespit (27 May kayit, abonelik_durumu='deneme' veya NULL, dun 17:33-20:39 arasi kayit): Ali Hizmetci (yahoo), Tahir Uruc, Ersem Ozcan Tek, Zeynep Sozmen (yahoo), Ali Dogan Karacik. Hediye SQL atomic UPDATE ile uygulandi (abonelik_durumu='aktif', abonelik_plani='aylik', abonelik_bitis='2026-06-01 00:00:00+03'). Yeni script: `scripts/yeni-kayit-bayram-hediye-gec.mjs` (yeni-kayit-bayram-hediye.mjs pattern'i, 5 alici hardcode). 5/5 mail Resend Delivered (id'ler: bb1918c1, 8316adfd, 427a3288, a40e090b, 11a7e65e). **Toplam bayram premium grant'i**: 172 (sabah) + 11 (aksam) + 5 (28 May sabah) = **188 kisi** + 1 yillik (Asli Cetin, gerçek satin alma).
+
+0000l. ✓ **`bayram-hediye-otomatik` scheduled task kuruldu** (28 May 2026 ~07:45 IST) — 28-30 May 2026 boyunca yeni kayit olacak kullanicilara OTOMATIK premium hediye + hos geldin maili. Recurring cron `*/15 * * * *`. Script: `scripts/bayram-hediye-otomatik.mjs` (yeni). Self-contained: .env env yukleme + Supabase PATCH + Resend mail + JSON audit log (`scripts/data/bayram-hediye-otomatik-log.json`, .gitignore'da). Idempotent (SQL filtresi `abonelik_durumu != 'aktif'`). Oto-kapanis: 1 Haz 00:00 +03 sonrasi no-op + "kampanya bitti" mesaji. **1 Haziran sabahi MANUEL DISABLE EDILMELI** (recurring oldugu icin no-op cikti her 15 dk surer — gurultu yapmasin diye kapatilmali). Test calismasi yapildi (0 yakalandi, beklenen), log dosyasi olustu. Bkz. INFRASTRUCTURE.md Bolum 11 (Aktif Scheduled Task'lar) + bu STATE.md.
+
+### TAMAMLANANLAR (27 May 2026 - Kurban Bayrami 1. gunu, gece guncellemesi)
+
+0000j. ✓ **v1.0.14 HER IKI PLATFORMDA YAYINDA** (27 May gece) — Apple expedited review request kabul edildi, onay sabah submit'inden ~12 saat icinde geldi (normal sure 24-48 saat). Ayni gun Google Play production track onayi geldi. Ayse manuel "Release This Version" (App Store Connect) + "Yayinla" (Play Console) basarak v1.0.13'u v1.0.14 ile degistirdi. **Onemli sonuc:** ScreenStack drawing crash kapsami artik daraldigi an. **Takip:** sonraki 24-48 saatte Play Console Vitals'i izle — yeni `IndexOutOfBoundsException` kaydi sifirlanmali (4.23.0 fix dogrulanmis olur). Eger crash devam ederse Plan B: `patch-package` ile 4.24'teki defansif kodu 4.23'e transplant (DECISIONS #37). **Yan kazanim:** Bayram gunu expedited review hizli geldi — Apple'in "critical hotfix + small change" sinyalini iyi okudugu dogrulandi.
+
+0000g. ✓ **Bayram gunu organik trafik artisi tespiti** (17:00 itibariyle Supabase olcumu) — Bugun toplam 17 giris (dun 4 = +325%), bugun 13 yeni rehber kaydi (dun 4 = +225%), canli saha durumu bildirimi 0→5 (premium feature, premium kullanicilar sahada). Sohbet trafigi sabit (1 mesaj). Bayram hediyesi alanlardan (168 kisi) sadece 3'u bugun giris yapmis — push notification olmamasi sebep (v1.1.0 planinda), kullanici uygulamayi acmadan hediyeden haberi olmuyor. **Trafik artisinin cogu organik:** 17 girisin 14'u hediye almayanlardan. Bayram gunu rehberlerin sahada calismasi + canli durum bildirimleri bunu dogruluyor.
+
+0000h. ✓ **Asli Cetin tam organik yillik conversion** (aslim.cetin.1999@gmail.com, 27 May 10:06 kayit, TUREB 13745, 1999 dogumlu) — IRO maili henuz yayinlanmadigi icin TAMAMEN organic kanaldan (kulaktan kulaga / App Store / sosyal medya) gelmis. Kayit -> 24sn sonra giris -> 4 dk sonra com.pusulaistanbul.app.yillik:yillik-yeni satin alma (2027-05-27'ye kadar). Hicbir manuel grant veya hediye yok, tamamen RC zincirinden geldi. **B2B niche app icin guclu sinyal:** IRO mail destekciligi olmadan, bayram gunu, 4 dakikada yillik conversion = yuksek niyet kullanicisi var. Risk: revenuecat_id NULL (use-abonelik.ts client-side listener bu spesifik senaryoda eksik kalmis — RC dashboard'da email aramayla bulunur, v1.1.0 setAttributes plani bunu kapatacak).
+
+0000i. ✓ **27 May kayit olan 11 yeni rehbere bayram hediyesi grant + bilgilendirme maili** —
+- **SQL:** UPDATE public.profiles SET abonelik_durumu='aktif', abonelik_plani='aylik', abonelik_bitis='2026-06-01 00:00:00+03'::timestamptz WHERE created_at >= '2026-05-27 00:00:00+03' AND rol NOT IN ('admin','moderator') AND (abonelik_durumu IS NULL OR abonelik_durumu = 'deneme'). RETURNING ile 11 satir dogrulandi.
+- **Atlanaalar:** Suha Alincak (alincak@gmail.com, 00:09 kayit — sabahki 172'lik hediye SQL'inde zaten yakalanmis); Asli Cetin (aslim.cetin.1999@gmail.com, 10:06 kayit — yillik abone, hediyeye gerek yok).
+- **Mail:** `scripts/yeni-kayit-bayram-hediye.mjs` yazildi (hardcode 11 alici, kurban-bayrami-hediye.mjs pattern'i). Tonu farkli: "hos geldin + bayram hediyesi" cercevesi, mavi guncelleme kutusu kaldirildi (v1.0.14 henuz Review'da, bu kullanicilar yeni indirmis), italic kutuda ucretsiz katmana baskici olmayan teskik metni eklendi ("aylik 99 TL veya yillik 699 TL (%41 avantajli) planlarimizdan birini secerek erisiminizi surdurebilirsiniz"). 11/11 basarili gonderim (Resend id'ler: ac6e9392, f3a66626, 177a7f2e, bed86dfe, 7f2571b4, 7dbd1735, 3c282f70, 2dcc30e2, 8f3be089, d5ef6bd4, 0873743b).
+- **Microsoft pattern riski:** Erdogan Ozdemir (erdogan.ozdemirr@hotmail.com), Lara Karaman (lara_karaman@hotmail.com) — Resend Delivered status'una ragmen spam'e dusebilir. Resend dashboard'da takip edilmeli.
+- **Toplam hediye:** 172 (sabah, Suha dahil) + 11 (aksam) = **183 kisi** bayram suresince premium. Asli yillik abone oldugu icin hariç.
+
+### TAMAMLANANLAR (27 May 2026 - Kurban Bayrami 1. gunu sabah)
+
+0000a. ✓ **v1.0.14 hotfix build + submit** — react-native-screens 4.16.0 → 4.23.0 upgrade ile ScreenStack drawing crash fix. iOS buildNumber 37 + Android versionCode 37. Her iki platform basariyla build edildi (EAS artifacts), submit edildi. Apple Review'da (Manual Release secildi, expedited review istendi). Google Play DRAFT'ta, incelemeye gonderildi. Onay bekleniyor (24-72 saat). Bkz. DECISIONS #37 (RNS 4.24 atlandi - BottomTabs eksik), ISSUES #79 (orijinal crash), ISSUES #80 (RNS 4.24 deneysel).
+
+0000b. ✓ **16 onaysiz kullaniciyi 2 grup halinde manuel onay** — Microsoft (Hotmail/Outlook) ve Yahoo spam filtreleri Resend'den gelen Supabase Auth dogrulama maillerini "Onemsiz e-posta" klasorune atti, kullanicilar gormeyip hesabini aktive edemedi. Resend dashboard'da "Delivered" status'una ragmen. Cozum: SQL ile email_confirmed_at = NOW() manuel onay.
+- **1. grup (sabah 01:37 onaylandi, 7 kisi):** ezeybey@hotmail.com, soysalmustafa@hotmail.com, yavuzdo@hotmail.com, alikaracayli@hotmail.com.tr, sevgi_tr_lv@hotmail.com, kvanlioglu@hotmail.com, fevziye22@yahoo.com.
+- **2. grup (sabah 03:14 onaylandi, 8 kisi - daha eski kayitlar):** omur.kahraman@hotmail.com, ersin.yigid@gmail.com, abdullah_er21@hotmail.de, tinapinto73@hotmail.com, melikekorkmaz@hotmail.com, aliakkaya@laposte.net, merttaner@hotmail.com, buraksan@superonline.com.
+- **Ayrica 1 olu hesap silindi:** Timucin Alp Aslan'in `timucin.aslan1956@gmail.vom` typo'lu kaydi (DELETE FROM auth.users + profiles). `gmail.com` versionu 9 May'dan beri aktif.
+
+Bkz. DECISIONS #39 (Microsoft spam pattern), ISSUES #81-82.
+
+0000c. ✓ **scripts/manuel-onay-bilgilendirme.mjs yazildi + 7 kisiye bilgilendirme maili gonderildi** — Resend API direct fetch (Supabase Auth bypass), markali HTML template (test-kullanici-mail.html pattern: gradient header + 80x80 windrose logo base64 inline + buyuk basligli "PUSULA ISTANBUL" + alt yazi). Uc mod: --dry (sadece icerik onizle), --test <email> (kendine), --all (ALICILAR listesindekine). Sender: `Pusula Istanbul <info@pusulaistanbul.app>`. Subject: "Pusula Istanbul Hesabiniz Hakkinda Bilgilendirme". Hitap: "Sayin {ad} {Bey/Hanim}". Mavi gradient kutuda v1.0.14 guncelleme uyarisi. Footer: pusulaistanbul.app. 1. grup 7 kisiye basariyla gonderildi (Resend Delivered). 2. grup 8 kisiye GONDERILMEDI (yeni oturumda ALICILAR listesini guncelleyip --all calistir).
+
+0000d. ✓ **172 freemium kullaniciya KURBAN BAYRAMI PREMIUM HEDIYESI** — Atomic SQL: UPDATE public.profiles SET abonelik_durumu='aktif', abonelik_plani='aylik', abonelik_bitis='2026-06-01 00:00:00+03'::timestamptz WHERE rol NOT IN ('admin', 'moderator') AND (abonelik_durumu = 'deneme' OR abonelik_durumu IS NULL). 5 gun premium hediye, kurban bayrami sahasi suresince premium feature'lara kesintisiz erisim. RC'de degisiklik yok (use-abonelik Supabase fallback ile premiumMi=true). Test hesaplari otomatik haric (aysetokkus@icloud.com / demo.test@ / arasbayar@ / proteste_angel@ / aysetokkusbayar@ — hepsi `aktif` veya `suresi_dolmus` durumunda, `deneme` degil, sorgu eslestirmedi).
+
+0000e. ✓ **.env'e RESEND_API_KEY eklendi** — `re_H7PYreCJ_Chqbn4Auhe5Y4LMxEM6rs7Pw` (yeni key, isim: "manuel-bilgilendirme", Sending access permission). pusula-supabase-prod key'i (Supabase Auth SMTP) ayri, dokunulmadi. Comment: ".env'de `# Resend API key — SADECE manuel mail gonderim scriptlerinde kullanilir." notu eklendi.
+
+0000f. ✓ **scripts/kurban-bayrami-hediye.mjs yazildi + 07:00 scheduled task kuruldu** (27 May 2026 sabah 04:00-05:00) — `manuel-onay-bilgilendirme.mjs` pattern'i taban alindi, runtime Supabase fetch + cinsiyetsiz hitap + altin gradient hediye kutusu + test domain filtresi (4 kayit otomatik atlandi, 172 → 168 gercek alici). Dry-run dogrulandi (168), Ayse'ye 3 test maili gonderildi (id'ler: cebf830a, fc49d885, 185b5291). **Onemli tasarim cevirme:** test-kullanici-mail.html'deki base64 inline logo Gmail'de render edilmiyordu (Ayse 1. test mailinde "?" gordu) — Supabase Auth template'lerindeki external URL pattern'ine cevirilmis ("PUSULA [logo] ISTANBUL" yatay banner, `https://pusulaistanbul.app/logo-icon.png`). Logo asimetrik gozukmesin diye width=70 height=50 (PNG 288x206 = 1.4:1 oran). Bkz. DECISIONS #40. **Gercek gonderim**: scheduled task `kurban-bayrami-hediye-mail-gonderim`, one-shot, `fireAt=2026-05-27T07:00:00+03:00`, prompt'unda `node scripts/kurban-bayrami-hediye.mjs --all` komutu var, otomatik disable olur (bkz. INFRASTRUCTURE.md). Yedek: Cowork uygulamasi 07:00'de acik olmali, kapaliysa sonraki acilista tetiklenir.
+
+### BEKLEYEN ISLER (28 May 2026 sonrasinda — YENI OTURUM)
+
+**EN YUKSEK ONCELIK:**
+
+0. **1 Haziran 2026 sabah `bayram-hediye-otomatik` task'ini MANUEL DISABLE et** — Recurring cron `*/15 * * * *`. 1 Haz 00:00 +03 sonrasi script tarihi kontrol edip no-op donecek, ama task hala 15 dk'da bir tetiklenip Cowork notification gurultusu yapacak. Manage: Cowork sidebar → Scheduled → `bayram-hediye-otomatik` → disable. Audit log: `scripts/data/bayram-hediye-otomatik-log.json`'da kac kisi yakalandigi ve mail aldigi gorulebilir, kampanya raporu icin gerekli.
+
+1. **07:00 TR scheduled task sonucu izle** — 07:00'de `kurban-bayrami-hediye-mail-gonderim` tetiklenecek, 168 kisiye mail gidecek. Cowork bildirimi gelince sonuca bak: kac basarili / kac hatali. Bounce'lar varsa email kolonunda typo olabilir, kontrol et. Resend dashboard: https://resend.com/emails
+
+2. **2. grup 8 onaysiz kullaniciya bilgilendirme maili** — manuel-onay-bilgilendirme.mjs'deki ALICILAR listesini 8 yeni kisi ile guncelle, isim/soyisim/cinsiyet hitabi ata, `--all` ile gonder. Bonus: bu scripti de external URL logo pattern'ine cevir (bayram maili gibi) — base64 inline logo Gmail'de yamuk render ediyor, sabahki 7 kisiye bozuk gitmis olabilir. DECISIONS #40 referans alinmali.
+
+3. **v1.0.14 crash takibi (yayindan sonraki 24-48 saat):**
+   - v1.0.14 27 May gece yayina cikti her iki platformda — Play Console Vitals'i izle.
+   - **Sifirlanma beklenir:** `java.lang.IndexOutOfBoundsException` Marmaray/ScreenStack crash kayitlari yeni gelmemeli.
+   - **Crash sifirlanirsa:** 4.23.0 fix gercekten cozdu (DECISIONS #37 onaylanmis olur). ISSUES #79 ve #80 "Cozuldu" stamp'i.
+   - **Crash devam ederse Plan B:** `patch-package` ile 4.24'teki ScreenStack defansif kodunu (currentVisibleBottom + updateA11yForVisibleScreens + shouldDisableFocusabilityBeneathTopScreen) 4.23 source'una transplant et.
+   - **Otomatik guncelleme dalgasi:** ~%85 kullanici 24-48 saat icinde v1.0.14'e gecer, %15 manuel guncelleyici eski v1.0.13'te kalir (DECISIONS uzun vadeli: v1.1.0'da in-app guncelleme uyarisi).
+
+**ORTA ONCELIK:**
+
+4. **test-kullanici-mail.html Turkce karakter bug fix** — `text-transform: uppercase` CSS Turkce `i` → `I` ASCII'ye ceviriyor, `İ` ve `ı` karakterleri bozuyor. Cozum: text-transform kaldir, direkt buyuk harf yaz: "PROFESYONEL TURİST REHBERİNİN DİJİTAL ASİSTANI". Bkz. DECISIONS #38. Bu hata Supabase Auth template'lerinde de var (sifre sifirlama vs.) — onlari da kontrol et.
+
+5. **Google Play Odeme profili eksiklerini tamamla:** (bu sabah dokunulmadi, eski oncelik)
+   - Banka hesabi ekle (Apple IBAN'i)
+   - Tayvan vergi formu (minimal)
+   - Irlanda formu (Mukimlik Belgesi geldi mi, kontrol et)
+   - %15 hizmet ucreti programi kaydi
+
+6. **v1.0.14 yayina cikinca DOKUMANTASYON kapaklamasi:**
+   - CHANGELOG.md'ye v1.0.14 release notes (var, ama yayin tarihi ile guncellenmeli)
+   - STATE.md'de "REVIEW'DA" → "YAYINDA" + tarihi belirt
+   - CLAUDE.md tarih + tablo guncellemesi
+
+### TAMAMLANANLAR (7 May 2026)
+000a. ✓ **Elvan Ozbay (elvanozbay@gmail.com) - 1 yil premium hediye** (7 May 2026) — organik kanaldan gelen ilk destek vakasi. Google Play hesap ulke uyumsuzlugu (turdayken) sebebiyle satin alma yapamadi. RC alias YOK (revenuecat_id NULL — satin alma denemesi RC zincirine bile ulasmadi, Play Store seviyesinde bloke). Manuel grant: abonelik_durumu='aktif', abonelik_plani='yillik', abonelik_bitis='2027-05-07'. Mustafa/Sebnem pattern'inin yumusatilmis varyanti (onlar para odemis ve refund + 1 yil hediye almistilar; Elvan para odeyemedi ama markali destek olarak hediye verildi). Mesaj WhatsApp/Messenger ile gonderildi.
+
+### TAMAMLANANLAR (6 May 2026)
+00. ✓ **v1.0.13 yayinlandi her iki platformda** (6 May 2026 sabah) — kayit zorunlulugu + freemium kapsam sikilastirma. Apple review ~24 saatten kisa surede onay verdi. Google Play onaylandi, manuel "Yayinla" basildi. v1.0.12 atlandi (v1.0.13 ile degistirildi).
+00a. ✓ **X bot client-side → Edge Function tasima** (6 May aksami) — Marmaray duzelme tweet'i 33 dk gectigi halde ingest edilmemisti. Sebep: client-side bot kullaniciya bagli. Cozum: `supabase/functions/ulasim-senkron/index.ts` deploy + `pg_cron *​/15 * * * *` schedule + Vault secret + Edge Function secrets. Twitter Bearer Token Regenerate (eski revoke). Geriye donuk 5 Marmaray + tum 24h+ aktif=false ariza/gecikme/kesinti kayitlari `cozuldu=true` yapildi. Build gerektirmedi (server-side degisim). Tahmini X API maliyet tasarrufu: aylik $20 → $3-5. Bkz. DECISIONS #36.
+
+### TAMAMLANANLAR (4 May 2026)
+0. ✓ **v1.0.11 yayinlandi** her iki platformda (4 May 2026, ~24 saat onay)
+0a. ✓ **Mekan saatleri konvensiyon bug** — 15 mekan "Pazar kapali" yanlis gosterimi cozuldu (DECISIONS #32)
+0b. ✓ **profiles.email schema fix** — kolon eklendi, auth.users sync trigger kuruldu (DECISIONS #33)
+0c. ✓ **Profiles UPDATE RLS policy** — admin baskasinin profilini guncelleyebiliyor (DECISIONS #34)
+0d. ✓ **admin.tsx RLS defansif kod** — moderatorAta + moderatorKaldir artik sessiz red yakalar (v1.0.12'de yayinlanacak)
+0e. ✓ **Play Store global yayin** — uygulama tum ulkelerde (175+) indirilebilir, IAP fiyatlari da global (Aylik 83,33 TRY baz, Yillik 583,33 TRY baz, Turkiye 99,99/699,99 TL korundu)
+0f. ✓ **Apple App Store** — zaten 175 ulkede yayinda, IAP fiyatlari otomatik dagildi
+0g. ✓ **Galataport gemi takvimi** — 5 haftadir donmus 204 yanlis kayit silindi, 224 dogru kayit yuklendi (Mayis-Aralik 2026)
+0h. ✓ **Excel ↔ DB tutarliligi** — mekan_saatleri 58/58 kayit, gun ve saat alanlari %100 hizali
 
 ### EN YUKSEK ONCELIK
-0. ✓ **TAMAMLANDI (3 May):** NULL profile bug kalici cozumu — kod fix v1.0.11'de hazir, 4 etkilenen kullanici manuel doldurma ile temizlendi.
+1. **IRO mail yeniden talep + organik trafik karsilastirma temeli:**
+   - **DURUM (27 May):** IRO maili 7 May'da yayinlanmadi, Ayse yeniden talep gonderecek. Bu arada uygulamaya 20 gunde 107+ rehber kayit ve bugun 13 ek kayit + 1 organik yillik conversion (Asli Cetin) ulasti — TAMAMEN organik (kulaktan kulaga, App Store/Play Store, sosyal medya).
+   - **IRO ciktiktan sonra:** asagidaki metrikleri organik baseline ile karsilastir
+   - Yeni kayit oranini gunluk izle: `SELECT date_trunc('day', created_at) gun, count(*) FROM auth.users WHERE created_at >= '2026-05-07' GROUP BY 1 ORDER BY 1;`
+   - Aktivasyon orani: kayit sonrasi ilk 24 saatte premium duvara ulasan / kayit
+   - Conversion: 7 gun icinde abonelige donusen / kayit. Organik baseline: ~1/120 (Asli) = %0.8. IRO sonrasi hedef %5+ (B2B niche app standardi).
+   - Destek mesaji volumune hazir ol: Elvan-vari "abone olamiyorum", VPN/ulke uyumsuzlugu, ilk kez kayit takintisi vb.
 
-1. **Google Play Odeme profili eksiklerini tamamla:**
+2. **v1.0.13 yayin sonrasi monitoring (6-13 May 2026):**
+   - **Kayit oranini izle:** Misafir akis kapali, oturum acmayan kullanici core value goremez. 1-2 hafta veri toplandiktan sonra yeni kayit/aktif kullanici/conversion oranina bakilacak.
+   - **Otomatik guncelleme kapali ~%15 kullanici:** Eski v1.0.12 ile takilirlar. Sikayet/destek mesaji gelirse "App Store/Play Store'dan guncellemek lazim" yanitlari hazir.
+   - **Premium duvar tepkilerini topla:** Ozellikle Bogaz Turlari Dentur+Sehir Hatlari premium oldu, kullanici tepkisi olcum altinda.
+
+2. **Google Play Odeme profili eksiklerini tamamla:**
    - **Banka hesabi ekle** (Apple'da kullanilan IBAN ile ayni olabilir) — odeme almanin on kosulu
    - **Tayvan vergi formu** — Pusula Istanbul'un Tayvan kullanicisi yok, "ilgili degil" / minimal bilgi yeterli
    - **Irlanda formu**: "Hayir, vergi anlasmasindan yararlanmiyorum" ile gecici tamamla, %20 stopaj kabul. Mukimlik Belgesi posta ile geldiginde formu guncelle, %10'a in
    - **%15 hizmet ucreti programi kaydi** — bonus, ilk $1M revenue icin Google komisyonu %30 → %15
 
-2. **v1.0.11 build & yayin (iki fix bir arada):**
-   - **Fix A (UX):** `app/abone-ol.tsx` + `app/(tabs)/profil.tsx` — "Apple ID" hardcoded → generic "Hesabiniz" (1 May'da yapilmisti)
-   - **Fix B (use-abonelik.ts NULL profile sistemik bug — 3 May):** `planFromProductId()` helper + `rcAbonelikKontrol()` zenginlestirme + iki RC sync noktasi guncellendi. Detay: DECISIONS.md #31.
-   - `app.json` version 1.0.11, iOS buildNumber 28, Android versionCode 29 — **bumped, hazir**
-   - EAS build (her iki platform), submit, manual release
-   - Hizli kabul olur (kod degisikligi minimal, davranis ayni — sadece Supabase senkronizasyonu daha tamam yaziyor)
-
-3. **Pusula-Alpha kapali test kanalini kapat/sil** — v1.0.10 hem alpha hem production'da, alpha gerek yok. Test kullanicilari production'a otomatik gecer.
+3. **Pusula-Alpha kapali test kanalini kapat/sil** — v1.0.11 production'da, alpha gerek yok. Test kullanicilari production'a otomatik gecer.
 
 ### ORTA ONCELIK
 4. **Mukimlik Belgesi geldikten sonra Irlanda formunu guncelle** (1-2 hafta icinde posta ile geliyor)
@@ -141,11 +471,19 @@ v1.0.9'da Pending Pattern eklenmisti AMA sadece cold-start'i cozmustu — warm-s
 1. **Profil ekrani surum no dinamiklestir** — Su an "v1.0.0" hardcoded, hic guncellenmiyor. `expo-application` paketinden `Application.nativeApplicationVersion` ile dinamik cek. Debug icin kritik (kullanici hangi build'i test ettigini bilemiyor).
 2. **Edge-to-edge Android 15 uyumu** — `app.json`'a `edgeToEdgeEnabled: true` ve `expo-build-properties` ile `targetSdkVersion: 35`. Tab layout + gradient header'lara safe area inset entegrasyonu. Detayli plan: `v1.1.0-CHECKLIST.md` (outputs klasorunde).
 3. **Push Notification altyapisi** — Uygulama kapaliyken bildirim. Cihaz token (`expo-notifications.getExpoPushTokenAsync`) → Supabase → Edge Function → APNs/FCM. ~2-3 gun is.
-4. **X API senkronizasyonunu scheduled task'a tasi** — Su an `_layout.tsx` global timer SADECE app aciksa calisir. Sehir Hatlari pattern ile (`x-ulasim-takip` scheduled task) merkezi cozume tasinmali.
+4. **X API senkronizasyonu client-side cleanup** — Server-side tasima 6 May 2026'da TAMAMLANDI (`supabase/functions/ulasim-senkron`, pg_cron `*​/15 * * * *`). v1.1.0 build'inde client-side artiklari sil: (a) `app/_layout.tsx` line 183-188: `useXUlasim()` cagrisini ve import'u kaldir, (b) `hooks/use-x-ulasim.ts` dosyasini sil, (c) `lib/config.ts` line 10-13: `X_BEARER_TOKEN` ve `X_SENKRON_ARALIK_DK` sil, (d) `eas env:delete --name EXPO_PUBLIC_X_BEARER_TOKEN --environment production`. Bkz. DECISIONS #36, INFRASTRUCTURE.md Bolum 13.
 5. **Ana ekran widget** — Sultanahmet Camii saatleri + ulasim uyarilari. `react-native-android-widget` + `expo-apple-targets`.
-6. **Sehir Hatlari/Saraylar fiyat tablosu scrape** — JS-rendered, browser otomasyonu gerekir (Firecrawl `browser_create+interact` veya Claude in Chrome).
-7. **RC'ye email attribute yaz (1 May 2026 ogrenildi):** `lib/revenuecat.ts`'te login sonrasi `Purchases.setAttributes({'$email': user.email})` cagir. Boylece RC dashboard'da musteri email ile aranabilir, anonymous user'larin Supabase user'a baglanmasi izlenebilir. Su an email aramasi RC'de bos donuyor.
-8. **Supabase data hygiene (1 May 2026 ogrenildi):** RC'de 8 active subscription, Supabase'de 25 abonelik_durumu='aktif' kullanici. Stale kayitlar (Ayse'nin test hesaplari + iptal etmis ama DB guncellenmemis) icin temizlik scheduled task'i. RC webhook → Supabase Edge Function ile expired subscriptions'i pasif yap.
+6. **RC'ye email attribute yaz (1 May 2026 ogrenildi):** `lib/revenuecat.ts`'te login sonrasi `Purchases.setAttributes({'$email': user.email})` cagir. Boylece RC dashboard'da musteri email ile aranabilir, anonymous user'larin Supabase user'a baglanmasi izlenebilir. Su an email aramasi RC'de bos donuyor.
+7. **Supabase data hygiene (1 May 2026 ogrenildi):** RC'de 8 active subscription, Supabase'de 25 abonelik_durumu='aktif' kullanici. Stale kayitlar (Ayse'nin test hesaplari + iptal etmis ama DB guncellenmemis) icin temizlik scheduled task'i. RC webhook → Supabase Edge Function ile expired subscriptions'i pasif yap.
+8. **Galataport gemi takvimi scheduled task (4 May 2026 fark edildi):** Mevcut sistem 29 Mart 2026'da bir kerelik scrape ile 204 yanlis kayit insert etmisti, sonra 5 hafta dokunulmadi. Veri donmustu, tarih kaymalari + eksik gemiler vardi. 4 May'da Firecrawl ile Mayis-Aralik 2026 sezonu yeniden cekildi (224 dogru kayit). Kalici cozum: `havalimani-tarife-guncelle` pattern'ini takip eden `galataport-gemi-takvimi-guncelle` scheduled task. Gunluk veya haftalik calistir, cruisetimetables.com ay sayfalarini Firecrawl ile scrape et, gemi_takvimi tablosunu UPSERT et. Tahmini sure: ~2 saat. Bkz. ISSUES #75.
+
+9. **Havalimani Ulasim Excel pipeline (4 May 2026 talep edildi):** `mekan-saatleri-veri-giris.xlsx` pattern'i mukemmel calisiyor — Ayse Excel'den toplu duzenleyip sync atabiliyor. Ayni mantiki havalimani seferleri icin de uygula. Gerekenler: (a) `havalimani-seferleri-veri-giris.xlsx` template (durak_adi, firma, havalimani, sehirden_hav saatleri virgullu, havdan_sehir saatleri virgullu, sehirden_hav_guzergah, havdan_sehir_guzergah, fiyat, sure, not_bilgi, aktif), (b) `template-olustur.py` ve `template-doldur.py` benzeri scriptler havalimani icin, (c) `excel-full-sync-sql-havalimani.py` (saatler icin jsonb donusumu dahil). Bonus: `bogaz-turlari-veri-giris.xlsx` da ayni pattern'le birlikte yapilabilir (kalkis_noktalari, hafta_ici_saatler, hafta_sonu_saatler, fiyat, sure). Tahmini sure: ~3-4 saat (havalimani + bogaz beraber).
+
+10. **Kullanici guncelleme farkindaligi (4 May 2026 talep edildi):** Su an Pusula'da in-app guncelleme uyarisi YOK. Otomatik guncelleme (Wi-Fi'da) aktif olan ~%85 kullanici 24-48 saatte yeni surumu alir; otomatik kapali olan %15 kullanici eski surumde takilir. **Cozum (orta vadeli):** Profil ekranina surum kontrolu ile "Guncelleme mevcut" bant + ana ekran ustunde nazik uyarisi. `react-native-version-check` paketi hem iOS hem Android icin Apple/Google public API'sinden son surumu ceker, lokal ile karsilastirir. Tiklaninca App Store/Play Store'a yonlendirir. Tahmini sure: ~2-3 saat. **Ileri vadeli (v1.2.0):** EAS Update / `expo-updates` paketi ile OTA — frontend bug fix'ler review-bypass canliya gider (sadece native degisikliklerde build/review gerekir). ~1 gun setup. Apple'in "OTA sadece bug fix icin" kurali var, dikkatli kullanmak gerek.
+
+11. **Admin panel hesap silme + KVKK onay maili tek tik butonu (27 May 2026 talep edildi):** Su an hesap silme talebi geldiginde manuel akis var — Claude'a yaz, SQL sorgu cek, atomic DELETE at, `scripts/hesap-silme-onay-atakan.mjs` pattern'inden tek mail gonder. Cogu zaman 5-10 dakika is ama hata payi var (yanlis ID, FK kaynakli yetim satir). Atakan Ceyhan vakasi (27 May 2026) ilk dokumante edilen silme talebi, organik trafik buyuduyse aylik 1-3 talep beklenir. **Cozum:** `app/admin-kullanici-yonetim.tsx` yeni ekran — admin/moderator gorebilsin, kullanici ara (email veya isim), kayit detayi goster (rol, abonelik durumu, RC alias, kac mesaj/saha bildirimi vb.), "Hesabi Sil + KVKK Mail Gonder" butonu. Buton akisi: (a) tum bagli tablolardan DELETE (sohbet_mesajlari, canli_durum, yogunluk, raporlanan_mesajlar, engellenen_kullanicilar — engelleyen + engellenen), (b) profiles DELETE, (c) auth.users DELETE (Supabase admin API uzerinden, service role gerektigi icin Edge Function veya RPC), (d) Resend API ile KVKK kapanis maili gonder (`scripts/hesap-silme-onay-atakan.mjs` HEDEF blogu template haline getir). Onay dialog'u zorunlu: "Bu islem geri alinamaz. Devam edilsin mi?". Audit log: `kvkk_silme_kayitlari` tablosuna kim sildi/ne zaman/hangi email/silen admin id. Tahmini sure: ~4-5 saat. **Bonus alternatif:** moderator'a sadece "talep al" yetkisi ver, admin'e "onay + sil" yetkisi — iki-asamali yapinin hesap silme gibi kritik bir aksiyonda iyi olur. Bkz. scripts/hesap-silme-onay-atakan.mjs (template hazir), DECISIONS #34 (RLS sessiz red defansif kod).
+
+12. **Kritik sohbet mesajlarini ana sayfada one cikarma — pin/bayrak sistemi (27 May 2026 talep edildi):** Tetikleyici vaka: Huseyin Hizmetci (moderator, TUREB 44, kidemli rehber) 12 May 2026 18:48'de sohbete attigi mesaj — "Yerebatan konusunda yeni bir gelisme var. Mahkeme yurutmeyi durdurmus. Simdilik bir devir teslim yok. A surec nasil devam edecek bilmiyorum." Tam bir moderator katkisi (Yerebatan Sarnici isletme devri hukuki gelisme), ama sohbet ekraninda mesaj akisinda kaybolup gidiyor. Su an sohbete girmeyen rehber bu kritik saha bilgisini goremiyor. **Cozum:** (a) `sohbet_mesajlari` tablosuna `pinned BOOLEAN DEFAULT false` + `pinned_at TIMESTAMPTZ` + `pinned_by UUID` kolonlari ekle, (b) admin/moderator icin sohbet ekranindaki mesajlara uzun basinca "Sabitle" secenegi (yetki: useAdmin().isYetkili), (c) ana sayfada (`app/(tabs)/index.tsx`) yeni bir bant: "Sahadan Onemli" basligi + son 48 saatin pin'li mesajlari (gradient kart + pin ikonu + mesaj metni + atan kullanici + zamani), tiklayinca sohbete yonlendir, (d) otomatik unpin: 48 saat sonra `pinned = false` (scheduled task veya app-side filter), (e) RLS: pin yazma sadece admin/moderator, pin okuma herkes (premium gate YOK — bu acil saha bilgisi, bedava katmanda da gozuksun, premium teskik degeri korunur). **v1.1.0 push notification (madde 3) ile entegrasyon:** mesaj pin'lendigi anda tum kullanicilara push gonder — "Sahadan: <mesaj baligi/ilk 60 kar>". Tahmini sure: ~3-4 saat (kolon migration + sohbet UI + ana sayfa bant + scheduled task). Bkz. sohbet_mesajlari Realtime calisiyor (ISSUES #7), pin degisiklikleri de aninda yansir.
 
 ### ORTA ONCELIK
 - Farkli cihaz/ekran boyutu testleri
@@ -166,7 +504,7 @@ v1.0.9'da Pending Pattern eklenmisti AMA sadece cold-start'i cozmustu — warm-s
 
 ### Google Play Console
 - **Hesap:** Aktif ($25 odendi)
-- **Production:** **v1.0.10 YAYINDA** (versionCode 28, 1 Mayis 2026'da yayinlandi). v1.0.9 (versionCode 26) atlandi.
+- **Production:** **v1.0.12 YAYINDA** (versionCode 31, 4 Mayis 2026 aksam — onaylandi, manuel "Yayinla" basildi, kullanicilara ~24-48 saatte yayilacak). v1.0.11 (versionCode 30) onceki yayindi. v1.0.9 (versionCode 26) ve v1.0.10 (versionCode 28) atlandi.
 - **Kapali test (Alpha):** v1.0.9 yayinda, 12 test kullanicisi — kapatilmasi planlandi
 - **Play Store linki:** https://play.google.com/store/apps/details?id=com.pusulaistanbul.app
 - **License testing:** Dahili Test listesi (ayse.tokkus@gmail.com + aysetokkusbayar@gmail.com), RESPOND_NORMALLY
@@ -197,8 +535,8 @@ v1.0.9'da Pending Pattern eklenmisti AMA sadece cold-start'i cozmustu — warm-s
 ### Apple App Store Connect
 - **Apple Developer:** Aktif (Team ID: 7UJVL94SMJ, Provider ID: 128724610)
 - **App Store Connect App ID:** 6761419678
-- **App Store:** **v1.0.10 YAYINDA** (1 Mayis 2026 — sifre sifirlama warm-start bug'i COZULDU)
-- **iOS IPA:** v1.0.10 build 27 (yayinda)
+- **App Store:** **v1.0.11 YAYINDA** (4 Mayis 2026 sabah — use-abonelik NULL profile fix + UX). **v1.0.12 REVIEW'DA** (4 May aksam submit — uc degisiklik).
+- **iOS IPA:** v1.0.11 build 29 (yayinda), v1.0.12 build 30 (review'da)
 - **Onceki reject sayisi:** 6 (v1.0 / v1.0.1 / v1.0.2 / v1.0.3 / v1.0.4 — bkz. CHANGELOG.md)
 - **Demo hesaplar (Supabase'de ayarli):**
   - demo.test@pusulaistanbul.app / 123456 — suresi dolmus abonelik (ucretsiz katman test)

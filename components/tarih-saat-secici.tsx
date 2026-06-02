@@ -29,8 +29,10 @@ function pad(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
 }
 
+// v1.1.0 BUG FIX: Onceden TZ yok idi (`...T08:00:00`), PostgreSQL UTC olarak parse edip
+// geri okurken cihazda +3 saat goruluyordu. Sabit +03:00 (Turkiye, DST yok 2016'dan beri).
 function isoFormat(yil: number, ay: number, gun: number, saat: number, dakika: number): string {
-  return `${yil}-${pad(ay + 1)}-${pad(gun)}T${pad(saat)}:${pad(dakika)}:00`;
+  return `${yil}-${pad(ay + 1)}-${pad(gun)}T${pad(saat)}:${pad(dakika)}:00+03:00`;
 }
 
 function turkceFormat(yil: number, ay: number, gun: number, saat: number, dakika: number): string {
