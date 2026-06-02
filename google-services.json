@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "998917629807",
+    "project_id": "pusula-istanbul-4a055",
+    "storage_bucket": "pusula-istanbul-4a055.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:998917629807:android:55284ba216c6c8b686aa9a",
+        "android_client_info": {
+          "package_name": "com.pusulaistanbul.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyz2R5h78MpbWt74xN6s9xKOatomSWj_0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
