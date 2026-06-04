@@ -1661,3 +1661,23 @@ Bu pattern push-gonder Edge Function'in `pusula_cron_secret` kullanim deseniyle 
 Trigger'i gecici disable: `ALTER TABLE public.profiles DISABLE TRIGGER trg_yeni_kayit_hediye;`
 Kalici kaldirma: `DROP TRIGGER trg_yeni_kayit_hediye ON public.profiles;`
 
+
+---
+
+## 47. GORUNMEZ UI BUG'I — Parent flexDirection 'row' Kalinca Yeni Eklenen Bar 0 Genislikte Render Olur (4 Haz 2026)
+
+**Vaka:** Genel duyuru kartina v1.1.1'de eklenen yetkili aksiyon bari (Duzenle | Sabitle | Sil) hicbir cihazda gorunmuyordu. Iki gun boyunca "eski build / OTA inmiyor / RLS reddi" teorileri kovalandi — hepsi yanlisti. Kod her pakette VARDI.
+
+**Kok sebep:** `kart` stili eski tasarimdan `flexDirection: 'row'` kalmisti. Aksiyon bari karta dikey eklenmek istenmisti ama row parent icinde icerigin SAGINA dizildi. Bar'in cocuklari `flex: 1` (flex-basis 0) oldugu icin intrinsic genisligi ~2px (sadece ayrac cizgileri) → gorunmez ama render agacinda mevcut. Fix: `kart` → `flexDirection: 'column', alignItems: 'stretch'` (icerik+thumbnail yatay dizilimi zaten `kartIcerikSarmal` wrapper'inda).
+
+**Tani surecindeki iki yanlis sinyal (gelecekte tekrarlanmasin):**
+1. **`strings <bundle> | grep "Sabit Kaldır"` YANLIS NEGATIF verdi** — Hermes bytecode Turkce karakterli (i, ı, ü...) string'leri UTF-16 saklayabiliyor, `strings` ASCII tarar. Binary bundle icerik dogrulamasi SADECE ASCII marker ile yapilmali (or. style key `yetkiliAksiyonBar`, fonksiyon adi `duyuruGuncelle`). Dogru komut: `grep -ac "asciiMarker" bundle.hbc`
+2. **"Ayni `isYetkili` flag'ine bagli '+ Yeni' gorunuyor ama bar gorunmuyor → JS eski olmali" cikarimi yanlisti** — ikisi de render ediliyordu, biri 0 genislikteydi. Conditional render calisiyor diye layout'un dogru oldugu varsayilamaz.
+
+**Cozum dagitimi:** EAS Update OTA (runtime 1.1.1, update group `afd5d662`) ile magaza review'i olmadan tum yayindaki cihazlara (Android vc43 + iOS 1.1.1) dakikalar icinde dagitildi. Magaza build'i gerekmedi. OTA altyapisinin (app.json `updates.url` + `runtimeVersion: appVersion` + eas.json `channel`) ilk basarili gercek kullanim vakasi.
+
+**Dersler:**
+- Yeni UI elemani eklerken parent container'in `flexDirection`'ini KONTROL ET — ozellikle eski layout'a wrapper eklenen refactor'larda.
+- UI ozelligi "calisiyor" demek icin EKRANDA GORMEK sart; kod + build + deploy zinciri tek basina kanit degil. v1.1.1 "silme UI fix'i" hicbir cihazda gorsel dogrulanmadan yayinlanmisti.
+- JS-only fix'lerde once OTA dusun: review yok, dakikalar icinde tum runtime-uyumlu cihazlara ulasir. Native degisiklik varsa (yeni paket, izin, config plugin) OTA YETMEZ, store build sart.
+- Binary bundle dogrulamasinda Turkce karakterli string KULLANMA (yukaridaki yanlis negatif).

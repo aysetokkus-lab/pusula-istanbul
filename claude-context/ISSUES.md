@@ -271,3 +271,9 @@ Yeni bir bug ile karsilastiginda dene:
 - **Cozum:** `DELETE FROM public.profiles WHERE id = ...` + `DELETE FROM auth.users WHERE id = ...` — olu hesap silindi. Dogru `.com` hesabi zaten aktif, kullanici hayati etkilenmedi.
 - **Aciliyet:** Cozuldu.
 
+### 83. Genel Duyuru Yetkili Aksiyon Bari Gorunmez — kart flexDirection 'row' (2-4 Haziran 2026)
+- **Konum:** `components/genel-duyuru-panel.tsx` `kart` stili
+- **Belirti:** v1.1.1'de eklenen "Duzenle | Sabitle | Sil" butonlari hicbir cihazda gorunmedi. Ayse duyuru silemiyordu; eski basili-tutma menusu de v1.1.1'de kaldirildigi icin HICBIR silme yolu yoktu.
+- **Kok sebep:** Kart container'i eski tasarimdan `flexDirection: 'row'` kalmis; aksiyon bari icerigin sagina ~2px genislikte render oluyordu (cocuklar flex:1 → intrinsic 0). Kod tum paketlerde mevcuttu — build/OTA/RLS suclamalari yanlis cikti.
+- **Cozum:** `kart` → `flexDirection: 'column', alignItems: 'stretch'` (commit 29ee7a6). EAS Update OTA ile runtime 1.1.1'e dagitildi (update group afd5d662), magaza build'i gerekmedi. Detay: DECISIONS #47.
+- **Aciliyet:** Cozuldu (4 Haz 2026).
