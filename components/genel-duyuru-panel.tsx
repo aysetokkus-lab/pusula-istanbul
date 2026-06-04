@@ -623,9 +623,11 @@ const createStyles = (t: TemaRenkleri) =>
       fontSize: 12,
     },
     kart: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 10,
+      // v1.1.2 fix: 'row' kalmisti — yetkili aksiyon bari (Duzenle/Sabitle/Sil)
+      // icerigin sagina 0 genislikte sikisip gorunmez oluyordu. Kart dikey olmali;
+      // icerik+thumbnail yatay dizilimi zaten kartIcerikSarmal'da.
+      flexDirection: 'column',
+      alignItems: 'stretch',
       marginHorizontal: 16,
       marginTop: 6,
       padding: 12,

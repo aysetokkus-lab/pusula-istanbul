@@ -1,6 +1,6 @@
 # Pusula Istanbul - Mevcut Durum
 
-Son guncelleme: **2 Haziran 2026 (oglen)** — v1.1.0 ANDROID YAYINDA (review tamamlandi), iOS hala review'da. **IKI YENI ISIN BITTIGI YOGUN OGLEDEN SONRA:**
+Son guncelleme: **2 Haziran 2026 (oglen sonu)** — v1.1.0 ANDROID YAYINDA (review tamamlandi), iOS v1.1.0 IPTAL EDILDI, v1.1.1 her iki magazada REVIEW'DA. **YENI KAYIT 7 GUN PREMIUM TRIAL SISTEMI canliya alindi (2 Haz oglen)** — `yeni-kayit-hediye` Edge Function + SQL trigger `trg_yeni_kayit_hediye` ON profiles INSERT. Anlik tetikleme: kayit olan kullaniciya `abonelik_durumu='aktif'` + `abonelik_bitis=NOW()+7days` + Resend ile markali hos geldin maili. Bkz. DECISIONS #46. **IKI YENI ISIN BITTIGI YOGUN OGLEDEN SONRA:**
 
 **(1) Havaist Senkron Pipeline kuruldu** — hava.ist resmi backend API'sinden (`s.hava.ist/api.php`) gunluk otomatik tarife/saat senkronu, `scripts/havaist-senkron.mjs` + `havaist-senkron` scheduled task (cron `0 7 * * *`). 14 IST kaydi (eski 7 + yeni 7: Beylikduzu, Otogar Esenler, Merter/Bakirkoy, Avcilar, Arnavutkoy, Silivri/Catalca, Sabiha Gokcen). Aksaray fiyat 355₺→426₺, Kadikoy 390₺→468₺, Taksim/Beşiktaş 34→30 sefer guncellendi. Eski Firecrawl-based `havalimani-tarife-guncelle` task'i DEAD, yenisi gunluk idempotent. Bkz. DECISIONS #44 + SCRIPTS.md #2 + INFRASTRUCTURE.md Bolum 12.
 

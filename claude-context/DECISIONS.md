@@ -1567,3 +1567,97 @@ v1.1.1 yuklendikten sonra v1.1.0 sessiz kanallar silinir, yeni sesli kanallar ol
 - iOS push notifikasyonlari Android channel'lardan etkilenmez, ayri mekanizma (APNs Key V7FM2HN5N7) ile calisir, bu bug iOS'i etkilemedi
 - v1.1.1 yuklenince eski kanallar silinir, yeni temiz kanallar olusur, kategori-bazli user control geri gelir
 
+
+---
+
+## 46. YENI KAYIT 7 GUN PREMIUM TRIAL — Otomatik Hediye Sistemi (2 Haz 2026, oglen)
+
+### Karar
+
+Pusula Istanbul'a her yeni kayit olan kullaniciya **otomatik 7 gun premium uyelik** taninir. Hediye anliktir (gerçek-zamanli trigger), mail kayit akisi siralarinda kullaniciya ulasir.
+
+### Mimari
+
+```
+Kayit akisi:
+  signUp() → auth.users INSERT
+       ↓ (mevcut sync trigger)
+  profiles INSERT
+       ↓ (YENI trg_yeni_kayit_hediye)
+  pg_net ile fire-and-forget POST → Edge Function 'yeni-kayit-hediye'
+       ↓
+  profiles UPDATE: abonelik_durumu='aktif', plan='aylik', bitis=NOW()+7days, revenuecat_id=id
+       ↓
+  Resend ile hos geldin maili (markali HTML + altin gradient kutu)
+```
+
+**Bilesenler:**
+- **Vault secret:** `resend_api_key` (Resend Pro key, Edge Function vault.decrypted_secrets'tan okur)
+- **RPC function:** `public.get_resend_api_key()` (SECURITY DEFINER, sadece service_role GRANT)
+- **Edge Function:** `yeni-kayit-hediye` v2 (verify_jwt=false, CRON_SECRET header auth)
+- **SQL function:** `public.yeni_kayit_hediye_async()` (trigger function, pg_net ile async POST)
+- **Trigger:** `trg_yeni_kayit_hediye` AFTER INSERT ON profiles FOR EACH ROW
+
+### Idempotency / Skip Kosullari
+
+Edge Function 3 katmanli filtre uygular:
+1. **rol IN ('admin', 'moderator')** → atla (admin manuel kayit'sa hediye gereksiz)
+2. **abonelik_durumu = 'aktif'** → atla (manuel grant, geri-doldurma vakalari icin coruyucu)
+3. **email NULL** → premium grant yapilir, mail gonderilmez (hata logu)
+
+SQL trigger ayrica admin/moderator + zaten 'aktif' kontrolu yapar — gereksiz HTTP cagrisini onler.
+
+### Trial Suresi Hesabi
+
+Kullanici kayit oldugu **gun** + 7 gun, gece 23:59'a kadar. Bitis tarihi `Date()` ile JavaScript'te hesaplanir:
+```javascript
+const bitis = new Date();
+bitis.setDate(bitis.getDate() + 7);
+bitis.setHours(23, 59, 59, 999);
+```
+
+Ornek: 2 Haz 14:00'de kayit → bitis 9 Haz 23:59:59. Toplam ~8 gun (yuvarlanmis, kullanici lehine).
+
+### Trial Bitis Davranisi
+
+7 gun sonunda `abonelik_bitis < NOW()` olur. `use-abonelik.ts` client-side bunu kontrol eder ve **kullaniciyi otomatik freemium katmana cevirir**. Hicbir manuel mudahale gerekmez. Kullanici uygulama icinden Aylik 99,99 TL veya Yillik 699,99 TL plani secebilir.
+
+### Vault Pattern (RESEND_API_KEY)
+
+Edge Function secrets'a Supabase Dashboard'tan ekleme yerine **Vault tercih edildi**. Sebep:
+- Tum secret yonetimi tek yerde (`vault.decrypted_secrets`)
+- Service Role Key ile programmatik erisim mumkun (Supabase MCP / scripts)
+- Audit log Supabase iclerinde tutulur
+- Dashboard'a girip manuel ekleme adimi yok
+
+`vault.create_secret(value, name)` ile insert, `SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name=...` ile read. Edge Function `supabase.rpc('get_resend_api_key')` ile cagirir.
+
+Bu pattern push-gonder Edge Function'in `pusula_cron_secret` kullanim deseniyle ayni — proje icindeki standart secret yonetim sablonu.
+
+### Maliyet
+
+- **pg_net trigger HTTP cagrisi:** Bedava (Supabase iclerinde)
+- **Edge Function invocation:** 500K/ay ucretsiz (mevcut kayit hizinda ~1000/ay)
+- **Resend mail:** Pro plan (Ayşe'nin) — kayit hizinda quota icinde
+- **Premium grant:** 7 gun trial, sonra otomatik dusus → ek RC veya stripe maliyeti yok
+- **Beklenen ROI:** Bayram kampanyasinda %1.5 conversion (3 yillik/193 hediye) gormustuk. Trial sirasinda taze rehberin premium ozelliklerini deneyimlemesi → bilesik etki.
+
+### Genel Ders
+
+1. **Anlik tetikleme > Scheduled task** dene zamani onemli senaryolarda. Scheduled task 15 dk gecikme, kullanici "kayit oldum ama hediye gelmedi" diye anlik destek talebi acabilir.
+2. **Vault > Dashboard Secrets** programmatik yonetim icin daha ozgur. Dashboard secret'lara MCP/CLI ile yazma kisitli.
+3. **pg_net fire-and-forget** trigger icinde ideal — INSERT akisini bloke etmez, edge function async calisir.
+4. **3 katmanli idempotency filtresi** (rol, abonelik_durumu, email) — hata ile cift hediye verme riskini bilime indirir.
+
+### Ilgili Dosyalar
+
+- Edge Function: `yeni-kayit-hediye` v2 (Supabase, ezbr_sha256 a8f37ca8...)
+- SQL: `public.get_resend_api_key()`, `public.yeni_kayit_hediye_async()`
+- Trigger: `trg_yeni_kayit_hediye` ON public.profiles
+- Mail template: Bayram script HTML (`scripts/yeni-kayit-bayram-hediye.mjs`) referans, yeni metin Ayse onayli
+
+### Devre Dısı Bırakma / Pause Etme
+
+Trigger'i gecici disable: `ALTER TABLE public.profiles DISABLE TRIGGER trg_yeni_kayit_hediye;`
+Kalici kaldirma: `DROP TRIGGER trg_yeni_kayit_hediye ON public.profiles;`
+
