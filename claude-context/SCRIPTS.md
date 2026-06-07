@@ -586,3 +586,35 @@ Tam kaynak `scripts/havaist-senkron.mjs` dosyasinda — buraya kopyalamiyorum cu
 - Supabase 4xx/5xx → spesifik durak atlanir, digerleri devam eder
 - Havabus (SAW) bu script'in disindadir, admin panel ile yonetilir
 
+
+---
+
+## 3. turyol-senkron
+
+| Alan | Deger |
+|------|-------|
+| Task ID | `turyol-senkron` |
+| Cron | `30 7,19 * * *` (07:30 + 19:30 TR, gunde 2 kez) |
+| Kuruldu | 5 Haziran 2026 |
+| Durum | AKTIF |
+| Script | `scripts/turyol-senkron.mjs` |
+| Audit log | `scripts/data/turyol-senkron-log.json` |
+
+### Ne Yapar
+turyol.com/Home/Tarifeler sayfasina form POST atar (`TarifeKalkisId=4_104_1_101&TarifeVarisId=` — Bogaz Turu > Eminonu Iskele; varis alani bogaz turunda kullanilmaz). Cevap server-rendered HTML: `#datatable-responsive` tablosu 3 kolon (HAFTAICI | CUMARTESI | PAZAR) + `Bilet Fiyati : NNN TL` metni. Parse edilen veriler `bogaz_turlari` tablosundaki TURYOL/standart satirina yazilir: `hafta_ici_saatler` ← HAFTAICI, `hafta_sonu_saatler` ← CUMARTESI (Pazar farkliysa union + uyari — DB'de tek hafta sonu kolonu var), `fiyat` ← "300 TL" formati.
+
+### Tasarim Notlari
+1. **Idempotent** — alanlar tek tek karsilastirilir, degisim yoksa UPDATE atilmaz (push trigger bosa tetiklenmez).
+2. **Guvenlik agi** — haftaici veya cumartesi <5 sefer ise ya da hucrede saat-olmayan deger varsa FATAL, DB'ye yazilmaz (site bozulursa veri korunur).
+3. **Saat normalize** — "9:00" → "09:00".
+4. **Push** — gercek degisimde `push_bogaz_trigger` 'admin' kategorisinde "Tarife Guncellendi" push'u atar (DECISIONS #48: trigger'lar SECURITY DEFINER).
+5. **Form kodu cozumu** — `TarifeKalkisId` degeri `mainHatTuru_hatTuru_mainKalkis_kalkis` formatinda; Bogaz turu mainHatTuru=4, Eminonu kalkis=1. Site JS'i bogaz turunda Nereye combobox'unu gizler, POST bos `TarifeVarisId` ile gider.
+
+### Calistirma Modlari
+- `node scripts/turyol-senkron.mjs` — normal (log + OZET)
+- `--dry` — DB yazmadan rapor
+- `--auto` — scheduled task modu (yalniz OZET + hatalar)
+- `--verbose` — saat listeleri dahil detay
+
+### SKILL.md Prompt (ozet)
+Komut: `cd /Users/aysetokkus/istanbul-rehber && export PATH="/opt/homebrew/opt/node@20/bin:$PATH" && node scripts/turyol-senkron.mjs --auto`. "degisim yok" → sessiz bitir; "GUNCELLENDI" → kisa ozet bildir; "Cumartesi ile Pazar farkli" uyarisi → mutlaka bildir; FATAL → log dosyasindan tani + bildir. Tam prompt: `/Users/aysetokkus/Documents/Claude/Scheduled/turyol-senkron/SKILL.md`.

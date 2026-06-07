@@ -277,3 +277,10 @@ Yeni bir bug ile karsilastiginda dene:
 - **Kok sebep:** Kart container'i eski tasarimdan `flexDirection: 'row'` kalmis; aksiyon bari icerigin sagina ~2px genislikte render oluyordu (cocuklar flex:1 → intrinsic 0). Kod tum paketlerde mevcuttu — build/OTA/RLS suclamalari yanlis cikti.
 - **Cozum:** `kart` → `flexDirection: 'column', alignItems: 'stretch'` (commit 29ee7a6). EAS Update OTA ile runtime 1.1.1'e dagitildi (update group afd5d662), magaza build'i gerekmedi. Detay: DECISIONS #47.
 - **Aciliyet:** Cozuldu (4 Haz 2026).
+### 84. Admin Panel Bogaz/Havalimani/Mekan Saatleri UPDATE Hatasi — push_gonder_async Permission Denied (2-5 Haziran 2026)
+- **Konum:** `trg_push_bogaz`, `trg_push_havalimani`, `trg_push_mekan_saatleri` trigger fonksiyonlari + `push_gonder_async`
+- **Belirti:** Ayse admin panelden Bogaz turu saatlerini guncelleyemiyordu, Alert ile hata. Ayrica (sessiz) tum kullanici-kaynakli push bildirimleri 2 Haz'dan beri gitmiyordu.
+- **Kok sebep:** 2 Haz Security Advisor temizliginde `push_gonder_async`'in PUBLIC EXECUTE'u revoke edildi (dogru karar — RPC spam riski). Ama trigger fonksiyonlari DML yapan kullanicinin (authenticated) yetkisiyle calisir → push cagrisi "permission denied". Zirhsiz 3 trigger'da UPDATE komple FAIL; zirhli 6 trigger'da hata yutuldu ama PUSH SESSIZCE OLU kaldi.
+- **Cozum:** Tum 9 `trg_push_*` fonksiyonu SECURITY DEFINER yapildi (postgres yetkisiyle calisir, push fonksiyonu kilitli kalir, trigger fonksiyonlari RETURNS trigger oldugu icin dogrudan RPC cagrilamaz = guvenli). Zirhsiz 3'une EXCEPTION sargisi eklendi. Migration: `push_trigger_security_definer_ve_exception_zirh`. Authenticated rol simulasyonuyla dogrulandi.
+- **Ders:** SECURITY DEFINER bir fonksiyonun EXECUTE'u revoke edilirken onu cagiran TUM trigger'lar listelenmeli; trigger'lar invoker yetkisiyle calisir. Push akisi degisikliklerinden sonra mutlaka uctan uca push testi yapilmali.
+- **Aciliyet:** Cozuldu (5 Haz 2026). TURYOL tarife verisi ayrica SQL ile guncellendi (haftaici saat basi 10-21, hafta sonu 14 sefer 10:00-21:00).

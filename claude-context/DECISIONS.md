@@ -1681,3 +1681,21 @@ Kalici kaldirma: `DROP TRIGGER trg_yeni_kayit_hediye ON public.profiles;`
 - UI ozelligi "calisiyor" demek icin EKRANDA GORMEK sart; kod + build + deploy zinciri tek basina kanit degil. v1.1.1 "silme UI fix'i" hicbir cihazda gorsel dogrulanmadan yayinlanmisti.
 - JS-only fix'lerde once OTA dusun: review yok, dakikalar icinde tum runtime-uyumlu cihazlara ulasir. Native degisiklik varsa (yeni paket, izin, config plugin) OTA YETMEZ, store build sart.
 - Binary bundle dogrulamasinda Turkce karakterli string KULLANMA (yukaridaki yanlis negatif).
+
+---
+
+## 48. TRIGGER FONKSIYONLARI SECURITY DEFINER OLMALI — EXECUTE Revoke Edilen Fonksiyonu Cagiran Trigger'lar Invoker Yetkisiyle Patlar (5 Haz 2026)
+
+**Vaka:** #46'daki security temizliginde `push_gonder_async` PUBLIC EXECUTE revoke edildi. Trigger fonksiyonlari SECURITY INVOKER (varsayilan) oldugu icin authenticated kullanicinin DML'i trigger icindeki push cagrisinda "permission denied" aldi. Sonuc: admin panel bogaz/havalimani/mekan saat guncellemeleri FAIL + tum kullanici-kaynakli push'lar 2-5 Haz arasi sessiz olu (zirhli trigger'lar hatayi yutuyordu).
+
+**Pattern:** Kisitli (EXECUTE revoke edilmis) helper fonksiyon cagiran trigger fonksiyonlari **SECURITY DEFINER + SET search_path** olmali. `RETURNS trigger` fonksiyonlar PostgREST RPC'den dogrudan cagrilamaz, bu yuzden DEFINER yapmak spam/abuse kapisi acmaz. Helper kilitli kalir.
+
+**Iki katmanli kural (artik standart):**
+1. Trigger fonksiyonu: `SECURITY DEFINER SET search_path TO 'public'`
+2. Icindeki her yan-etki cagrisi: `BEGIN ... EXCEPTION WHEN OTHERS THEN RAISE WARNING` (push fail olsa bile asil DML yasamali)
+
+**Kontrol sorgusu (yeni trigger eklerken):**
+```sql
+SELECT proname, prosecdef, (pg_get_functiondef(oid) LIKE '%EXCEPTION%') as zirhli
+FROM pg_proc WHERE proname LIKE 'trg_push_%';
+```
