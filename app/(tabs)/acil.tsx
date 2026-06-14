@@ -41,6 +41,8 @@ export default function Acil() {
   // Veri gelmezse fallback kullan
   const tp = turizmPolisi.length > 0 ? turizmPolisi[0] : FALLBACK_TURIZM;
   const aciller = acilNumaralar.length > 0 ? acilNumaralar : FALLBACK_ACIL;
+  // 112'nin kendi ozel karti var; geri kalan acil_numara kayitlari (TURYOL vb.) ayri bolumde
+  const faydaliTelefonlar = acilNumaralar.filter((k: any) => (k.numara || '').replace(/\s/g, '') !== '112');
   const meslekler = meslekKuruluslari.length > 0 ? meslekKuruluslari : FALLBACK_MESLEK;
   const linkler = faydaliLinkler.length > 0 ? faydaliLinkler : FALLBACK_LINK;
 
@@ -103,6 +105,33 @@ export default function Acil() {
           Eski numaralar (155, 110, 156, 158, 122, 177) 2021'den bu yana 112'ye yönlendirilir.
         </Text>
       </View>
+
+      {/* FAYDALI TELEFONLAR — acil_numara kategorisi (112 haric) */}
+      {faydaliTelefonlar.length > 0 && (
+        <View style={s.bolum}>
+          <Text style={[s.bolumBaslik, { color: t.textMuted }]}>Faydalı Telefonlar</Text>
+          {faydaliTelefonlar.map((k: any, i: number) => (
+            <View key={k.id || i} style={[s.listeSatir, { backgroundColor: t.bgCard, borderColor: t.kartBorder, flexDirection: 'column', alignItems: 'stretch' }]}>
+              <Text style={[s.listeIsim, { color: t.text }]}>{k.isim}</Text>
+              {k.aciklama ? (
+                <Text style={[s.sozlesmeAlt, { color: t.textSecondary }]}>{k.aciklama}</Text>
+              ) : null}
+              <View style={s.meslekAltSatir}>
+                {k.numara ? (
+                  <TouchableOpacity onPress={() => ara(k.numara)} style={s.araBtn} activeOpacity={0.7}>
+                    <Text style={s.araBtnYazi}>{k.goruntu || k.numara}</Text>
+                  </TouchableOpacity>
+                ) : null}
+                {k.url ? (
+                  <TouchableOpacity onPress={() => WebBrowser.openBrowserAsync(k.url)} style={s.webBtn} activeOpacity={0.7}>
+                    <Text style={s.webBtnYazi}>Web Sitesi</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* MESLEK KURULUSLARI */}
       <View style={s.bolum}>
