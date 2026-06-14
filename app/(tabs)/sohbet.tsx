@@ -710,6 +710,8 @@ export default function SohbetEkrani() {
         onEndReached={yenile}
         inverted={false}
         scrollEnabled={true}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
       />
 
       {/* ── Giriş Alanı ── */}
