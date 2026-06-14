@@ -291,7 +291,7 @@ Yeni bir bug ile karsilastiginda dene:
 - **Kok sebep:** iOS'ta `multiline` TextInput'un "return" tusu satir atlatir, klavyeyi kapatmaz (tek satirli input'tan farkli — orada return ile blur olur). Ek olarak FlatList'te `keyboardDismissMode` ayarli degildi → listeyi kaydirinca klavye kapanmiyordu, ve `keyboardShouldPersistTaps` ayarli degildi → bos alana dokunma da ise yaramiyordu. Bos kutuda "Gonder" pasif oldugu icin klavyeyi kapatacak hicbir yol kalmiyordu.
 - **Cozum:** FlatList'e `keyboardDismissMode="on-drag"` (sohbeti asagi kaydirinca klavye kapanir — iMessage/WhatsApp standardi) + `keyboardShouldPersistTaps="handled"` (klavye acikken butonlar/tap calismaya devam eder, bos alana ilk dokunmada klavye kapanir) eklendi. JS-only degisiklik, native rebuild gerektirmez → OTA ile dagitilabilir.
 - **Ders:** `multiline` TextInput kullanan her ekranda klavye kapatma yolu acikca saglanmali (on-drag dismiss ya da gorunur kapat affordance). Tek satirli input'taki `returnKeyType`/blur davranisina guvenilemez.
-- **Aciliyet:** Cozuldu (7 Haz 2026). Dagitim bekliyor (OTA veya v1.1.2 store build).
+- **Aciliyet:** Cozuldu (7 Haz 2026), DAGITILDI (14 Haz 2026 — EAS Update OTA, runtime 1.1.1, group `7b10c8d6`, commit `15bf72f`).
 
 ### 86. Android Push Bildirimi Sessiz — Kanal `sound` Verilmeden Olusturulunca SESSIZ (14 Haziran 2026)
 - **Konum:** `hooks/use-bildirimler.ts` (Android kanallari) + `supabase/functions/push-gonder` (KANAL_MAP)
