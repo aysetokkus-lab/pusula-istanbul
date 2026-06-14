@@ -1494,6 +1494,8 @@ Ayni mantik **havabus.com icin denenmedi** — eski url pattern (`/yolcuservisi/
 
 ## 45. ANDROID NOTIFICATION CHANNEL SES BUG'I — `sound: 'default'` STRING'I SESSIZ KANAL OLUSTURUYOR (2 Haz 2026)
 
+> **DUZELTME (14 Haz 2026 — bkz. #49):** Bu karardaki kok-sebep teshisi YANLISTI. `sound: 'default'` aslinda SESSIZ yapmaz; expo-notifications'da raw dosya bulunamayinca `DEFAULT_NOTIFICATION_URI`'ye duser (= sistem sesi calar). v1.1.1'deki "sound parametresini hic vermeme" cozumu de yanlisti: `sound` anahtari yoksa `setSound` hic cagrilmaz ve kanal Samsung OneUI'da SESSIZ kalir. Gercek cozum #49'da: `sound: 'default'` ver + ID'leri -v3'e bump'la. Asagidaki #45 metni tarihsel kayit icin birakildi.
+
 ### Sorun
 
 v1.1.0'da push notification altyapisi kuruldugunda (DECISIONS #42), 6 Android bildirim kanali `expo-notifications` `setNotificationChannelAsync` ile olusturuldu, her birinde `sound: 'default'` string parametresi verildi. Push gondertildiginde bildirim **gorunuyor** (banner duser) ama **ses cikmiyor**. Ayse'nin iki Android telefonunda dogrulandi.
@@ -1699,3 +1701,35 @@ Kalici kaldirma: `DROP TRIGGER trg_yeni_kayit_hediye ON public.profiles;`
 SELECT proname, prosecdef, (pg_get_functiondef(oid) LIKE '%EXCEPTION%') as zirhli
 FROM pg_proc WHERE proname LIKE 'trg_push_%';
 ```
+
+---
+
+## 49. ANDROID BILDIRIM KANALI SESI — DOGRU COZUM `sound: 'default'` (#45'i DUZELTIR) (14 Haz 2026)
+
+### Sorun
+Push uctan uca testinde (iOS + Android S22) iOS sorunsuz banner+ses verdi. Android'de bildirim **geldi (titresim + akilli saat)** ama **ses cikmadi** — cihaz ses modunda, app-seviyesi "Ses ve titresim" ACIK olmasina ragmen. Android Ayarlar'da kategori (orn. "Sohbet Mesajlari") kanalinin sesi "Sessiz" gorundu; elle acilinca ses geldi → kanal SESSIZ olusturulmustu.
+
+### Kok Sebep (kaynak koddan dogrulandi, #45 teshisi yanlisti)
+`node_modules/expo-notifications@0.32.16` `AndroidXNotificationsChannelManager.java`:
+- `channel.setSound(...)` SADECE `args.containsKey(SOUND_KEY)` (veya audioAttributes) true ise cagriliyor. **`sound` hic verilmezse setSound cagrilmaz** ve kanal Samsung OneUI'da sessiz kalir. → v1.1.1'deki "sound parametresini hic verme" yaklasimi (#45) bu yuzden sessiz uretti.
+- `createSoundUriFromArguments`: `sound: 'default'` → `SoundResolver.resolve("default")` → "default" adli raw kaynak YOK → `Settings.System.DEFAULT_NOTIFICATION_URI` doner = **sistem varsayilan sesi**. → #45'in "`'default'` default.wav arar, sessiz kalir" teshisi YANLIS. `'default'` dogru ve guvenli deger.
+- `sound: null` → gercekten sessiz.
+
+### Cozum (v1.1.2)
+1. **Client** (`hooks/use-bildirimler.ts`): 6 kanal `sound: 'default'` ile, ID'ler `-v3`'e bump'landi (kanallar immutable; -v2 sessiz olarak kilitli). Eski ID'ler (v1 + v2) `deleteNotificationChannelAsync` ile silinir. Tum importance 4 (HIGH).
+2. **Edge Function** (`push-gonder` v3): `KANAL_MAP` → `-v3`. Henuz OTA almamis cihazlarda -v3 bulunmaz → Android default kanala fallback → ses calar (ANLIK sunucu-taraffi hotfix, 65 token'li kullanici icin). Bu, #45'teki "server-side kanal ID degisikligi acil hotfix" altin patikasinin 2. kullanimi.
+3. **Dagitim:** Edge Function deploy (v3) + EAS Update OTA (runtime 1.1.1, group `ff7eceb9`). Mağaza build'i gerekmedi.
+
+### Dogrulama
+- Edge Function v3 deploy SONRASI -v3 fallback testi S22'de ses verdi (henuz OTA yokken bile). → 65 kullanicida ses aninda geri geldi.
+- Trigger zinciri ayrica saglikli dogrulandi: 10 `trg_push*`/`push_gonder_async` hepsi SECURITY DEFINER (6 Haz #48 fix yerinde), `net._http_response` son 25 cagri hepsi 200.
+
+### Dersler
+1. **`sound` parametresini ASLA omit etme.** Omit = setSound cagrilmaz = (Samsung'da) sessiz. Sistem sesi istiyorsan **acikca `sound: 'default'` ver.** ("Omit edince default gelir" sezgisi YANLIS.)
+2. **`sound: 'default'` guvenli ve dogru** — raw dosya yoksa DEFAULT_NOTIFICATION_URI'ye duser. #45'teki "default.wav sessiz" teshisi hataliydi.
+3. **Kanal ayari dogrulamasi sadece cihazda yapilir** — kod review yetmez. "Banner geldi" != "ses geldi". Test: kapali cihaza gercek push + Ayarlar'da kanal sesini kontrol.
+4. **Supheli kutuphane davranisini node_modules kaynagindan dogrula** — tahmin/web yerine kurulu surumun gercek .java/.kt kodu kesin cevap verir.
+
+### Dosyalar
+- `hooks/use-bildirimler.ts` (kanal -v3 + sound:'default' + eski kanal temizligi)
+- `supabase/functions/push-gonder/index.ts` (KANAL_MAP -v3, artik repoda)

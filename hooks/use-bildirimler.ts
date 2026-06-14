@@ -60,13 +60,23 @@ if (!isExpoGo) {
    suffix eklendi). push-gonder Edge Function'i da yeni
    ID'lere set edildi.
 
-   ESKI ID -> YENI ID:
-   ulasim-uyari    -> ulasim-uyari-v2
-   trafik-uyari    -> trafik-uyari-v2
-   saha-durumu     -> saha-durumu-v2
-   etkinlikler     -> etkinlikler-v2
-   sohbet          -> sohbet-v2
-   sistem          -> sistem-v2
+   v1.1.2 fix (14 Haz 2026) — SES TEKRAR SESSIZ CIKTI:
+   -v2 kanallari `sound` parametresi VERILMEDEN olusturuldu. Sanilanin
+   aksine bu "sistem sesi" degil, SESSIZ kanal uretiyor: expo-notifications
+   0.32.16 kaynaginda (AndroidXNotificationsChannelManager.java) `sound`
+   anahtari yoksa `channel.setSound(...)` HIC cagrilmiyor ve kanal Samsung
+   OneUI'da sessiz kaliyor. DOGRU COZUM: `sound: 'default'` ver. resolve('default')
+   raw dosya bulamayinca Settings.System.DEFAULT_NOTIFICATION_URI'ye duser =
+   sistem varsayilan bildirim sesi calar. Kanallar immutable oldugu icin
+   ID'ler -v3'e bump'landi; eski (v1 + v2) kanallar silinir.
+
+   ESKI ID'ler (silinecek) -> YENI ID (-v3, sound:'default'):
+   ulasim-uyari / -v2    -> ulasim-uyari-v3
+   trafik-uyari / -v2    -> trafik-uyari-v3
+   saha-durumu  / -v2    -> saha-durumu-v3
+   etkinlikler  / -v2    -> etkinlikler-v3
+   sohbet       / -v2    -> sohbet-v3
+   sistem       / -v2    -> sistem-v3
    ═══════════════════════════════════════════ */
 const ESKI_KANAL_IDLER = [
   'ulasim-uyari',
@@ -75,6 +85,12 @@ const ESKI_KANAL_IDLER = [
   'etkinlikler',
   'sohbet',
   'sistem',
+  'ulasim-uyari-v2',
+  'trafik-uyari-v2',
+  'saha-durumu-v2',
+  'etkinlikler-v2',
+  'sohbet-v2',
+  'sistem-v2',
 ];
 
 async function androidKanallariOlustur() {
@@ -90,16 +106,18 @@ async function androidKanallariOlustur() {
     }
   }
 
-  // Yeni kanallar: sound 'default' string yerine sound: null degil,
-  // sound parametresi HIC verilmiyor — Expo varsayilan sistem sesi atar.
-  // vibrationPattern verildiginde enableVibrate: true otomatik.
+  // Yeni -v3 kanallar: sound: 'default' VERILIYOR. expo-notifications bunu
+  // raw resource olarak arar, bulamaz ve Settings.System.DEFAULT_NOTIFICATION_URI'ye
+  // duser = sistem varsayilan bildirim sesi. (sound HIC verilmezse setSound
+  // cagrilmaz ve kanal sessiz kalir — v1.1.1'deki gercek bug buydu.)
+  // importance >= 3 (DEFAULT) ses icin sart; 4 (HIGH) ayrica heads-up acar.
   const kanallar = [
-    { id: 'ulasim-uyari-v2', name: 'Ulaşım Uyarıları', importance: 4 },
-    { id: 'trafik-uyari-v2', name: 'Trafik ve Yol Durumu', importance: 4 },
-    { id: 'saha-durumu-v2', name: 'Saha Durumu', importance: 4 },
-    { id: 'etkinlikler-v2', name: 'Etkinlikler', importance: 3 },
-    { id: 'sohbet-v2', name: 'Sohbet Mesajları', importance: 4 },
-    { id: 'sistem-v2', name: 'Sistem Güncellemeleri', importance: 3 },
+    { id: 'ulasim-uyari-v3', name: 'Ulaşım Uyarıları', importance: 4 },
+    { id: 'trafik-uyari-v3', name: 'Trafik ve Yol Durumu', importance: 4 },
+    { id: 'saha-durumu-v3', name: 'Saha Durumu', importance: 4 },
+    { id: 'etkinlikler-v3', name: 'Etkinlikler', importance: 4 },
+    { id: 'sohbet-v3', name: 'Sohbet Mesajları', importance: 4 },
+    { id: 'sistem-v3', name: 'Sistem Güncellemeleri', importance: 4 },
   ];
   try {
     for (const k of kanallar) {
@@ -107,8 +125,7 @@ async function androidKanallariOlustur() {
         name: k.name,
         importance: k.importance as any,
         vibrationPattern: [0, 250, 250, 250],
-        // sound parametresi VERILMEDI -> Expo/Android sistem default sesi kullanir
-        // (string 'default' bug'ina dusmemek icin)
+        sound: 'default', // -> DEFAULT_NOTIFICATION_URI (sistem varsayilan sesi)
         enableVibrate: true,
         showBadge: true,
       });

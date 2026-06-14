@@ -284,3 +284,20 @@ Yeni bir bug ile karsilastiginda dene:
 - **Cozum:** Tum 9 `trg_push_*` fonksiyonu SECURITY DEFINER yapildi (postgres yetkisiyle calisir, push fonksiyonu kilitli kalir, trigger fonksiyonlari RETURNS trigger oldugu icin dogrudan RPC cagrilamaz = guvenli). Zirhsiz 3'une EXCEPTION sargisi eklendi. Migration: `push_trigger_security_definer_ve_exception_zirh`. Authenticated rol simulasyonuyla dogrulandi.
 - **Ders:** SECURITY DEFINER bir fonksiyonun EXECUTE'u revoke edilirken onu cagiran TUM trigger'lar listelenmeli; trigger'lar invoker yetkisiyle calisir. Push akisi degisikliklerinden sonra mutlaka uctan uca push testi yapilmali.
 - **Aciliyet:** Cozuldu (5 Haz 2026). TURYOL tarife verisi ayrica SQL ile guncellendi (haftaici saat basi 10-21, hafta sonu 14 sefer 10:00-21:00).
+
+### 85. Sohbet Ekrani iOS Klavye Tuzagi — Multiline Input Kapatilamiyor (7 Haziran 2026)
+- **Konum:** `app/(tabs)/sohbet.tsx` — mesaj giris `TextInput` (`multiline={true}`) + mesaj `FlatList`
+- **Belirti (iPhone 11):** Ayse mesaj kutusuna dokunup yazmaya basladiktan sonra vazgecince klavyeyi kapatamiyor, mesaj giris alanindan cikamiyor — uygulamayi tamamen kapatmak zorunda kaliyor. Android'de geri tusu klavyeyi kapattigi icin orada fark edilmiyor.
+- **Kok sebep:** iOS'ta `multiline` TextInput'un "return" tusu satir atlatir, klavyeyi kapatmaz (tek satirli input'tan farkli — orada return ile blur olur). Ek olarak FlatList'te `keyboardDismissMode` ayarli degildi → listeyi kaydirinca klavye kapanmiyordu, ve `keyboardShouldPersistTaps` ayarli degildi → bos alana dokunma da ise yaramiyordu. Bos kutuda "Gonder" pasif oldugu icin klavyeyi kapatacak hicbir yol kalmiyordu.
+- **Cozum:** FlatList'e `keyboardDismissMode="on-drag"` (sohbeti asagi kaydirinca klavye kapanir — iMessage/WhatsApp standardi) + `keyboardShouldPersistTaps="handled"` (klavye acikken butonlar/tap calismaya devam eder, bos alana ilk dokunmada klavye kapanir) eklendi. JS-only degisiklik, native rebuild gerektirmez → OTA ile dagitilabilir.
+- **Ders:** `multiline` TextInput kullanan her ekranda klavye kapatma yolu acikca saglanmali (on-drag dismiss ya da gorunur kapat affordance). Tek satirli input'taki `returnKeyType`/blur davranisina guvenilemez.
+- **Aciliyet:** Cozuldu (7 Haz 2026). Dagitim bekliyor (OTA veya v1.1.2 store build).
+
+### 86. Android Push Bildirimi Sessiz — Kanal `sound` Verilmeden Olusturulunca SESSIZ (14 Haziran 2026)
+- **Konum:** `hooks/use-bildirimler.ts` (Android kanallari) + `supabase/functions/push-gonder` (KANAL_MAP)
+- **Belirti (Samsung S22, OneUI):** Push uctan uca testinde bildirim geldi (titresim + akilli saatte gorundu) ama **ses cikmadi**. Cihaz ses modunda, app "Ses ve titresim" anahtari ACIK. iOS'ta ayni push ses verdi. Android Ayarlar → kategori "Sohbet Mesajlari" → ses "Sessiz"; elle acilinca ses geldi → kanal sessiz olusmus.
+- **Kok sebep:** v1.1.1'de (-v2 kanallari) `sound` parametresi HIC verilmeden olusturuldu. `expo-notifications@0.32.16` kaynaginda `setSound` sadece `sound` anahtari varsa cagriliyor; yoksa kanal Samsung'da sessiz kalir. (Onceki DECISIONS #45 teshisi "omit = sistem sesi" yanlisti.) Kanallar immutable oldugu icin kod degisikligi mevcut -v2 kanallari duzeltemez.
+- **Cozum (v1.1.2):** Kanallar `sound: 'default'` ile (-> DEFAULT_NOTIFICATION_URI) ve yeni `-v3` ID'leri altinda yeniden olusturuldu; eski v1+v2 kanallar silindi. Edge Function `KANAL_MAP` -v3'e alindi (deploy v3) — OTA almamis cihazlarda -v3 yok → Android default kanala fallback → ses ANINDA geri geldi (65 token'li kullanici). Detay: DECISIONS #49.
+- **Dogrulama:** S22'de -v3 fallback testi ses verdi (OTA oncesi). Edge Function v3 deploy + EAS Update OTA (runtime 1.1.1, group `ff7eceb9`).
+- **Ders:** `sound: 'default'` acikca verilmeli; omit etmek (Samsung'da) sessiz uretir. "Banner geldi" != "ses geldi" — kapali cihazda gercek test sart.
+- **Aciliyet:** Cozuldu + dagitildi (14 Haz 2026).
