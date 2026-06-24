@@ -1733,3 +1733,38 @@ Push uctan uca testinde (iOS + Android S22) iOS sorunsuz banner+ses verdi. Andro
 ### Dosyalar
 - `hooks/use-bildirimler.ts` (kanal -v3 + sound:'default' + eski kanal temizligi)
 - `supabase/functions/push-gonder/index.ts` (KANAL_MAP -v3, artik repoda)
+
+---
+
+## 50. FIRECRAWL ABONELIGI IPTAL — RESMI KAYNAK/API > SCRAPE (24 Haz 2026)
+
+### Baglam
+Firecrawl Hobby aboneligi (~918₺/ay) icin odeme basarisiz maili geldi; Ayse aboneligi unutmustu. Kontrol: Firecrawl'a bagli SADECE 2 aktif scheduled task kalmisti (havalimani + Turyol zaten #44/turyol-senkron ile Firecrawl'dan cikmisti):
+- `sehir-hatlari-iptal-takip` (iptal seferler scrape)
+- `bogaz-diger-senkron` (Sehir Hatlari kisa/uzun + Dentur scrape)
+
+### Bulgu
+Her 3 kaynak da Firecrawl'sIZ alinabiliyor (DECISIONS #44'un genel ilkesi: once resmi kaynak/API):
+1. **sehirhatlari.istanbul** — TAMAMEN server-rendered HTML (ASP.NET). Duz `fetch()` + regex parse yeterli. (iptal-seferler + bogaz-turlari/kisa-181 + uzun-91)
+2. **Dentur (denturavrasya.com)** — Angular SPA, ama arkasinda resmi backend API var:
+   `GET https://denturavrasya.com:7284/api/WebSitePage/hatlarimiz/content-detail/bogazturu`
+   Header: `Accept-Language: tr` → JSON, icinde sayfa HTML'i (Kabatas/Besiktas tarife tablosu).
+   (API kesfi: main.*.js bundle'inda `baseUrl:"...:7284"` + endpoint sabitleri; content-detail cocuk sayfa icin `{parent}/content-detail/{child}` deseni.)
+
+### Cozum
+Iki Firecrawl gorevi script-driven'a cevrildi (turyol-senkron pattern'i):
+- `scripts/sehir-hatlari-iptal-senkron.mjs` — iptal-seferler ana duyuru → ulasim_uyarilari upsert. SESSIZ MOD (delta=0 → bildirim yok). Etki tarihi parse + gecmis duyuru oto-pasif. tweet_id artik stabil `sh-<duyuruId>` (eski title-hash drift'i bitti).
+- `scripts/bogaz-diger-senkron.mjs` — SH kisa/uzun (Eminonu kalkis) + Dentur (Kabatas YILDIZSIZ saatler; ** = talebe bagli haric). Fiyat DEGISTIRILMEZ, sadece farkliysa "FIYAT UYARI" bildirir.
+
+### Gecis (push spam'siz)
+`push_ulasim_trigger` INSERT-only (tgtype=5). Yeni `sh-3765` INSERT'i 65 kullaniciya zaten bilinen Moda kesintisi icin tekrar push gonderirdi. Onlem: mevcut aktif Moda kaydinin tweet_id'si SQL UPDATE ile `sh-3765`'e cevrildi (UPDATE trigger tetiklemez); sonra script upsert "ON CONFLICT DO UPDATE" yoluna dustu (INSERT trigger fire ETMEZ). Dogrulama: net._http_response son 5 dk = 0 push.
+
+### Ders
+1. **Bir SPA'nin verisi gerekiyorsa once JS bundle'ina bak** — `grep -oE 'baseUrl|api/[A-Za-z]+'`. Cogu Angular/React app resmi (cogu zaman public-reachable) backend API'ye gider. Firecrawl/Puppeteer'a gerek kalmaz.
+2. **Scrape araci abonelikleri periyodik gozden gecirilmeli** — bagimliliklar zamanla azalir (havalimani+Turyol cikinca Firecrawl 2 goreve dusmustu, ikisi de gereksizdi).
+3. **tweet_id'yi kaynagin stabil ID'sinden uret** (URL slug numarasi), title-hash'ten DEGIL — Turkce karakter/typo varyasyonu hash drift + duplicate kayit yaratir (eski iptal-takip'te 10+ kopya vardi).
+
+### Dosyalar
+- `scripts/sehir-hatlari-iptal-senkron.mjs` (yeni)
+- `scripts/bogaz-diger-senkron.mjs` (yeni)
+- Scheduled task prompt'lari (sehir-hatlari-iptal-takip + bogaz-diger-senkron) script-driven'a guncellendi.
