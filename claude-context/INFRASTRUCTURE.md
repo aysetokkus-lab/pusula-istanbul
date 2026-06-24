@@ -208,6 +208,7 @@ v1.0.7 felaketi sonrasi: her release'de Manual release sec, otomatik release yap
 - **GitHub Pages** aktif, custom domain baglandi
 - **GitHub Repo:** https://github.com/aysetokkus-lab/pusula-istanbul.git
 - Eski URL: https://aysetokkus-lab.github.io/pusula-istanbul/ (custom domain'e 301 redirect)
+- **GitHub auth: HTTPS PAT → SSH (24 Haz 2026)** — git push artik SSH anahtariyla (ed25519, Mac keychain'de, fingerprint SHA256:jaC+uFCaxELenH/16iaS0Qm5Ev5tV2guxcj2EEypEW4). Eski fine-grained PAT `pusula-istanbul-push` kullanim disi (suresi doldu). Remote SSH: `git@github.com:aysetokkus-lab/pusula-istanbul.git`. SSH suresiz → token yenileme derdi yok.
 
 ### Kaynak Dosyalar (`docs/` klasoru)
 - `docs/index.html` — Landing page + gizlilik politikasi + kullanim kosullari (tek dosyada SPA mantigi)
