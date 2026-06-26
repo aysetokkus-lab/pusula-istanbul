@@ -330,10 +330,11 @@ revenuecat_id   TEXT
 
 ### Moderator Yetkileri (sinirli)
 - Etkinlik yonetimi (admin-etkinlik.tsx — tam erisim)
-- Sultanahmet Camii saat girisi (admin-saatler.tsx — sadece Sultanahmet)
-- Saha durumu bildirim (canli-durum-panel — tum kullanicilar gibi)
-- **GOREMEZ:** Sohbet moderasyonu, ban yonetimi, kufur listesi, mevsim gecisi, mekan listesi/ekleme/duzenleme, ulasim tarifeleri, acil durum rehberi
-- admin-saatler.tsx'de `{isAdmin && (...)}` ile sarili: mevsim gecis butonlari, kategori sekmeleri, mekan listesi/duzenleme
+- Saha durumu bildirim (canli-durum-panel + admin-saha — tum kullanicilar gibi)
+- Genel duyurular (ana sayfadaki GenelDuyuruPanel — ekle/duzenle/sabitle/sil, gating `isYetkili`, RLS admin+moderator)
+- **Mekan saatleri — CAMILER (26 Haz 2026 genisletildi):** moderator admin-saatler.tsx'te Sultanahmet ozel kartina ek olarak TUM camileri (kategori=`camiler`) gorur, duzenler ve yeni cami EKLEYEBILIR. Kategori moderatorde `camiler`e kilitli (useEffect ile zorlanir), kategori sekmeleri gizli, header alt yazi "Cami saatlerini yonet". RLS zaten admin+moderator'a aciydi (`mekan_saatleri_admin_yazar`), degisiklik tamamen frontend. Mekan SILME butonu moderatorde gizli (sadece admin).
+- **GOREMEZ:** Sohbet moderasyonu, ban yonetimi, kufur listesi, mevsim gecisi (toplu yaz/kis), muze/saray/ozel-muze kategorileri, ulasim tarifeleri, acil durum rehberi
+- admin-saatler.tsx'de `{isAdmin && (...)}` ile sarili (moderator GOREMEZ): mevsim gecis butonlari, kategori sekmeleri, mekan silme butonu. `{isYetkili && (...)}` (moderator GORUR): mekan listesi (camiler'e kilitli), yeni ekle butonu, duzenleme modali
 
 ---
 

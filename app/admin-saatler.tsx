@@ -191,6 +191,13 @@ export default function AdminSaatler() {
 
   useEffect(() => { if (isYetkili) { veriCek(); sultanahmetCek(); } }, [sekme, isYetkili]);
 
+  // Moderator (admin degil) sadece camileri yonetir — kategori 'camiler'e kilitli
+  useEffect(() => {
+    if (!adminYukleniyor && isYetkili && !isAdmin && sekme !== 'camiler') {
+      setSekme('camiler');
+    }
+  }, [adminYukleniyor, isYetkili, isAdmin, sekme]);
+
   const yeniEkleAc = () => {
     setYeniEkleModu(true);
     setSeciliMekan(null);
@@ -409,7 +416,7 @@ export default function AdminSaatler() {
           <Text style={s.geriTusYazi}>{'<'} Geri</Text>
         </TouchableOpacity>
         <Text style={s.headerBaslik}>Mekan Saatleri</Text>
-        <Text style={s.headerAlt}>Müze, saray, cami saatlerini yönet</Text>
+        <Text style={s.headerAlt}>{isAdmin ? 'Müze, saray, cami saatlerini yönet' : 'Cami saatlerini yönet'}</Text>
       </LinearGradient>
 
       {/* Mevsim Gecis Butonlari (sadece admin) */}
@@ -452,8 +459,8 @@ export default function AdminSaatler() {
         </ScrollView>
       )}
 
-      {/* Mekan Listesi (sadece admin) */}
-      {isAdmin && (
+      {/* Mekan Listesi (admin: tum kategoriler — moderator: sadece camiler) */}
+      {isYetkili && (
       <ScrollView style={s.liste} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Yeni Ekle Butonu */}
         <TouchableOpacity style={s.yeniEkleBtn} onPress={yeniEkleAc} activeOpacity={0.7}>
@@ -574,8 +581,8 @@ export default function AdminSaatler() {
         </View>
       </Modal>
 
-      {/* Duzenleme Modali (sadece admin) */}
-      {isAdmin && (
+      {/* Duzenleme Modali (admin + moderator) */}
+      {isYetkili && (
       <Modal visible={duzenleModal} transparent animationType="slide" onRequestClose={() => setDuzenleModal(false)}>
         <View style={s.modalArka}>
           <View style={s.modalKutu}>
@@ -777,7 +784,7 @@ export default function AdminSaatler() {
               <TouchableOpacity style={s.iptalBtn} onPress={() => setDuzenleModal(false)}>
                 <Text style={s.iptalBtnYazi}>İptal</Text>
               </TouchableOpacity>
-              {!yeniEkleModu && seciliMekan && (
+              {!yeniEkleModu && seciliMekan && isAdmin && (
                 <TouchableOpacity style={s.silBtn} onPress={mekanSil}>
                   <Text style={s.silBtnYazi}>Mekanı Sil</Text>
                 </TouchableOpacity>
