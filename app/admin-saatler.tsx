@@ -180,10 +180,13 @@ export default function AdminSaatler() {
 
   const veriCek = async () => {
     setYukleniyor(true);
+    // Moderator (admin degil) HER ZAMAN sadece camileri ceker — sekme degerinden bagimsiz
+    // (race condition'i onler: ilk render'da varsayilan sekme 'milli_saraylar' ile cekim yapilmaz)
+    const efektifKategori = isAdmin ? sekme : 'camiler';
     const { data } = await supabase
       .from('mekan_saatleri')
       .select('*')
-      .eq('kategori', sekme)
+      .eq('kategori', efektifKategori)
       .order('isim');
     setMekanlar((data as MekanSaat[]) || []);
     setYukleniyor(false);
@@ -203,7 +206,7 @@ export default function AdminSaatler() {
     setSeciliMekan(null);
     setYeniIsim('');
     setYeniMekanId('');
-    setYeniTip(sekme === 'camiler' ? 'cami' : sekme === 'milli_saraylar' ? 'saray' : 'muze');
+    setYeniTip(!isAdmin ? 'cami' : sekme === 'camiler' ? 'cami' : sekme === 'milli_saraylar' ? 'saray' : 'muze');
     setYeniRenk('#0077B6');
     setYeniKapaliGun('');
     setForm({
@@ -281,7 +284,7 @@ export default function AdminSaatler() {
         isim: yeniIsim.trim(),
         mekan_id: mekanId,
         tip: yeniTip,
-        kategori: sekme,
+        kategori: isAdmin ? sekme : 'camiler',
         renk: yeniRenk,
         kapali_gun: yeniKapaliGun ? parseInt(yeniKapaliGun) : null,
         aktif: true,
