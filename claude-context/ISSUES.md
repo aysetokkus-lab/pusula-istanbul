@@ -301,3 +301,11 @@ Yeni bir bug ile karsilastiginda dene:
 - **Dogrulama:** S22'de -v3 fallback testi ses verdi (OTA oncesi). Edge Function v3 deploy + EAS Update OTA (runtime 1.1.1, group `ff7eceb9`).
 - **Ders:** `sound: 'default'` acikca verilmeli; omit etmek (Samsung'da) sessiz uretir. "Banner geldi" != "ses geldi" — kapali cihazda gercek test sart.
 - **Aciliyet:** Cozuldu + dagitildi (14 Haz 2026).
+
+### 87. Trafik Bildirimi Kapatilamiyor — Duplike Push Token (Ela/Ayse Vakasi) + Logout Temizligi RLS Sessiz Reddi (2 Temmuz 2026)
+- **Konum:** `hooks/use-push-token.ts` + `profiles.expo_push_token` + Edge Function `push-gonder`
+- **Belirti:** Ayse profil > bildirim ayarlarindan trafik'i kapatti, S22'ye trafik push'lari (IBB Ulasim, 15 dk'da bir) gelmeye devam etti. Tercih DB'de dogruydu, Edge Function filtresi dogru calisiyordu.
+- **Kok sebep:** S22'nin push token'i IKI profilde kayitliydi — Ayse (trafik:false) + Ela/kelebekiamarket (tercih NULL = hepsi acik). 26 Haz moderator cami testinde Ayse S22'de Ela hesabiyla giris yapinca token Ela'ya da yazilmisti. Server push'u Ela'nin satiri uzerinden gonderiyordu → ayni cihaz. Logout'un token'i temizlememe sebebi: temizlik SIGNED_OUT event'inde (signOut SONRASI) yapiliyordu → RLS sessiz red (0 satir, hata yok). Yan etki: Ela'nin kendi cihazi 26 Haz'dan beri push alamiyordu.
+- **Cozum:** (1) Ela'nin satirindaki token NULL'landi (aninda kesildi, trafik hedef 27→26). (2) `push_token_kaydet` SECURITY DEFINER RPC — token kaydinda ayni token'i diger profillerden temizler. (3) `pushTokenTemizle()` signOut ONCESINE alindi (profil.tsx 2 nokta). (4) push-gonder v4: token dedupe sigortasi (en guncel push_token_guncellendi kazanir). Detay: DECISIONS #51.
+- **Dogrulama:** Duplike token sorgusu 0 satir, trafik hedef 26, tsc temiz.
+- **Aciliyet:** Cozuldu (2 Tem 2026). Client fix OTA dagitimi bekliyor; Ela app'i actiginda kendi token'i otomatik geri yazilir.

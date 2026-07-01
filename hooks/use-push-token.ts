@@ -65,31 +65,24 @@ async function tokenAl(): Promise<string | null> {
 }
 
 /* ═══════════════════════════════════════════
-   Yardimci: Token'i Supabase'e yaz
+   Yardimci: Token'i Supabase'e yaz (RPC)
+   ───────────────────────────────────────────
+   push_token_kaydet RPC'si (SECURITY DEFINER) ayni token'i
+   tasiyan DIGER profilleri de temizler. Expo push token
+   CIHAZA aittir, hesaba degil — ayni cihazda hesap
+   degistirilirse token son giris yapan kullaniciya gecer.
+   (ISSUES #87: duplike token yuzunden kullanici baska
+   hesabin bildirim tercihleriyle push aliyordu.)
+   Her cagri idempotent; "ayni token'sa yazma" optimizasyonu
+   bilerek kaldirildi — her acilis stale duplikasyonu supurur.
    ═══════════════════════════════════════════ */
-async function tokenKaydet(userId: string, token: string): Promise<void> {
+async function tokenKaydet(token: string): Promise<void> {
   try {
-    // Once mevcut degeri oku — gereksiz yazma yapma
-    const { data: mevcut } = await supabase
-      .from('profiles')
-      .select('expo_push_token')
-      .eq('id', userId)
-      .single();
-
-    if (mevcut?.expo_push_token === token) {
-      // Ayni token, gereksiz update atma
-      return;
-    }
-
     const platform: 'ios' | 'android' = Platform.OS === 'ios' ? 'ios' : 'android';
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        expo_push_token: token,
-        push_token_platform: platform,
-        push_token_guncellendi: new Date().toISOString(),
-      })
-      .eq('id', userId);
+    const { error } = await supabase.rpc('push_token_kaydet', {
+      p_token: token,
+      p_platform: platform,
+    });
 
     if (error) {
       console.warn('Push token kaydetme hata:', error.message);
@@ -100,19 +93,29 @@ async function tokenKaydet(userId: string, token: string): Promise<void> {
 }
 
 /* ═══════════════════════════════════════════
-   Yardimci: Token'i Supabase'den temizle
-   (logout sonrasi — token baska kullaniciya gitmemeli)
+   Token'i Supabase'den temizle — EXPORT'lu.
+   ───────────────────────────────────────────
+   DIKKAT (ISSUES #87): Bu fonksiyon signOut()'tan ONCE
+   cagrilmali. SIGNED_OUT event'inde cagirmak ise yaramaz:
+   oturum kapandigi icin RLS update'i SESSIZCE reddeder
+   (0 satir, hata yok — DECISIONS "RLS Sessiz Reddedebilir").
+   Cikis akisi: await pushTokenTemizle(); await signOut();
    ═══════════════════════════════════════════ */
-async function tokenTemizle(userId: string): Promise<void> {
+export async function pushTokenTemizle(): Promise<void> {
   try {
-    await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase
       .from('profiles')
       .update({
         expo_push_token: null,
         push_token_platform: null,
         push_token_guncellendi: new Date().toISOString(),
       })
-      .eq('id', userId);
+      .eq('id', user.id);
+    if (error) {
+      console.warn('Push token temizleme hata:', error.message);
+    }
   } catch (e) {
     console.warn('Push token temizleme exception:', e);
   }
@@ -133,11 +136,12 @@ export function usePushToken() {
     const yenile = async (userId: string | null) => {
       if (iptal) return;
 
-      // Giris yapilmadiysa onceki token'i temizle
+      // SIGNED_OUT: burada token temizligi YAPILMAZ — oturum kapandigi
+      // icin RLS update'i sessizce reddeder (ISSUES #87). Temizlik
+      // signOut oncesi pushTokenTemizle() ile yapilir (profil.tsx).
+      // Guvenlik agi: temizlik kacsa bile bir sonraki girista
+      // push_token_kaydet RPC'si stale token'i diger profilden supurur.
       if (!userId) {
-        if (sonUserIdRef.current) {
-          await tokenTemizle(sonUserIdRef.current);
-        }
         sonUserIdRef.current = null;
         return;
       }
@@ -151,7 +155,7 @@ export function usePushToken() {
       const token = await tokenAl();
       if (!token) return;
 
-      await tokenKaydet(userId, token);
+      await tokenKaydet(token);
     };
 
     // Baslangic: mevcut user'i kontrol et

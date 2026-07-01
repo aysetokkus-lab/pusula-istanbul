@@ -1768,3 +1768,30 @@ Iki Firecrawl gorevi script-driven'a cevrildi (turyol-senkron pattern'i):
 - `scripts/sehir-hatlari-iptal-senkron.mjs` (yeni)
 - `scripts/bogaz-diger-senkron.mjs` (yeni)
 - Scheduled task prompt'lari (sehir-hatlari-iptal-takip + bogaz-diger-senkron) script-driven'a guncellendi.
+
+## 51. EXPO PUSH TOKEN CIHAZA AITTIR, HESABA DEGIL — Duplike Token Baska Hesabin Tercihleriyle Push Getirir (2 Tem 2026)
+
+### Baglam
+Ayse profil > bildirim ayarlarindan trafik bildirimlerini kapatmasina ragmen S22'sine trafik push'lari gelmeye devam etti. Tercih sistemi ARIZASIZ cikti: profiles.bildirim_tercihleri dogru yaziliyor, Edge Function filtresi dogru calisiyor (trafik hedefi 27 = matematiksel beklenen).
+
+### Kok Sebep (iki katmanli)
+1. **Duplike token:** 26 Haz'da moderator cami testi icin Ayse S22'sinde Ela'nin (kelebekiamarket@gmail.com) hesabiyla giris yapti → S22'nin Expo push token'i Ela'nin profiline de yazildi. Ela'nin bildirim_tercihleri NULL (= hepsi acik) oldugu icin server trafik push'unu "Ela'ya" gonderiyordu — ama token ayni fiziksel cihaz, Ayse'nin S22'si. Yan etki: Ela'nin kendi cihaz token'i ezildi, Ela push alamiyordu.
+2. **Logout temizligi RLS sessiz reddi:** use-push-token.ts token temizligini SIGNED_OUT event'inde yapiyordu — signOut()'tan SONRA oturum olmediginden RLS UPDATE'i sessizce reddeder (0 satir, hata yok). Logout token'i uretimde HIC temizlemiyordu (herkeste). "RLS Sessiz Reddedebilir" pattern'inin yeni vakasi.
+
+### Cozum
+1. **Acil veri fix:** Ela'nin satirindaki S22 token'i NULL'landi (uclu guard: id+email+token, RETURNING).
+2. **Migration `push_token_kaydet_rpc_token_benzersizligi`:** SECURITY DEFINER RPC `push_token_kaydet(p_token, p_platform)` — once ayni token'i tasiyan DIGER profilleri temizler (cihaz son giris yapanindir), sonra kendi satirina yazar. authenticated'a GRANT, anon/PUBLIC REVOKE, auth.uid() guard.
+3. **Client (OTA):** use-push-token.ts tokenKaydet → RPC cagrisi ("ayni token'sa yazma" optimizasyonu bilerek kaldirildi — her acilis stale duplikasyonu supurur). `pushTokenTemizle()` export edildi ve profil.tsx'te HER IKI signOut'un ONCESINE alindi.
+4. **Edge Function push-gonder v4 (sigorta):** hedef listesinde token dedupe — ayni token birden fazla profildeyse en guncel push_token_guncellendi kazanir. Yanita `dedupe_elenen` alani eklendi.
+
+### Ders
+1. Expo push token CIHAZ kimligidir; profiles'a yazarken tekillik server-side garanti edilmeli (RPC/unique yaklasimi), client insafina birakilmaz.
+2. signOut() SONRASI hicbir RLS'li tablo UPDATE'i calismaz — sessizce 0 satir. Oturum-kapatma temizlikleri signOut'tan ONCE yapilmali.
+3. Test icin baska kullanicinin hesabiyla kendi cihazinda giris yapmak yan etkili bir operasyondur — test sonrasi token/oturum artiklari kontrol edilmeli.
+4. Tani sirasi ise yaradi: tercih DB'de dogru + server filtresi dogru + yine de push geliyor → "token kime kayitli?" sorusu. `GROUP BY expo_push_token HAVING COUNT(*)>1` sorgusu dakikada kok sebebi verdi.
+
+### Dosyalar
+- `hooks/use-push-token.ts` (tokenKaydet→RPC, pushTokenTemizle export, SIGNED_OUT temizligi kaldirildi)
+- `app/(tabs)/profil.tsx` (2 cikis noktasi: pushTokenTemizle → signOut sirasi)
+- Migration: `push_token_kaydet_rpc_token_benzersizligi`
+- Edge Function: `push-gonder` v4 (token dedupe)

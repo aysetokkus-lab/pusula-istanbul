@@ -23,6 +23,7 @@ import { Palette, Radius, Space, type TemaRenkleri } from '../../constants/theme
 import { supabase } from '../../lib/supabase';
 import { useAdmin } from '../../hooks/use-admin';
 import { useAbonelik } from '../../hooks/use-abonelik';
+import { pushTokenTemizle } from '../../hooks/use-push-token';
 import { ENTITLEMENT_ID } from '../../lib/revenuecat';
 import {
   useBildirimTercihleri,
@@ -234,6 +235,8 @@ export default function ProfilEkrani() {
       { text: 'İptal', style: 'cancel' },
       {
         text: 'Çıkış Yap', style: 'destructive', onPress: async () => {
+          // ISSUES #87: token temizligi signOut'tan ONCE — sonra RLS sessizce reddeder
+          await pushTokenTemizle();
           await supabase.auth.signOut();
           setKullanici(null);
           router.replace('/giris');
@@ -334,6 +337,8 @@ export default function ProfilEkrani() {
                         [{
                           text: 'Tamam',
                           onPress: async () => {
+                            // ISSUES #87: token temizligi signOut'tan ONCE
+                            await pushTokenTemizle();
                             await supabase.auth.signOut();
                             setKullanici(null);
                             router.replace('/giris');
