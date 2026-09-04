@@ -93,7 +93,18 @@ function isoToDate(iso: string): Date | null {
 }
 
 /** "Yarın · 09:00" / "Cmt 6 Eyl · 14:00" */
-function tarihEtiket(tarih: string, saat: string | null): string {
+function tarihEtiket(tarih: string, saat: string | null, bitis?: string | null): string {
+  // 4 Eyl 2026: çok günlü ilan → "12 – 30 Eyl (19 gün) · 09:00"
+  if (bitis && bitis > tarih) {
+    const d1 = isoToDate(tarih), d2 = isoToDate(bitis);
+    if (d1 && d2) {
+      const n = Math.round((d2.getTime() - d1.getTime()) / 86400000) + 1;
+      const aralik = d1.getMonth() === d2.getMonth()
+        ? `${d1.getDate()} – ${d2.getDate()} ${AY_KISA[d1.getMonth()]} (${n} gün)`
+        : `${d1.getDate()} ${AY_KISA[d1.getMonth()]} – ${d2.getDate()} ${AY_KISA[d2.getMonth()]} (${n} gün)`;
+      return saat ? `${aralik} · ${saat}` : aralik;
+    }
+  }
   const d = isoToDate(tarih);
   let metin = tarih;
   if (d) {
@@ -198,7 +209,7 @@ function IlanKarti({ ilan, benim, isYetkili, onDurum, onSil, onKaldir, onMesaj, 
       {/* Üst satır: tür rozeti + tarih + dil rozetleri */}
       <View style={s.kartUst}>
         <Rozet renk={tur.renk} dolu>{tur.etiket}</Rozet>
-        <Text style={[s.kartTarih, { color: t.text }]}>{tarihEtiket(ilan.tarih, ilan.saat)}</Text>
+        <Text style={[s.kartTarih, { color: t.text }]}>{tarihEtiket(ilan.tarih, ilan.saat, ilan.bitis_tarih)}</Text>
         {dolduruldu && <Rozet renk={t.textMuted}>DOLDURULDU</Rozet>}
         {diller.map(d => <Rozet key={d} renk={t.secondary}>{dilKisa(d)}</Rozet>)}
       </View>
@@ -328,6 +339,7 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
   const [tur, setTur] = useState<IlanTur>('rehber_araniyor');
   const [baslik, setBaslik] = useState('');
   const [tarihISO, setTarihISO] = useState<string | null>(null);
+  const [bitisISO, setBitisISO] = useState<string | null>(null);   // 4 Eyl 2026: çok gün
   const [saat, setSaat] = useState('');
   const [sure, setSure] = useState<IlanSure>('tam_gun');
   const [diller, setDiller] = useState<string[]>([]);
@@ -344,6 +356,7 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
     setTur('rehber_araniyor');
     setBaslik('');
     setTarihISO(null);
+    setBitisISO(null);
     setSaat('');
     setSure('tam_gun');
     setDiller(profilDilleri);
@@ -389,6 +402,7 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
       }
     }
 
+    if (sure === 'coklu_gun' && (!bitisISO || bitisISO <= tarihISO)) { Alert.alert('Eksik', 'Çok günlü ilan için bitiş tarihini seç (başlangıçtan sonra).'); return; }
     const grupSayi = parseInt(grup.replace(/\D/g, ''), 10);
     setKaydediliyor(true);
     try {
@@ -398,6 +412,7 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
         aciklama: aciklama.trim() || null,
         diller,
         tarih: tarihISO,
+        bitis_tarih: sure === 'coklu_gun' ? bitisISO : null,
         saat: saatTemiz,
         sure,
         grup_buyuklugu: isNaN(grupSayi) ? null : grupSayi,
@@ -445,6 +460,13 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
 
             <Kicker style={s.formEtiket}>Süre</Kicker>
             <Segmentler<IlanSure> secenekler={SURE_SECENEK} aktif={sure} onSec={setSure} />
+            {/* 4 Eyl 2026: çok günlü ilan → bitiş tarihi (Ajanda ile aynı desen) */}
+            {sure === 'coklu_gun' ? (
+              <>
+                <Kicker style={s.formEtiket}>Bitiş{bitisISO ? ` · ${tarihUzun(bitisISO)}` : ''}</Kicker>
+                <Takvim value={bitisISO} onChange={setBitisISO} renk={Palette.menekse} minDate={tarihISO ? (isoToDate(tarihISO) ?? undefined) : undefined} />
+              </>
+            ) : null}
 
             <Kicker style={s.formEtiket}>{tur === 'rehber_araniyor' ? 'Diller (zorunlu)' : 'Diller'}</Kicker>
             <View style={s.chipSarmal}>

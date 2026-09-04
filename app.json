@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.pusulaistanbul.app",
       "usesAppleSignIn": true,
-      "buildNumber": "44",
+      "buildNumber": "46",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Konumunuz yakındaki müze ve ulaşım bilgilerini göstermek için kullanılır.",
         "NSPhotoLibraryUsageDescription": "Sohbette görsel paylaşmak, duyuru görseli ve masraf fişi yüklemek için fotoğraflarınıza erişim gerekir.",
@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "com.pusulaistanbul.app",
-      "versionCode": 45,
+      "versionCode": 46,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#1E40AF",

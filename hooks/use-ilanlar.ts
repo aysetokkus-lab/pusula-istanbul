@@ -27,6 +27,7 @@ export interface Ilan {
   aciklama: string | null;
   diller: string[] | null;
   tarih: string;            // 'YYYY-MM-DD'
+  bitis_tarih: string | null;   // 4 Eyl 2026: çok günlü ilanın son günü (NULL = tek gün)
   saat: string | null;      // 'HH:MM'
   sure: IlanSure | null;
   grup_buyuklugu: number | null;
@@ -43,6 +44,7 @@ export interface IlanPayload {
   aciklama?: string | null;
   diller: string[];
   tarih: string;
+  bitis_tarih?: string | null;
   saat?: string | null;
   sure?: IlanSure | null;
   grup_buyuklugu?: number | null;
@@ -220,6 +222,7 @@ export function useIlanlar() {
           aciklama: payload.aciklama?.trim() || null,
           diller: payload.diller,
           tarih: payload.tarih,
+          bitis_tarih: payload.bitis_tarih || null,
           saat: payload.saat?.trim() || null,
           sure: payload.sure || null,
           grup_buyuklugu: payload.grup_buyuklugu ?? null,
