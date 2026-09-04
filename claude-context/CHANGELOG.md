@@ -4,7 +4,7 @@ Bu dosya **append-only** — eski surum bilgilerini silmeyiz, yeni surumler ust 
 
 ---
 
-## v1.2.0 (HAZIRLIK — 3 Eylul 2026, henuz build yok)
+## v1.2.0 (BUILD — 4 Eylul 2026)
 
 **Ozet:** Tamamen ucretsiz model, inline yonetim, "Kobalt & Menekse" redesign, sohbet tepki/yanit/gorsel, Bogaz hafta ici + hafta sonu, "Rehber Araniyor" ilanlari, DM, **AJANDA + MASRAF PUSULASI** (rota planlayici kaldirildi). Native degisiklikler (react-native-purchases cikti; expo-image-picker, expo-mail-composer, expo-sharing girdi; yeni ikon/splash) → **store build sart, OTA yetmez.**
 
