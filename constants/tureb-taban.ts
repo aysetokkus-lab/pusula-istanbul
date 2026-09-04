@@ -1,7 +1,7 @@
 /**
- * TÜREB rehber taban ücretleri — İlan formunda alt sınır olarak uygulanır.
+ * TUREB rehber taban ücretleri — İlan formunda alt sınır olarak uygulanır.
  * Kaynak: tureb.org.tr/Sayfa?id=16 (2026 yılı tarifesi). Her yıl güncellenir.
- * Yarım gün için TÜREB'de ayrı kalem yoktur → günlük tur tabanı uygulanır.
+ * Yarım gün için TUREB'de ayrı kalem yoktur → günlük tur tabanı uygulanır.
  * Çok günlü (paket tur) taban GÜNLÜK tutardır; ilanlardaki ücret günlük yazılır.
  */
 export const TUREB_TABAN_YILI = 2026;

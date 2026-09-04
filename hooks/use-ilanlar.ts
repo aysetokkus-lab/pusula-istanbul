@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { telefonNormalize } from '../lib/telefon';
 
 /* ═══════════════════════════════════════════
    useIlanlar (Eyl 2026 — İş İlanları)
@@ -358,7 +359,9 @@ export function useProfilDilleri() {
 
   const telefonKaydet = useCallback(async (yeni: string): Promise<boolean> => {
     const eski = telefon;
-    const temiz = yeni.trim();
+    // Eyl 2026: E.164'e normalize edilir (+905321234567); geçersiz numara kaydedilmez
+    const temiz = yeni.trim() ? telefonNormalize(yeni) : '';
+    if (temiz === null) return false;
     setTelefon(temiz);
     try {
       const uid = uidRef.current ?? (await supabase.auth.getUser()).data.user?.id;
@@ -380,4 +383,29 @@ export function useProfilDilleri() {
   }, [telefon]);
 
   return { diller, kaydet, telefon, telefonKaydet, yukleniyor, yenile: yukle };
+}
+
+/* ═══════════════════════════════════════════
+   telefonNumaraRaporla (Eyl 2026) — beyan usulü numara için topluluk denetimi
+   raporlanan_mesajlar'a kaynak='telefon' ile yazılır; mesaj_id = ilan id,
+   metin = ilan başlığı + numara. Yetkili, SohbetYonetim → Raporlar'da görür.
+   ═══════════════════════════════════════════ */
+export async function telefonNumaraRaporla(ilan: Pick<Ilan, 'id' | 'baslik' | 'iletisim' | 'kullanici_id' | 'kullanici_isim'>): Promise<{ ok: boolean; hata?: string }> {
+  try {
+    const uid = (await supabase.auth.getUser()).data.user?.id;
+    if (!uid) return { ok: false, hata: 'Giriş gerekli' };
+    const { error } = await supabase.from('raporlanan_mesajlar').insert({
+      mesaj_id: ilan.id,
+      mesaj_metni: `[Telefon bildirimi] İlan: "${ilan.baslik}" · Numara: ${ilan.iletisim || '—'} · Ulaşılamıyor / yanlış numara`,
+      mesaj_sahibi_id: ilan.kullanici_id,
+      mesaj_sahibi_isim: ilan.kullanici_isim || null,
+      raporlayan_id: uid,
+      sebep: 'diger',
+      kaynak: 'telefon',
+    });
+    if (error) return { ok: false, hata: error.message };
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, hata: e?.message || 'Bildirim gönderilemedi' };
+  }
 }

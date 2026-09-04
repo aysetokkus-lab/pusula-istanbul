@@ -4,7 +4,7 @@ Bu dosya **append-only** — eski surum bilgilerini silmeyiz, yeni surumler ust 
 
 ---
 
-## v1.2.0 (BUILD — 4 Eylul 2026)
+## v1.2.0 (HAZIRLIK — surum bump 4 Eylul 2026, store build ERTELENDI; liste bitince tek build)
 
 **Ozet:** Tamamen ucretsiz model, inline yonetim, "Kobalt & Menekse" redesign, sohbet tepki/yanit/gorsel, Bogaz hafta ici + hafta sonu, "Rehber Araniyor" ilanlari, DM, **AJANDA + MASRAF PUSULASI** (rota planlayici kaldirildi). Native degisiklikler (react-native-purchases cikti; expo-image-picker, expo-mail-composer, expo-sharing girdi; yeni ikon/splash) → **store build sart, OTA yetmez.**
 
@@ -14,6 +14,19 @@ Bu dosya **append-only** — eski surum bilgilerini silmeyiz, yeni surumler ust 
 - Rehberlik ucreti satirlari (TRY/EUR/USD) ve cok gunlu turlar (baslangic–bitis, gun bazli masraf, ciktida Gun sutunu) — migration `ajanda_cok_gunlu_tur_ve_rehberlik_ucreti`
 - PDF / Word / Excel (Edge Function `masraf-disa-aktar`, Pusula logolu, palet uyumlu) → mail uygulamasi ekli / Paylas
 - Migration `ajanda_ve_masraf_pusulasi` (rotalar DROP, ajanda_turlar, masraflar, bucket + policy'ler)
+
+### Telefon — beyan usulu (4 Eyl 2026)
+- Kayitta zorunlu cep telefonu (E.164, +90 varsayilan; yurt disi + ile). SMS/WhatsApp dogrulama kodu YOK (Ayse karari: sirket evraki / ayri numara istemiyor). Kendi kendine saglama: "Numarami WhatsApp'ta ac ve kontrol et".
+- Mevcut kullanicilara ana sayfada "Telefon numarani ekle" karti (Sonra = 3 gun). Ozel mesaj baslatmak ve ilan vermek icin telefon sart (TelefonModal).
+- Baskasinin ilaninda "Numaraya ulasilamiyor mu? Bildir" → raporlanan_mesajlar (kaynak='telefon'). Migration `handle_new_user_telefon`.
+
+### Google + Apple ile giris (4 Eyl 2026)
+- "Google ile devam et" (tum platformlar, tarayici akisi) ve "Apple ile devam et" (yalnizca iOS, yerli). OAuth ile gelen kullanici "Profilini tamamla" ekraninda TUREB ruhsat no + telefon girer.
+- Native: `expo-apple-authentication` + `ios.usesAppleSignIn` → store build sart. Migration `handle_new_user_oauth_metadata`.
+
+### TUREB rozeti + dil listesi (4 Eyl 2026)
+- TUREB rehber veritabaniyla ad-soyad eslesmesi → "TUREB · Oda" rozeti (profil, ilan karti); coklu eslesmede kullanici kendi kaydini secer; eylemsiz gri rozet; kayit engellenmez. Edge Function `tureb-dogrula` (pg_net), migration'lar `tureb_dogrulama`, `tureb_http_pg_net_rpc`.
+- Ilan dil listesi: TUREB'in 39 dili + Turkce.
 
 ### Release Notes taslagi (TR)
 > Pusula Istanbul artik tamamen ucretsiz. Yeni tasarim. Ajanda: tur tarihlerinizi not edin, her tur icin masraf pusulasi tutun, fisleri cekin; PDF/Word/Excel olarak acentenize tek dokunusla gonderin. Rehber Araniyor ilanlari, ozel mesajlasma, sohbette tepki ve gorsel paylasimi, Bogaz tarifelerinde hafta ici/hafta sonu birlikte.

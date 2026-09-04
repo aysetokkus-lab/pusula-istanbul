@@ -24,6 +24,11 @@ import { router } from 'expo-router';
 import { useTema } from '../../hooks/use-tema';
 import { useAdmin } from '../../hooks/use-admin';
 import { konusmaBaslat } from '../../hooks/use-dm';
+import { useTelefonGerekli } from '../../components/telefon-modal';
+import { telefonNumaraRaporla } from '../../hooks/use-ilanlar';
+import { TELEFON_HATA, telefonNormalize } from '../../lib/telefon';
+import { TurebRozet } from '../../components/tureb-rozet';
+import { useTurebRozetleri, type TurebDurum } from '../../hooks/use-tureb';
 import { useIlanlar, useProfilDilleri, gunStr, type Ilan, type IlanPayload, type IlanSonuc, type IlanSure, type IlanTur } from '../../hooks/use-ilanlar';
 import { DILLER, dilKisa } from '../../constants/diller';
 import { Font, Palette, Radius, type TemaRenkleri } from '../../constants/theme';
@@ -151,7 +156,7 @@ function DilChip({ dil, secili, onPress, kisa, renk }: { dil: string; secili: bo
 /* ═══════════════════════════════════════════
    İLAN KARTI
    ═══════════════════════════════════════════ */
-function IlanKarti({ ilan, benim, isYetkili, onDurum, onSil, onKaldir, onMesaj, t }: {
+function IlanKarti({ ilan, benim, isYetkili, onDurum, onSil, onKaldir, onMesaj, onNumaraRaporla, tureb, t }: {
   ilan: Ilan;
   benim: boolean;
   isYetkili: boolean;
@@ -159,6 +164,8 @@ function IlanKarti({ ilan, benim, isYetkili, onDurum, onSil, onKaldir, onMesaj, 
   onSil: (ilan: Ilan) => void;
   onKaldir: (ilan: Ilan) => void;
   onMesaj: (ilan: Ilan) => void;   // Eyl 2026: özel mesaj
+  onNumaraRaporla: (ilan: Ilan) => void;   // Eyl 2026: numara yanlış/sahte bildirimi
+  tureb?: { durum: TurebDurum | null; oda: string | null };   // Eyl 2026: ilan sahibinin TUREB rozeti
   t: TemaRenkleri;
 }) {
   const tur = turBilgi(ilan.tur, t);
@@ -203,9 +210,12 @@ function IlanKarti({ ilan, benim, isYetkili, onDurum, onSil, onKaldir, onMesaj, 
 
       {/* Alt bar: isim + zaman · Ara / WhatsApp / Mesaj (kendi ilanı değilse) */}
       <View style={s.kartAlt}>
-        <Text style={[s.kartSahip, { color: t.textMuted }]} numberOfLines={1}>
-          {ilan.kullanici_isim || 'Rehber'} · {zamanOnce(ilan.created_at)}
-        </Text>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <Text style={[s.kartSahip, { color: t.textMuted, flex: 0 }]} numberOfLines={1}>
+            {ilan.kullanici_isim || 'Rehber'} · {zamanOnce(ilan.created_at)}
+          </Text>
+          <TurebRozet durum={tureb?.durum} oda={tureb?.oda} />
+        </View>
         <View style={s.kartAksiyonlar}>
           <TouchableOpacity onPress={ara} activeOpacity={0.75} hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }} style={[s.pill, { backgroundColor: t.primary }]}>
             <Text style={s.pillYazi}>Ara</Text>
@@ -220,6 +230,13 @@ function IlanKarti({ ilan, benim, isYetkili, onDurum, onSil, onKaldir, onMesaj, 
           )}
         </View>
       </View>
+
+      {/* Eyl 2026: beyan usulü numara — başkasının ilanında "numara yanlış" bildirimi */}
+      {!benim && (
+        <TouchableOpacity onPress={() => onNumaraRaporla(ilan)} activeOpacity={0.6} style={s.numaraBildir} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityLabel="Numarayı bildir">
+          <Text style={[s.numaraBildirYazi, { color: t.textMuted }]}>Numaraya ulaşılamıyor mu? Bildir</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Sahip aksiyonları */}
       {benim && (
@@ -332,7 +349,7 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
     setKaydediliyor(false);
   }, [visible, profilDilleri, profilTelefon]);
 
-  // Ücret alt sınırı: TÜREB tabanı (süre + dillere göre)
+  // Ücret alt sınırı: TUREB tabanı (süre + dillere göre)
   const taban = useMemo(() => tabanUcret(sure, diller), [sure, diller]);
   const ucretN = ucretSayi(ucret);
   const ucretDusuk = ucretN !== null && ucretN < taban.tutar;
@@ -356,10 +373,12 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
     }
     if (tur === 'rehber_araniyor' && diller.length === 0) { Alert.alert('Eksik', 'Rehber aranıyor ilanı için en az bir dil seç.'); return; }
     if (!iletisim.trim()) { Alert.alert('Eksik', 'İletişim telefonu zorunlu.'); return; }
+    const iletisimE164 = telefonNormalize(iletisim);   // Eyl 2026: biçim kontrolü, E.164 saklanır
+    if (!iletisimE164) { Alert.alert('Hatalı telefon', TELEFON_HATA); return; }
     if (ucret.trim()) {
       if (ucretN === null) { Alert.alert('Hatalı ücret', 'Ücreti sadece rakamla yaz (örn. 6000).'); return; }
       if (ucretN < taban.tutar) {
-        Alert.alert('TÜREB taban ücretinin altında', `${TUREB_TABAN_YILI} tabanı ${tlFormat(taban.tutar)} (${taban.etiket}). Bu tutarın altında ilan verilemez.`);
+        Alert.alert('TUREB taban ücretinin altında', `${TUREB_TABAN_YILI} tabanı ${tlFormat(taban.tutar)} (${taban.etiket}). Bu tutarın altında ilan verilemez.`);
         return;
       }
     }
@@ -377,14 +396,14 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
         sure,
         grup_buyuklugu: isNaN(grupSayi) ? null : grupSayi,
         ucret: ucretN !== null ? `${tlFormat(ucretN)}${sure === 'coklu_gun' ? ' / gün' : ''}` : null,
-        iletisim: iletisim.trim(),
+        iletisim: iletisimE164,
       });
       if (!sonuc.ok) {
         Alert.alert('Hata', sonuc.hata || 'İlan kaydedilemedi.');
         return;
       }
-      if (profileKaydet && iletisim.trim() !== (profilTelefon || '').trim()) {
-        telefonKaydet(iletisim.trim()); // arka planda; başarısızlık ilanı etkilemez
+      if (profileKaydet && iletisimE164 !== (profilTelefon || '').trim()) {
+        telefonKaydet(iletisimE164); // arka planda; başarısızlık ilanı etkilemez
       }
       onKapat();
     } finally {
@@ -460,7 +479,7 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
                   maxLength={7}
                 />
                 <Text style={[s.tabanNot, { color: ucretDusuk ? t.durumKapali : t.textSecondary }]}>
-                  TÜREB {TUREB_TABAN_YILI} tabanı {tlFormat(taban.tutar)} ({taban.etiket}) — altı yazılamaz
+                  TUREB {TUREB_TABAN_YILI} tabanı {tlFormat(taban.tutar)} ({taban.etiket}) — altı yazılamaz
                 </Text>
               </View>
             </View>
@@ -519,6 +538,8 @@ export default function IlanlarEkrani() {
   const { isYetkili } = useAdmin();
   const { ilanlar, yukleniyor, hata, benimId, yenile, ilanEkle, ilanSil, durumDegistir } = useIlanlar();
   const { diller: profilDilleri, kaydet: profilDilleriKaydet, telefon: profilTelefon, telefonKaydet } = useProfilDilleri();
+  const { telefonGerekli, telefonModal } = useTelefonGerekli();  // Eyl 2026: DM için profilde telefon şart
+  const turebRozetleri = useTurebRozetleri(useMemo(() => Array.from(new Set(ilanlar.map(i => i.kullanici_id))), [ilanlar]));
 
   const [filtre, setFiltre] = useState<Filtre>('tumu');
   const [dilFiltre, setDilFiltre] = useState<string | null>(null);
@@ -585,15 +606,31 @@ export default function IlanlarEkrani() {
   }, [durumDegistir]);
 
   // Eyl 2026: ilan sahibine özel mesaj → /dm/[id]
-  const onMesaj = useCallback(async (ilan: Ilan) => {
+  const onMesaj = useCallback((ilan: Ilan) => {
     if (benimId && ilan.kullanici_id === benimId) { Alert.alert('Bilgi', 'Bu senin ilanın.'); return; }
-    try {
-      const id = await konusmaBaslat(ilan.kullanici_id);
-      router.push({ pathname: '/dm/[id]', params: { id, isim: ilan.kullanici_isim || 'Rehber' } } as never);
-    } catch (e: any) {
-      Alert.alert('Mesaj gönderilemiyor', e?.message || 'Konuşma başlatılamadı. Lütfen tekrar deneyin.');
-    }
-  }, [benimId]);
+    telefonGerekli(async () => {
+      try {
+        const id = await konusmaBaslat(ilan.kullanici_id);
+        router.push({ pathname: '/dm/[id]', params: { id, isim: ilan.kullanici_isim || 'Rehber' } } as never);
+      } catch (e: any) {
+        Alert.alert('Mesaj gönderilemiyor', e?.message || 'Konuşma başlatılamadı. Lütfen tekrar deneyin.');
+      }
+    });
+  }, [benimId, telefonGerekli]);
+
+  // Eyl 2026: numara yanlış/sahte bildirimi → raporlanan_mesajlar (kaynak='telefon'), yetkili Raporlar sekmesinde görür
+  const onNumaraRaporla = useCallback((ilan: Ilan) => {
+    Alert.alert('Numarayı bildir', `"${ilan.baslik}" ilanındaki numaraya ulaşılamıyor ya da yanlış mı? Yetkililere bildirilecek.`, [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Bildir', style: 'destructive',
+        onPress: async () => {
+          const r = await telefonNumaraRaporla(ilan);
+          Alert.alert(r.ok ? 'Teşekkürler' : 'Gönderilemedi', r.ok ? 'Bildirimin yetkililere iletildi.' : (r.hata || 'Tekrar dene.'));
+        },
+      },
+    ]);
+  }, []);
 
   const bosMetin = filtre === 'benim'
     ? 'Henüz ilanın yok. Sağ alttaki "+ İlan Ver" ile ilk ilanını yayınla.'
@@ -646,6 +683,8 @@ export default function IlanlarEkrani() {
               ilan={item}
               benim={!!benimId && item.kullanici_id === benimId}
               isYetkili={isYetkili}
+              onNumaraRaporla={onNumaraRaporla}
+              tureb={turebRozetleri[item.kullanici_id]}
               onDurum={onDurum}
               onSil={onSil}
               onKaldir={onKaldir}
@@ -691,6 +730,7 @@ export default function IlanlarEkrani() {
         telefonKaydet={telefonKaydet}
         t={t}
       />
+      {telefonModal}
     </View>
   );
 }
@@ -725,6 +765,8 @@ const s = StyleSheet.create({
   aksiyonBar: { flexDirection: 'row', paddingTop: 8, borderTopWidth: 1 },
   aksiyonBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 36 },
   aksiyonYazi: { fontFamily: Font.semibold, fontSize: 12 },
+  numaraBildir: { alignSelf: 'flex-end', marginTop: -4 },
+  numaraBildirYazi: { fontFamily: Font.regular, fontSize: 11, textDecorationLine: 'underline' },
   aksiyonAyrac: { width: 1, marginVertical: 4 },
 
   // CTA

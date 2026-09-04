@@ -35,6 +35,7 @@ import { useSohbetTepkileri, type TepkiTipi } from '../../hooks/use-sohbet-tepki
 import { MesajMenusu, TepkiSatiri, TepkiVerenlerModal, YanitAlinti, YanitSeridi, type MenuAksiyon } from '../../components/sohbet-tepkiler';
 import { GorselButon, GorselOnizleme, MesajGorseli, TamEkranGorsel, gorselSec, sohbetGorselYukle, type SecilenGorsel } from '../../components/sohbet-gorsel';
 import { konusmaBaslat, useDmKonusmalar, type DmKonusma } from '../../hooks/use-dm';
+import { useTelefonGerekli } from '../../components/telefon-modal';
 
 type SohbetSekme = 'genel' | 'dm';
 
@@ -132,6 +133,7 @@ export default function SohbetEkrani() {
   const styles = createStyles(t);
   const flatListRef = useRef<FlatList>(null);
   const { isYetkili } = useAdmin();  // admin/moderator: dogrudan mesaj silme yetkisi (v1.1.0)
+  const { telefonGerekli, telefonModal } = useTelefonGerekli();  // Eyl 2026: DM için profilde telefon şart
   const { pinle, pinKaldir } = usePinliMesajlar();  // v1.1.0: sabitle/pin kaldir
 
   // Okunmamış mesaj badge yönetimi
@@ -540,16 +542,19 @@ export default function SohbetEkrani() {
   }, [kullanici]);
 
   /* ─── Eyl 2026 DM: özel mesaj başlat → /dm/[id] ─── */
-  const dmBaslat = useCallback(async (aliciId: string, aliciIsim: string) => {
+  const dmBaslat = useCallback((aliciId: string, aliciIsim: string) => {
     if (!kullanici) return;
     if (aliciId === kullanici.id) { Alert.alert('Bilgi', 'Kendinize özel mesaj gönderemezsiniz.'); return; }
-    try {
-      const id = await konusmaBaslat(aliciId);
-      router.push({ pathname: '/dm/[id]', params: { id, isim: aliciIsim } } as never);
-    } catch (e: any) {
-      Alert.alert('Mesaj gönderilemiyor', e?.message || 'Konuşma başlatılamadı. Lütfen tekrar deneyin.');
-    }
-  }, [kullanici]);
+    // Eyl 2026: profilde telefon yoksa önce TelefonModal, kaydedince devam
+    telefonGerekli(async () => {
+      try {
+        const id = await konusmaBaslat(aliciId);
+        router.push({ pathname: '/dm/[id]', params: { id, isim: aliciIsim } } as never);
+      } catch (e: any) {
+        Alert.alert('Mesaj gönderilemiyor', e?.message || 'Konuşma başlatılamadı. Lütfen tekrar deneyin.');
+      }
+    });
+  }, [kullanici, telefonGerekli]);
 
   const dmKonusmaAc = useCallback((k: DmKonusma) => {
     router.push({ pathname: '/dm/[id]', params: { id: k.id, isim: k.karsi_isim } } as never);
@@ -922,6 +927,7 @@ export default function SohbetEkrani() {
         ozet={kimlerMesajId ? tepkiOzet(kimlerMesajId) : []}
         onKapat={() => setKimlerMesajId(null)}
       />
+      {telefonModal}
     </KeyboardAvoidingView>
   );
 }

@@ -36,6 +36,9 @@ import { supabase } from '../../lib/supabase';
 import { useAdmin } from '../../hooks/use-admin';
 import { YetkiliBolum } from '../../components/yetkili/yetkili-bolum';
 import { ModeratorYonetim } from '../../components/yetkili/moderator-yonetim';
+import { TurebYonetim } from '../../components/yetkili/tureb-yonetim';
+import { TurebKarti, TurebRozet } from '../../components/tureb-rozet';
+import { useTureb } from '../../hooks/use-tureb';
 import { pushTokenTemizle } from '../../hooks/use-push-token';
 import {
   useBildirimTercihleri,
@@ -45,6 +48,8 @@ import {
 // Eyl 2026 — İş İlanları: profil telefonu + dillerim (push filtresi) profil düzenleme modalında
 import { useProfilDilleri } from '../../hooks/use-ilanlar';
 import { DILLER } from '../../constants/diller';
+import { TELEFON_HATA, telefonGoster, telefonNormalize } from '../../lib/telefon';
+import { TelefonAlani } from '../../components/telefon-modal';
 
 /* ═══════════════════════════════════════════
    Surum (app.json'dan dinamik — v1.1.0 fix)
@@ -138,6 +143,7 @@ export default function ProfilEkrani() {
   const [editTelefon, setEditTelefon] = useState('');
   const [editDiller, setEditDiller] = useState<string[]>([]);
   const { diller: profilDilleri, kaydet: dillerKaydet, telefon: profilTelefon, telefonKaydet } = useProfilDilleri();
+  const { bilgi: turebBilgi } = useTureb();   // Eyl 2026: header rozeti
 
   // Hakkında modal
   const [hakkindaAcik, setHakkindaAcik] = useState(false);
@@ -217,7 +223,12 @@ export default function ProfilEkrani() {
     const yeniSoyisim = editSoyisim.trim();
 
     // Eyl 2026: telefon ve diller isim sinirina tabi degil — degistiyse once onlari kaydet
-    const yeniTelefon = editTelefon.trim();
+    // Telefon E.164'e normalize edilir; zorunlu alan (bos birakilamaz), gecersizse kayit yok
+    const yeniTelefon = telefonNormalize(editTelefon);
+    if (!yeniTelefon) {
+      Alert.alert('Telefon gerekli', TELEFON_HATA);
+      return;
+    }
     const telefonDegisti = yeniTelefon !== (profilTelefon || '').trim();
     const dillerDegisti =
       editDiller.length !== profilDilleri.length || editDiller.some(d => !profilDilleri.includes(d));
@@ -411,7 +422,7 @@ export default function ProfilEkrani() {
     if (!kullanici) return;
     setEditIsim(kullanici.profil.isim);
     setEditSoyisim(kullanici.profil.soyisim);
-    setEditTelefon(profilTelefon || '');
+    setEditTelefon(profilTelefon ? telefonGoster(profilTelefon) : '');
     setEditDiller(profilDilleri);
     setDuzenleAcik(true);
   };
@@ -477,7 +488,14 @@ export default function ProfilEkrani() {
           </View>
           <Text style={styles.adSoyad}>{adSoyad}</Text>
           <Text style={styles.email}>{email}</Text>
-          <Rozet renk="#FFFFFF" style={styles.uyeRozet}>Üye: {tarihFormat(kayitTarihi)}</Rozet>
+          {/* Eyl 2026: kayıtlı telefon (beyan usulü) — boşsa uyarı, Düzenle ile eklenir */}
+          <Text style={styles.email}>{profilTelefon ? telefonGoster(profilTelefon) : 'Telefon eklenmedi'}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Rozet renk="#FFFFFF" style={styles.uyeRozet}>Üye: {tarihFormat(kayitTarihi)}</Rozet>
+            {(turebBilgi.durum === 'eylemli' || turebBilgi.durum === 'eylemsiz') && (
+              <Rozet renk="#FFFFFF" style={styles.uyeRozet}>TUREB{turebBilgi.oda ? ` · ${turebBilgi.oda}` : ''}{turebBilgi.durum === 'eylemsiz' ? ' · Eylemsiz' : ''}</Rozet>
+            )}
+          </View>
         </View>
       </GradyanHeader>
 
@@ -496,6 +514,11 @@ export default function ProfilEkrani() {
               Hesap Durumu
             </Text>
           </Kart>
+        </View>
+
+        {/* ── TUREB doğrulaması (Eyl 2026): ad-soyad eşleşmesi → rozet; çoklu eşleşmede seçim ── */}
+        <View style={{ marginBottom: 14 }}>
+          <TurebKarti />
         </View>
 
         {/* ── Hesap Ayarlari ── */}
@@ -551,6 +574,9 @@ export default function ProfilEkrani() {
           <YetkiliBolum baslik="Moderatörler" aciklama="Moderatör ata / kaldır" sadeceAdmin>
             <ModeratorYonetim />
           </YetkiliBolum>
+          <YetkiliBolum baslik="TUREB Eşleşmeleri" aciklama="Bulunamayan / seçim bekleyen hesaplar" sadeceAdmin>
+            <TurebYonetim />
+          </YetkiliBolum>
         </View>
 
         {/* ── Cikis ve Hesap Sil ── */}
@@ -590,15 +616,8 @@ export default function ProfilEkrani() {
               />
 
               <Text style={[styles.inputLabel, { color: t.textSecondary }]}>Telefon</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
-                value={editTelefon}
-                onChangeText={setEditTelefon}
-                placeholder="05xx xxx xx xx (ilanlarda iletişim)"
-                placeholderTextColor={t.textMuted}
-                keyboardType="phone-pad"
-                maxLength={20}
-              />
+              {/* Eyl 2026: beyan usulü numara — biçim kontrolü + "WhatsApp'ta aç" kendi kendine sağlama */}
+              <TelefonAlani deger={editTelefon} onDegis={setEditTelefon} />
 
               <Text style={[styles.inputLabel, { color: t.textSecondary }]}>Dillerim</Text>
               <Text style={[styles.dilNot, { color: t.textMuted }]}>

@@ -10,6 +10,8 @@ import { supabase } from '../lib/supabase';
 import { useBildirimler } from '../hooks/use-bildirimler';
 import { usePushToken } from '../hooks/use-push-token';
 import { TemaProvider } from '../hooks/use-tema';
+import { profilEksikMi } from '../lib/oauth';
+import { useTurebOtomatik } from '../hooks/use-tureb';
 // v1.1.0: X API senkronu Edge Function'a (ulasim-senkron) tasindi, client-side artiklari kaldirildi.
 // Bkz. DECISIONS #36, INFRASTRUCTURE.md Bolum 13.
 
@@ -184,12 +186,32 @@ export default function RootLayout() {
     Poppins_800ExtraBold,
   });
 
+  // Eyl 2026: OAuth (Google/Apple) ile gelen kullanıcıda ruhsat no / isim boş olabilir →
+  // /profil-tamamla'ya yönlendirilir. null = henüz bakılmadı, false = tam, true = eksik.
+  const [profilEksik, setProfilEksik] = useState<boolean | null>(null);
+  const profilKontrol = async (userId: string | undefined) => {
+    if (!userId) { setProfilEksik(null); return; }
+    try {
+      const { eksik } = await profilEksikMi(userId);
+      setProfilEksik(eksik);
+    } catch {
+      setProfilEksik(false);   // kontrol edilemezse akışı kilitleme
+    }
+  };
+
+  // Eyl 2026: profil tamamsa TUREB eşleşmesini arka planda (oturum başına 1 kez) kontrol et
+  useTurebOtomatik(oturum === true && profilEksik === false);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setOturum(!!session);
+      profilKontrol(session?.user?.id);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setOturum(!!session);
+      // SIGNED_IN / INITIAL_SESSION / USER_UPDATED (profil-tamamla updateUser çağırır) → yeniden bak
+      if (!session) setProfilEksik(null);
+      else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') profilKontrol(session.user.id);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -224,6 +246,7 @@ export default function RootLayout() {
     const hosgeldinEkraninda = mevcut === 'hos-geldin';
     const gizlilikEkraninda = mevcut === 'gizlilik-politikasi' || mevcut === 'kullanim-kosullari';
     const sifreSifirlamaEkraninda = mevcut === ('sifre-sifirla' as typeof mevcut);
+    const profilTamamlaEkraninda = mevcut === ('profil-tamamla' as typeof mevcut);
 
     // Korunan ekranlar — bunlardayken yönlendirme YAPMA
     // - hos-geldin: kayit sonrasi onboarding (oturum YENI acildi)
@@ -243,11 +266,30 @@ export default function RootLayout() {
       return;
     }
 
-    // Oturum var + giriş ekranında → ana ekrana yönlendir
-    if (oturum && girisEkraninda) {
+    // Eyl 2026: oturum var ama profil eksik (OAuth ile geldi) → profil-tamamla; tamamlanmadan başka yere geçemez
+    if (oturum && profilEksik === true) {
+      if (!profilTamamlaEkraninda) {
+        // Yönlendirmeden önce taze kontrol (profil-tamamla az önce kaydetmiş olabilir) — döngü sigortası
+        (async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          const r = user ? await profilEksikMi(user.id) : { eksik: false };
+          if (r.eksik) router.replace('/profil-tamamla' as never);
+          else setProfilEksik(false);
+        })();
+      }
+      return;
+    }
+    // Profil tam ama hâlâ tamamlama ekranındaysa (kayıt bitti) → ana ekran
+    if (oturum && profilEksik === false && profilTamamlaEkraninda) {
+      router.replace('/(tabs)');
+      return;
+    }
+
+    // Oturum var + giriş ekranında → ana ekrana yönlendir (profil kontrolü bitmeden bekle)
+    if (oturum && girisEkraninda && profilEksik === false) {
       router.replace('/(tabs)');
     }
-  }, [oturum, segments, fontsLoaded, sifreSifirlamaModu]);
+  }, [oturum, segments, fontsLoaded, sifreSifirlamaModu, profilEksik]);
 
   useEffect(() => {
     if (fontsLoaded && oturum !== null) {
@@ -265,6 +307,7 @@ export default function RootLayout() {
         <Stack.Screen name="giris" />
         <Stack.Screen name="sifre-sifirla" />
         <Stack.Screen name="hos-geldin" />
+        <Stack.Screen name="profil-tamamla" />{/* Eyl 2026: OAuth sonrası ruhsat no + telefon */}
         <Stack.Screen name="gizlilik-politikasi" options={{ headerShown: true, headerTitle: 'Gizlilik Politikası', headerBackTitle: 'Geri' }} />
         <Stack.Screen name="kullanim-kosullari" options={{ headerShown: true, headerTitle: 'Kullanım Koşulları', headerBackTitle: 'Geri' }} />
         <Stack.Screen name="(tabs)" />

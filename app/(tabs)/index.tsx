@@ -17,6 +17,7 @@ import { GuncellemeBandi } from '../../components/guncelleme-bandi';
 import { SearchIcon } from '../../components/tab-icons';
 import { PinliMesajBandi } from '../../components/pinli-mesaj-bandi';
 import { AjandaKarti } from '../../components/ajanda-karti';
+import { TelefonKarti } from '../../components/telefon-karti';
 import { UlasimUyariBandi } from '../../components/ulasim-uyari';
 import { TrafikUyariBandi } from '../../components/trafik-uyari';
 import { EtkinliklerBandi } from '../../components/etkinlikler';
@@ -380,6 +381,9 @@ export default function AnaSayfa() {
       <View style={s.govde}>
         {/* ═══ 1b. GUNCELLEME BANDI (v1.1.0) — yeni surum varsa gozukur ═══ */}
         <GuncellemeBandi />
+
+        {/* ═══ 1c. TELEFON KARTI (Eyl 2026) — profilde telefon yoksa tek seferlik istem ═══ */}
+        <TelefonKarti />
 
         {/* ═══ 2. SAHADAN ONEMLI (v1.1.0) — pin'li sohbet mesajlari ═══ */}
         <PinliMesajBandi />

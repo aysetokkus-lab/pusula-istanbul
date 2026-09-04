@@ -232,6 +232,15 @@ google-service-account.json          -- Google Play eas submit icin
 
 ---
 
+## 6a. GOOGLE + APPLE ILE GIRIS (Eyl 2026)
+
+- `lib/oauth.ts`: `googleIleGiris()` (tarayici akisi: `signInWithOAuth({provider:'google', redirectTo:'pusulaistanbul://giris', skipBrowserRedirect})` + `WebBrowser.openAuthSessionAsync` → `oauthDonusuIsle(url)`: #access_token → setSession, ?code → exchangeCodeForSession; web'de redirect + giris.tsx mount'ta isleme), `appleIleGiris()` (yalnizca iOS, `expo-apple-authentication` → `signInWithIdToken({provider:'apple'})`; ilk giriste fullName → profiles isim/soyisim), `appleGirisiVarMi()`, `profilEksikMi(userId)` (ruhsat_no/isim bos → eksik).
+- Android'de Apple girisi YOK (bilincli: Supabase Apple client secret 6 ayda bir yenilenir; native iOS akisi secret istemez). Supabase Apple provider: Client IDs = `com.pusulaistanbul.app`.
+- **Profilini tamamla** `app/profil-tamamla.tsx`: OAuth ile gelen kullanicida ruhsat no + telefon zorunlu; `_layout.tsx` `profilEksik` state ile her rotadan buraya yonlendirir (yonlendirmeden once taze kontrol). Kaydet → `profiles` upsert + `auth.updateUser` (USER_UPDATED → _layout yeniden kontrol) → /hos-geldin.
+- Ayni e-posta ile mevcut hesap: Supabase dogrulanmis e-postayi otomatik baglar (ikinci hesap acilmaz).
+- Konsol: Google Cloud proje `pusula-istanbul` (Google Auth Platform: Branding/Audience/Clients), Web istemci "Supabase Auth"; Apple Developer'da Sign in with Apple capability; app.json `ios.usesAppleSignIn` + plugin `expo-apple-authentication`.
+- Giris ekrani: e-posta formu + ayrac "ya da" + "Google ile devam et" + (iOS) "Apple ile devam et". Google "G" logosu HEX istisnasi (marka kilavuzu).
+
 ## 7. 3 OZEL EKRAN
 
 ### EKRAN 1: `hos-geldin.tsx` (Onboarding)
@@ -305,8 +314,23 @@ google-service-account.json          -- Google Play eas submit icin
 ## 9b. IS ILANLARI (Eyl 2026)
 
 - Tablo `ilanlar` (tur rehber_araniyor|is_ariyorum|diger, baslik, diller[], tarih, saat, sure, grup_buyuklugu, ucret, iletisim, durum aktif|dolduruldu|kaldirildi). RLS: giris yapan okur, ekleme kendi, guncelleme/silme kendi veya admin/mod. Realtime. **Hemen yayinlanir** (Ayse karari), yetkili "Kaldir" ile durum=kaldirildi.
-- Push: INSERT trigger `trg_push_ilan` → kategori **ilanlar** (kanal `ilanlar-v3`, 7. bildirim tercihi). push-gonder **v6**: ilanin `diller` ile kullanicinin `profiles.diller` kesisimi (profil dili bos → herkes alir). Dil listesi `constants/diller.ts` (74 dil: TUREB dilleri + Turk dilleri + Asya/Afrika + Turk Isaret Dili; ekleme tek satir). **Tarih secimi `components/ui/takvim.tsx` (bagimliliksiz aylik takvim, Pzt baslangic, gecmis gunler kapali).** **Ucret: sadece rakam, TUREB taban altina izin yok** — `constants/tureb-taban.ts` (2026: yabanci dil gunluk 5.566 / transfer-gece 2.790 / paket gunluk 6.708; Turkce 3.897 / 1.953 / 4.696; yarim gun = gunluk taban; sadece 'Turkce' secilmisse Turkce tarife). Her yil bu dosya guncellenir (kaynak tureb.org.tr/Sayfa?id=16). **Ilan turleri UI'da yalnizca 'Rehber araniyor' ve 'Transfer / Diger'** — 'is_ariyorum' Ayse istegiyle formdan ve filtreden cikarildi (DB CHECK'te duruyor, eski kayit gelirse rozet yine basilir).
+- Push: INSERT trigger `trg_push_ilan` → kategori **ilanlar** (kanal `ilanlar-v3`, 7. bildirim tercihi). push-gonder **v6**: ilanin `diller` ile kullanicinin `profiles.diller` kesisimi (profil dili bos → herkes alir). Dil listesi `constants/diller.ts` (40 dil: TUREB 'Rehberler Dillere Gore' listesi (39, eylemli rehber sayisina gore sirali) + en sonda Turkce (Turk grup ilanlari, Turkce taban) — Ayse, 4 Eyl 2026; ekleme tek satir). **Tarih secimi `components/ui/takvim.tsx` (bagimliliksiz aylik takvim, Pzt baslangic, gecmis gunler kapali).** **Ucret: sadece rakam, TUREB taban altina izin yok** — `constants/tureb-taban.ts` (2026: yabanci dil gunluk 5.566 / transfer-gece 2.790 / paket gunluk 6.708; Turkce 3.897 / 1.953 / 4.696; yarim gun = gunluk taban; sadece 'Turkce' secilmisse Turkce tarife). Her yil bu dosya guncellenir (kaynak tureb.org.tr/Sayfa?id=16). **Ilan turleri UI'da yalnizca 'Rehber araniyor' ve 'Transfer / Diger'** — 'is_ariyorum' Ayse istegiyle formdan ve filtreden cikarildi (DB CHECK'te duruyor, eski kayit gelirse rozet yine basilir).
 - UI: `app/(tabs)/ilanlar.tsx` — alt barda Ara'nin yerine (Ana · Acil · Sohbet · Ilanlar · Profil); Segmentler filtre + dil chip'leri; kart: tur rozeti, tarih/saat, dil rozetleri, sure/grup/ucret, Ara (tel:) + WhatsApp (wa.me); kendi ilaninda Dolduruldu/Sil; "+ Ilan Ver" formu (hizli tarih chip'leri, profil dilleri on-secili, telefon profile kaydedilir). Header'da "Bildirim dilleri" modali → profiles.diller. Profil duzenleme modalina Telefon + Dillerim eklendi.
+
+## 9b-1. TELEFON — BEYAN USULU (Eyl 2026)
+
+- `profiles.telefon` E.164 (`+905321234567`); dogrulama SMS'i/WhatsApp kodu YOK (Ayse, 4 Eyl 2026: sirket evraki yok, ayri numara almak istemiyor; maliyet arastirmasi STATE.md). Kayitta ZORUNLU (`giris.tsx` → auth metadata `telefon` → `handle_new_user` trigger'i profile yazar). Profil duzenlemede zorunlu, ilan formunda zorunlu, DM baslatmadan once `useTelefonGerekli` (telefon yoksa `TelefonModal`).
+- Yardimcilar `lib/telefon.ts`: `telefonNormalize` (05xx / 5xx / +90 / 0090 / yurt disi +), `telefonGoster` (+90 532 123 45 67), `whatsappLink`, `aramaLink`, `TELEFON_HATA/YARDIM`. UI parcalari `components/telefon-modal.tsx` (`TelefonAlani` — input + bicim uyarisi + "WhatsApp'ta ac" kendi kendine saglama; `TelefonModal`; `useTelefonGerekli`), `components/telefon-karti.tsx` (ana sayfa, telefonu bos mevcut kullanicilara tek seferlik; AsyncStorage `telefon-karti-ertele` 3 gun).
+- Topluluk denetimi: baskasinin ilaninda "Numaraya ulasilamiyor mu? Bildir" → `telefonNumaraRaporla` → `raporlanan_mesajlar` (kaynak='telefon', sebep='diger', mesaj_id = ilan id) → yetkili SohbetYonetim Raporlar'da gorur.
+- Kural: yeni kodda telefonu ham string olarak KAYDETME — once `telefonNormalize`, `useProfilDilleri().telefonKaydet` zaten normalize eder (gecersizse false).
+
+## 9b-2. TUREB DOGRULAMASI — ROZET (Eyl 2026)
+
+- Kaynak: TUREB acik rehber veritabani (`POST https://www.tureb.org.tr/RehberVeritabani/AraAdiSoyadi`, adi/soyadi). Donen: ad soyad, oda, yabanci dil, eylemli/eylemsiz. **Ruhsat no yok** → eslesme ad-soyadla; `profiles.ruhsat_no` beyan olarak kalir.
+- Kural (Ayse): rozet modeli, kayit engellenmez; eylemsiz rehber de ilan verir ve basvurur (gri rozet).
+- DB: `profiles.tureb_durum/oda/dil/ad/adaylar/kontrol_at`; trigger `profiles_tureb_koru` (kullanici tureb_* yazamaz). HTTP cagrisi pg_net ile (`tureb_http_baslat/sonuc`, service_role) — Deno fetch TUREB'in TLS'ine baglanamiyor.
+- Edge Function `tureb-dogrula` (kaynak `supabase/functions/tureb-dogrula/`): `{}` → sorgu; `{secim:n}` → coklu eslesmede secim. Eslesme: tam ad → tek/coklu; 4 asamali soyad/ad denemesi; profiles.diller bossa TUREB dili yazilir.
+- Istemci: `hooks/use-tureb.ts` (useTureb, useTurebOtomatik acilista 1 kez, useTurebRozetleri toplu), `components/tureb-rozet.tsx` (TurebRozet, TurebKarti), `components/yetkili/tureb-yonetim.tsx` (admin listesi). Rozet: profil header, ilan karti. Yeni yerde rozet gostermek = `useTurebRozetleri([id])` + `<TurebRozet>`.
 
 ## 9c. AJANDA + MASRAF PUSULASI (Eyl 2026) — rota planlayicinin YERINE
 

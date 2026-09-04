@@ -11,7 +11,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pusulaistanbul.app",
-      "buildNumber": "43",
+      "usesAppleSignIn": true,
+      "buildNumber": "44",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Konumunuz yakındaki müze ve ulaşım bilgilerini göstermek için kullanılır.",
         "NSPhotoLibraryUsageDescription": "Sohbette görsel paylaşmak, duyuru görseli ve masraf fişi yüklemek için fotoğraflarınıza erişim gerekir.",
@@ -25,7 +26,7 @@
     },
     "android": {
       "package": "com.pusulaistanbul.app",
-      "versionCode": 44,
+      "versionCode": 45,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#1E40AF",
@@ -82,7 +83,8 @@
           "cameraPermission": "Sohbette sahadan fotoğraf çekip paylaşmak ve masraf fişi çekmek için kamera erişimi gerekir."
         }
       ],
-      "expo-mail-composer"
+      "expo-mail-composer",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true
