@@ -1,6 +1,9 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// Yalnızca tipografi (Poppins Font + tema tokenları) yeniden boyandı; metinler ve insets kullanımı aynen.
+import { ScrollView, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTema } from '../hooks/use-tema';
+import { Font } from '../constants/theme';
 
 /* ═══════════════════════════════════════════
    Gizlilik Politikası & KVKK Aydınlatma Metni
@@ -9,11 +12,11 @@ import { useTema } from '../hooks/use-tema';
 
 export default function GizlilikPolitikasi() {
   const insets = useSafeAreaInsets();
-  const { t, isDark } = useTema();
+  const { t } = useTema();
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: t.bgCard }]}
+      style={[styles.container, { backgroundColor: t.bg }]}
       contentContainerStyle={[styles.icerik, { paddingBottom: insets.bottom + 40 }]}
     >
       <Text style={[styles.baslik, { color: t.text }]}>Gizlilik Politikası ve KVKK Aydınlatma Metni</Text>
@@ -35,7 +38,6 @@ export default function GizlilikPolitikasi() {
       <Text style={[styles.madde, { color: t.textSecondary }]}>• Mesleki bilgi: TUREB ruhsat numarası</Text>
       <Text style={[styles.madde, { color: t.textSecondary }]}>• Konum bilgisi: Şehir (kullanıcı tarafından girilen)</Text>
       <Text style={[styles.madde, { color: t.textSecondary }]}>• Kullanım verileri: Uygulama içi etkileşimler, sohbet mesajları</Text>
-      <Text style={[styles.madde, { color: t.textSecondary }]}>• Abonelik bilgileri: Abonelik durumu, plan türü</Text>
 
       <Text style={[styles.altBaslik, { color: t.text }]}>3. Verilerin İşlenme Amacı</Text>
       <Text style={[styles.paragraf, { color: t.textSecondary }]}>
@@ -44,7 +46,6 @@ export default function GizlilikPolitikasi() {
       <Text style={[styles.madde, { color: t.textSecondary }]}>• Kullanıcı hesabı oluşturma ve yönetimi</Text>
       <Text style={[styles.madde, { color: t.textSecondary }]}>• Uygulama hizmetlerinin sunulması</Text>
       <Text style={[styles.madde, { color: t.textSecondary }]}>• Sohbet ve iletişim özelliklerinin sağlanması</Text>
-      <Text style={[styles.madde, { color: t.textSecondary }]}>• Abonelik yönetimi ve ödeme işlemleri</Text>
       <Text style={[styles.madde, { color: t.textSecondary }]}>• İçerik moderasyonu ve güvenlik</Text>
       <Text style={[styles.madde, { color: t.textSecondary }]}>• Uygulama iyileştirme ve analiz</Text>
 
@@ -53,7 +54,6 @@ export default function GizlilikPolitikasi() {
         Kişisel verileriniz aşağıdaki üçüncü taraflarla paylaşılabilir:
       </Text>
       <Text style={[styles.madde, { color: t.textSecondary }]}>• Supabase Inc. — Veritabanı altyapı hizmeti (ABD)</Text>
-      <Text style={[styles.madde, { color: t.textSecondary }]}>• RevenueCat Inc. — Abonelik yönetim hizmeti (ABD)</Text>
       <Text style={[styles.madde, { color: t.textSecondary }]}>• Apple Inc. / Google LLC — Uygulama mağazası ve ödeme işlemleri</Text>
       <Text style={[styles.paragraf, { color: t.textSecondary }]}>
         Bu aktarımlar, KVKK'nın 9. maddesi kapsamında yeterli koruma bulunan ülkelere
@@ -109,28 +109,33 @@ export default function GizlilikPolitikasi() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  icerik: { padding: 20 },
+  icerik: { paddingHorizontal: 16, paddingTop: 20 },
   baslik: {
+    fontFamily: Font.extrabold,
     fontSize: 20,
-    fontWeight: '800',
+    letterSpacing: -0.3,
     marginBottom: 4,
   },
   tarih: {
-    fontSize: 12,
+    fontFamily: Font.regular,
+    fontSize: 11,
     marginBottom: 24,
   },
   altBaslik: {
+    fontFamily: Font.bold,
     fontSize: 16,
-    fontWeight: '700',
+    letterSpacing: -0.3,
     marginTop: 20,
     marginBottom: 8,
   },
   paragraf: {
+    fontFamily: Font.regular,
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 8,
   },
   madde: {
+    fontFamily: Font.regular,
     fontSize: 14,
     lineHeight: 22,
     marginLeft: 8,

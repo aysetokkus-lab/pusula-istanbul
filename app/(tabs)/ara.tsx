@@ -1,13 +1,18 @@
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// GradyanHeader + arama kutusu Kart içinde + Rozet filtre chip'leri + Kart sonuç satırları.
+// Arama / normalizasyon mantığı, veri birleştirme ve router hedefleri aynen korundu.
 import { useState, useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import Svg, { Path } from 'react-native-svg';
 import { useTema } from '../../hooks/use-tema';
 import { useMekanSaatleri, type MekanSaat } from '../../hooks/use-mekan-saatleri';
 import { useBogazTurlari, type BogazTuru } from '../../hooks/use-bogaz-turlari';
 import { useAcilRehber, type AcilKayit } from '../../hooks/use-acil-rehber';
-import { Space, Radius, Palette, type TemaRenkleri } from '../../constants/theme';
+import { SearchIcon } from '../../components/tab-icons';
+import { DurumNoktasi, GradyanHeader, HeaderBaslik, Kart, Rozet } from '../../components/ui/pusula-ui';
+import { Font, Palette, Space } from '../../constants/theme';
 
 // ═══ Aranabilir içerik veritabanı — Supabase'den dinamik ═══
 interface AramaOgesi {
@@ -128,13 +133,14 @@ function sabitArama(): AramaOgesi[] {
   ];
 }
 
+// Kategori renkleri — tasarım sistemi paletinden (müze = menekşe, ulaşım = safran, acil = kırmızı)
 const KATEGORI_ETIKETLERI: Record<string, { label: string; renk: string }> = {
-  muze: { label: 'Müze', renk: '#0096C7' },
-  vapur: { label: 'Vapur', renk: '#0096C7' },
-  ulasim: { label: 'Ulaşım', renk: '#48CAE4' },
-  acil: { label: 'Acil', renk: '#D62828' },
-  bilgi: { label: 'Bilgi', renk: '#0077B6' },
-  mekan: { label: 'Mekan', renk: '#0096C7' },
+  muze: { label: 'Müze', renk: Palette.menekse },
+  vapur: { label: 'Vapur', renk: Palette.kobalt },
+  ulasim: { label: 'Ulaşım', renk: Palette.uyari },
+  acil: { label: 'Acil', renk: Palette.kapali },
+  bilgi: { label: 'Bilgi', renk: Palette.kobaltOrta },
+  mekan: { label: 'Mekan', renk: Palette.acik },
 };
 
 // ═══ Turkce karakter normalize ═══
@@ -145,6 +151,15 @@ function normalize(s: string): string {
     .replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g')
     .replace(/İ/g, 'i').replace(/Ö/g, 'o').replace(/Ü/g, 'u')
     .replace(/Ş/g, 's').replace(/Ç/g, 'c').replace(/Ğ/g, 'g');
+}
+
+/** Temizle ikonu — 24px stroke çarpı */
+function KapatIkon({ size = 18, color }: { size?: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 6l12 12M18 6L6 18" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
 }
 
 export default function AraEkrani() {
@@ -190,39 +205,34 @@ export default function AraEkrani() {
     });
   }, [sorgu, aktifFiltre, tumVeri]);
 
-  const s = createStyles(t);
-
   return (
     <View style={[s.container, { backgroundColor: t.bg }]}>
       {/* Header */}
-      <LinearGradient
-        colors={['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[s.header, { paddingTop: insets.top + 12 }]}
-      >
-        <Text style={s.headerTitle}>Ara</Text>
-      </LinearGradient>
+      <GradyanHeader paddingTop={insets.top + 12}>
+        <HeaderBaslik baslik="Ara" />
+      </GradyanHeader>
 
       {/* Arama kutusu */}
       <View style={s.searchBox}>
-        <View style={[s.searchInputWrap, { backgroundColor: t.bgInput, borderColor: t.kartBorder }]}>
-          <Text style={s.searchIcon}>*</Text>
-          <TextInput
-            placeholder="Müze, vapur, hat, yer ara..."
-            placeholderTextColor={t.textMuted}
-            style={[s.searchInput, { color: t.text }]}
-            value={sorgu}
-            onChangeText={(text) => { setSorgu(text); if (text.length > 0 && !aktifFiltre) setAktifFiltre(null); }}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {sorgu.length > 0 && (
-            <TouchableOpacity onPress={() => { setSorgu(''); setAktifFiltre(null); }} style={s.clearBtn}>
-              <Text style={[s.clearText, { color: t.textMuted }]}>X</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <Kart style={s.searchKart}>
+          <View style={[s.searchInputWrap, { backgroundColor: t.bgInput, borderColor: t.kartBorder }]}>
+            <View style={s.searchIcon}><SearchIcon size={20} color={t.textMuted} /></View>
+            <TextInput
+              placeholder="Müze, vapur, hat, yer ara..."
+              placeholderTextColor={t.textMuted}
+              style={[s.searchInput, { color: t.text }]}
+              value={sorgu}
+              onChangeText={(text) => { setSorgu(text); if (text.length > 0 && !aktifFiltre) setAktifFiltre(null); }}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {sorgu.length > 0 && (
+              <TouchableOpacity onPress={() => { setSorgu(''); setAktifFiltre(null); }} style={s.clearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <KapatIkon color={t.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </Kart>
       </View>
 
       {/* Kategori filtreleri */}
@@ -230,12 +240,11 @@ export default function AraEkrani() {
         {Object.entries(KATEGORI_ETIKETLERI).map(([key, val]) => (
           <TouchableOpacity
             key={key}
-            style={[s.filtreChip, aktifFiltre === key && { backgroundColor: val.renk }]}
             onPress={() => setAktifFiltre(aktifFiltre === key ? null : key)}
+            activeOpacity={0.8}
+            style={s.filtreChip}
           >
-            <Text style={[s.filtreText, aktifFiltre === key ? { color: '#FFF' } : { color: t.textSecondary }]}>
-              {val.label}
-            </Text>
+            <Rozet renk={val.renk} dolu={aktifFiltre === key} style={s.filtreRozet}>{val.label}</Rozet>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -275,69 +284,54 @@ export default function AraEkrani() {
           </Text>
         )}
 
-        {sonuclar.map(item => {
-          const kat = KATEGORI_ETIKETLERI[item.kategori];
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={[s.sonucKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}
-              onPress={item.aksiyon}
-              activeOpacity={0.7}
-            >
-              <View style={[s.sonucDot, { backgroundColor: kat.renk }]} />
-              <View style={s.sonucBilgi}>
-                <Text style={[s.sonucIsim, { color: t.text }]} numberOfLines={1}>{item.isim}</Text>
-                <Text style={[s.sonucAlt, { color: t.textSecondary }]} numberOfLines={1}>{item.alt}</Text>
-              </View>
-              <View style={[s.kategoriTag, { backgroundColor: kat.renk + '20' }]}>
-                <Text style={[s.kategoriTagText, { color: kat.renk }]}>{kat.label}</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+        <View style={s.sonucListe}>
+          {sonuclar.map(item => {
+            const kat = KATEGORI_ETIKETLERI[item.kategori];
+            return (
+              <Kart key={item.id} onPress={item.aksiyon} style={s.sonucKart}>
+                <View style={s.sonucSatir}>
+                  <DurumNoktasi renk={kat.renk} />
+                  <View style={s.sonucBilgi}>
+                    <Text style={[s.sonucIsim, { color: t.text }]} numberOfLines={1}>{item.isim}</Text>
+                    <Text style={[s.sonucAlt, { color: t.textSecondary }]} numberOfLines={1}>{item.alt}</Text>
+                  </View>
+                  <Rozet renk={kat.renk}>{kat.label}</Rozet>
+                </View>
+              </Kart>
+            );
+          })}
+        </View>
       </ScrollView>
     </View>
   );
 }
 
-function createStyles(t: TemaRenkleri) {
-  return StyleSheet.create({
-    container: { flex: 1 },
-    header: { paddingHorizontal: Space.lg, paddingBottom: 16 },
-    headerTitle: { fontFamily: 'Poppins_700Bold', fontSize: 22, color: '#FFF', textAlign: 'center' },
-    searchBox: { paddingHorizontal: Space.lg, paddingTop: Space.md, paddingBottom: Space.sm },
-    searchInputWrap: {
-      flexDirection: 'row', alignItems: 'center',
-      borderRadius: Radius.md, borderWidth: 1,
-      paddingHorizontal: Space.md,
-    },
-    searchIcon: { fontSize: 18, marginRight: Space.sm, color: t.textMuted },
-    searchInput: { flex: 1, paddingVertical: 14, fontSize: 15 },
-    clearBtn: { padding: Space.sm },
-    clearText: { fontSize: 18, fontWeight: '600' },
-    filtreSatir: { maxHeight: 44 },
-    filtreIcerik: { paddingHorizontal: Space.lg, gap: Space.sm },
-    filtreChip: {
-      paddingHorizontal: 14, paddingVertical: 8,
-      borderRadius: Radius.full,
-      backgroundColor: t.bgSecondary,
-    },
-    filtreText: { fontSize: 13, fontWeight: '600' },
-    sonuclar: { flex: 1, paddingHorizontal: Space.lg },
-    sonucSayisi: { fontSize: 12, marginTop: Space.md, marginBottom: Space.sm },
-    sonucKart: {
-      flexDirection: 'row', alignItems: 'center',
-      padding: Space.md, marginBottom: Space.sm,
-      borderRadius: Radius.md, borderWidth: 1,
-    },
-    sonucDot: { width: 10, height: 10, borderRadius: 5, marginRight: Space.md },
-    sonucBilgi: { flex: 1 },
-    sonucIsim: { fontSize: 15, fontWeight: '600', marginBottom: 2 },
-    sonucAlt: { fontSize: 12 },
-    kategoriTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.sm, marginLeft: Space.sm },
-    kategoriTagText: { fontSize: 10, fontWeight: '700' },
-    emptyState: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: Space.xxl, gap: Space.md },
-    emptyTitle: { fontSize: 18, fontWeight: '700' },
-    emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  });
-}
+// ═══ Stiller ═══
+const s = StyleSheet.create({
+  container: { flex: 1 },
+  searchBox: { paddingHorizontal: Space.lg, paddingTop: 14, paddingBottom: Space.sm },
+  searchKart: { padding: 10 },
+  searchInputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 14, borderWidth: 1,
+    paddingHorizontal: Space.md,
+  },
+  searchIcon: { marginRight: Space.sm },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, fontFamily: Font.regular },
+  clearBtn: { padding: Space.xs },
+  filtreSatir: { maxHeight: 44 },
+  filtreIcerik: { paddingHorizontal: Space.lg, gap: Space.sm, alignItems: 'center' },
+  filtreChip: { minHeight: 44, justifyContent: 'center' },
+  filtreRozet: { paddingHorizontal: 14, paddingVertical: 7 },
+  sonuclar: { flex: 1, paddingHorizontal: Space.lg },
+  sonucSayisi: { fontFamily: Font.regular, fontSize: 12, marginTop: Space.md, marginBottom: Space.sm },
+  sonucListe: { gap: 10 },
+  sonucKart: { padding: 14 },
+  sonucSatir: { flexDirection: 'row', alignItems: 'center', gap: Space.md, minHeight: 44 },
+  sonucBilgi: { flex: 1 },
+  sonucIsim: { fontFamily: Font.semibold, fontSize: 15, marginBottom: 2 },
+  sonucAlt: { fontFamily: Font.regular, fontSize: 12 },
+  emptyState: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: Space.xxl, gap: Space.md },
+  emptyTitle: { fontFamily: Font.bold, fontSize: 18, letterSpacing: -0.3 },
+  emptyText: { fontFamily: Font.regular, fontSize: 14, textAlign: 'center', lineHeight: 20 },
+});

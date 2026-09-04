@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { supabase } from '../lib/supabase';
 import { useTema } from '../hooks/use-tema';
-import { Palette, type TemaRenkleri } from '../constants/theme';
+import { Font, Palette, type TemaRenkleri } from '../constants/theme';
+import { BirincilButon, GradyanHeader } from '../components/ui/pusula-ui';
 
 /* ═══════════════════════════════════════════
    Şifre Sıfırlama Ekranı
@@ -16,6 +17,9 @@ import { Palette, type TemaRenkleri } from '../constants/theme';
 
    Bu ekrana sadece geçerli bir recovery session ile gelinir.
    Yeni şifre belirlendikten sonra signOut yapılıp giriş'e yönlendirilir.
+
+   Eyl 2026 redesign — Kobalt & Menekşe; işlev değişmedi.
+   Giriş ekranıyla aynı form dili (gradyan üst alan, Kart zeminli alanlar, safran CTA).
    ═══════════════════════════════════════════ */
 
 export default function SifreSifirla() {
@@ -124,7 +128,7 @@ export default function SifreSifirla() {
   if (oturumKontrol) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={t.accent} />
+        <ActivityIndicator size="large" color={t.primary} />
       </View>
     );
   }
@@ -135,79 +139,86 @@ export default function SifreSifirla() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={[styles.icerik, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}
+        contentContainerStyle={[styles.icerik, { paddingBottom: insets.bottom + 20 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logo}>
+        {/* ── Gradyan üst alan + logo ── */}
+        <GradyanHeader paddingTop={insets.top + 20} style={styles.header}>
           <View style={styles.logoRow}>
             <Text style={styles.logoPusula}>PUSULA</Text>
-            <Image
-              source={require('../assets/images/logo-icon.png')}
-              style={styles.logoGorsel}
-              contentFit="contain"
-              tintColor={t.accent}
-            />
+            <View style={styles.logoDisk}>
+              <Image
+                source={require('../assets/images/logo-icon.png')}
+                style={styles.logoGorsel}
+                contentFit="contain"
+                tintColor={t.primary}
+              />
+            </View>
             <Text style={styles.logoIstanbul}>İSTANBUL</Text>
           </View>
           <Text style={styles.altBaslik}>Profesyonel Turist Rehberinin Dijital Asistanı</Text>
-        </View>
+        </GradyanHeader>
 
-        <Text style={styles.baslik}>Yeni şifre belirleyin</Text>
-        <Text style={styles.aciklama}>
-          Hesabınız için yeni bir şifre belirleyin. Şifreniz en az 8 karakter olmalı ve hem harf hem rakam içermelidir.
-        </Text>
+        <View style={styles.form}>
+          <Text style={styles.baslik}>Yeni şifre belirleyin</Text>
+          <Text style={styles.aciklama}>
+            Hesabınız için yeni bir şifre belirleyin. Şifreniz en az 8 karakter olmalı ve hem harf hem rakam içermelidir.
+          </Text>
 
-        <View style={styles.sifreWrap}>
-          <TextInput
-            style={styles.sifreInput}
-            placeholder="Yeni şifre"
-            placeholderTextColor={t.textSecondary}
-            value={yeniSifre}
-            onChangeText={setYeniSifre}
-            secureTextEntry={!sifreGorunur}
-            autoCapitalize="none"
+          <View style={styles.sifreWrap}>
+            <TextInput
+              style={styles.sifreInput}
+              placeholder="Yeni şifre"
+              placeholderTextColor={t.textSecondary}
+              value={yeniSifre}
+              onChangeText={setYeniSifre}
+              secureTextEntry={!sifreGorunur}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.sifreToggle}
+              onPress={() => setSifreGorunur(v => !v)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.sifreToggleYazi}>{sifreGorunur ? 'Gizle' : 'Göster'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.sifreWrap}>
+            <TextInput
+              style={styles.sifreInput}
+              placeholder="Yeni şifre tekrar"
+              placeholderTextColor={t.textSecondary}
+              value={yeniSifreTekrar}
+              onChangeText={setYeniSifreTekrar}
+              secureTextEntry={!sifreTekrarGorunur}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.sifreToggle}
+              onPress={() => setSifreTekrarGorunur(v => !v)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.sifreToggleYazi}>{sifreTekrarGorunur ? 'Gizle' : 'Göster'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {hata ? <Text style={styles.hata}>{hata}</Text> : null}
+
+          <BirincilButon
+            baslik="Şifreyi Güncelle"
+            onPress={sifreyiGuncelle}
+            varyant="cta"
+            yukleniyor={yukleniyor}
+            disabled={yukleniyor}
+            style={styles.buton}
           />
-          <TouchableOpacity
-            style={styles.sifreToggle}
-            onPress={() => setSifreGorunur(v => !v)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.sifreToggleYazi}>{sifreGorunur ? 'Gizle' : 'Göster'}</Text>
+
+          <TouchableOpacity style={styles.iptalBtn} onPress={iptalEt} disabled={yukleniyor}>
+            <Text style={styles.iptalYazi}>Vazgeç</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={styles.sifreWrap}>
-          <TextInput
-            style={styles.sifreInput}
-            placeholder="Yeni şifre tekrar"
-            placeholderTextColor={t.textSecondary}
-            value={yeniSifreTekrar}
-            onChangeText={setYeniSifreTekrar}
-            secureTextEntry={!sifreTekrarGorunur}
-            autoCapitalize="none"
-          />
-          <TouchableOpacity
-            style={styles.sifreToggle}
-            onPress={() => setSifreTekrarGorunur(v => !v)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.sifreToggleYazi}>{sifreTekrarGorunur ? 'Gizle' : 'Göster'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {hata ? <Text style={styles.hata}>{hata}</Text> : null}
-
-        <TouchableOpacity style={styles.buton} onPress={sifreyiGuncelle} disabled={yukleniyor}>
-          {yukleniyor
-            ? <ActivityIndicator color={t.bg} />
-            : <Text style={styles.butonYazi}>Şifreyi Güncelle</Text>
-          }
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.iptalBtn} onPress={iptalEt} disabled={yukleniyor}>
-          <Text style={styles.iptalYazi}>Vazgeç</Text>
-        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -216,56 +227,62 @@ export default function SifreSifirla() {
 function createStyles(t: TemaRenkleri) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: t.bg },
-    icerik: { flexGrow: 1, padding: 24, justifyContent: 'center' },
-    logo: { alignItems: 'center', marginBottom: 36 },
-    logoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 10 },
-    logoGorsel: { width: 56, height: 56, marginTop: -6 },
-    logoPusula: { fontFamily: 'Poppins_700Bold', fontSize: 20, color: t.accent, letterSpacing: 4 },
-    logoIstanbul: { fontFamily: 'Poppins_700Bold', fontSize: 19, color: t.accent, letterSpacing: 3 },
-    altBaslik: { color: t.textSecondary, fontSize: 13, marginTop: 10 },
+    icerik: { flexGrow: 1 },
+    header: { alignItems: 'center', paddingBottom: 30 },
+    logoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 12 },
+    logoDisk: { width: 64, height: 64, borderRadius: 32, backgroundColor: Palette.beyaz, alignItems: 'center', justifyContent: 'center' },
+    logoGorsel: { width: 44, height: 44 },
+    logoPusula: { fontFamily: Font.bold, fontSize: 20, color: '#FFFFFF', letterSpacing: 4 },
+    logoIstanbul: { fontFamily: Font.bold, fontSize: 19, color: '#FFFFFF', letterSpacing: 3 },
+    altBaslik: { fontFamily: Font.regular, color: t.headerSubtext, fontSize: 13, marginTop: 12, textAlign: 'center' },
+    form: { flex: 1, paddingHorizontal: 16, paddingTop: 28, justifyContent: 'center' },
     baslik: {
-      fontFamily: 'Poppins_700Bold',
-      fontSize: 22,
+      fontFamily: Font.bold,
+      fontSize: 20,
+      letterSpacing: -0.3,
       color: t.text,
       textAlign: 'center',
-      marginBottom: 12,
+      marginBottom: 10,
     },
     aciklama: {
+      fontFamily: Font.regular,
       color: t.textSecondary,
-      fontSize: 14,
+      fontSize: 13,
       textAlign: 'center',
-      marginBottom: 28,
-      lineHeight: 22,
+      marginBottom: 24,
+      lineHeight: 20,
     },
     sifreWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: t.bgInput,
-      borderRadius: 10,
+      backgroundColor: t.bgCard,
+      borderRadius: 14,
+      height: 48,
       borderWidth: 1,
-      borderColor: t.divider,
+      borderColor: t.kartBorder,
       marginBottom: 12,
-      paddingRight: 12,
+      paddingRight: 8,
     },
     sifreInput: {
       flex: 1,
-      padding: 16,
+      height: 46,
+      paddingHorizontal: 16,
       color: t.text,
-      fontSize: 15,
+      fontFamily: Font.regular,
+      fontSize: 14,
     },
     sifreToggle: {
       paddingHorizontal: 8,
       paddingVertical: 6,
     },
     sifreToggleYazi: {
-      color: t.accent,
-      fontSize: 13,
-      fontWeight: '600',
+      color: t.primary,
+      fontFamily: Font.semibold,
+      fontSize: 12,
     },
-    hata: { color: Palette.kapali, fontSize: 13, marginBottom: 12, textAlign: 'center' },
-    buton: { backgroundColor: t.accent, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
-    butonYazi: { color: t.bg, fontSize: 16, fontWeight: '700' },
-    iptalBtn: { alignItems: 'center', marginTop: 18 },
-    iptalYazi: { color: t.textSecondary, fontSize: 14, fontWeight: '600' },
+    hata: { fontFamily: Font.regular, color: t.durumKapali, fontSize: 13, marginBottom: 12, textAlign: 'center' },
+    buton: { marginTop: 8 },
+    iptalBtn: { alignItems: 'center', justifyContent: 'center', marginTop: 12, minHeight: 44 },
+    iptalYazi: { fontFamily: Font.semibold, color: t.textSecondary, fontSize: 14 },
   });
 }

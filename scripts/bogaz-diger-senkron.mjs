@@ -8,14 +8,16 @@
 // FIRECRAWL'SIZ (24 Haz 2026 — Firecrawl aboneligi iptal edildi):
 //   - Sehir Hatlari sayfalari server-rendered HTML → dogrudan fetch + regex parse.
 //   - Dentur SPA ama arkasinda resmi backend API var:
-//       GET https://denturavrasya.com:7284/api/WebSitePage/hatlarimiz/content-detail/bogazturu
+//       GET https://www.denturavrasya.com/api/WebSitePage/hatlarimiz/content-detail/bogazturu
+//       (18 Tem 2026: eski :7284 portu kapandi, API ayni domain altina tasindi — 17 Tem'den
+//       itibaren 4 ardisik "fetch failed" bunun sonucuydu; JSON semasi degismedi.)
 //       Header: Accept-Language: tr  →  JSON, icinde sayfa HTML'i (tarife tablosu).
 //   Bkz. DECISIONS #50 (Firecrawl yerine resmi kaynak/API pattern'i).
 //
 // KAYNAKLAR:
 //   Sehir Hatlari kisa : https://sehirhatlari.istanbul/tr/seferler/bogaz-turlari/kisa-bogaz-turu-181
 //   Sehir Hatlari uzun : https://sehirhatlari.istanbul/tr/seferler/bogaz-turlari/uzun-bogaz-turu-91
-//   Dentur API         : https://denturavrasya.com:7284/api/WebSitePage/hatlarimiz/content-detail/bogazturu
+//   Dentur API         : https://www.denturavrasya.com/api/WebSitePage/hatlarimiz/content-detail/bogazturu
 //
 // DB ESLEME (bogaz_turlari):
 //   SEHIR HATLARI / kisa     → hafta_ici_saatler = hafta_sonu_saatler = Eminonu kalkislari
@@ -80,7 +82,7 @@ if (!SERVICE_KEY) {
 
 const SH_KISA = 'https://sehirhatlari.istanbul/tr/seferler/bogaz-turlari/kisa-bogaz-turu-181';
 const SH_UZUN = 'https://sehirhatlari.istanbul/tr/seferler/bogaz-turlari/uzun-bogaz-turu-91';
-const DENTUR_API = 'https://denturavrasya.com:7284/api/WebSitePage/hatlarimiz/content-detail/bogazturu';
+const DENTUR_API = 'https://www.denturavrasya.com/api/WebSitePage/hatlarimiz/content-detail/bogazturu';
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) PusulaIstanbul/Senkron';
 

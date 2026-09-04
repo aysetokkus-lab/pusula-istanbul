@@ -1,16 +1,25 @@
+/* ═══════════════════════════════════════════
+   MEKAN SAATLERİ YÖNETİMİ — Inline Yönetim Bileşeni
+   Müze/Saray/Cami sekmesinde (app/(tabs)/muzeler.tsx) mekan listesinin
+   hemen altında <YetkiliBolum> içinde render edilir. Saat/fiyat/restorasyon
+   düzenleme, yeni mekan ekleme, mevsim geçişi (admin) ve Sultanahmet Camii
+   ziyaret pencereleri buradan yönetilir. `kategori` prop'u verilirse bileşen
+   o kategoriye kilitlenir (aktif sekme ile senkron).
+   Eyl 2026: admin paneli kaldırıldı, inline yönetim (eski: app/admin-saatler.tsx).
+   Eyl 2026 redesign — Kobalt & Menekşe; işlev değişmedi
+   (hex → token, Poppins, Segmentler/BirincilButon/BosDurum; modal yapısı aynı).
+   ═══════════════════════════════════════════ */
 import { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert,
   ActivityIndicator, TextInput, Modal, Switch
 } from 'react-native';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useAdmin } from '../hooks/use-admin';
-import { supabase } from '../lib/supabase';
-import type { MekanSaat } from '../hooks/use-mekan-saatleri';
-import { useTema } from '../hooks/use-tema';
-import type { TemaRenkleri } from '../constants/theme';
+import { useAdmin } from '../../hooks/use-admin';
+import { supabase } from '../../lib/supabase';
+import type { MekanSaat } from '../../hooks/use-mekan-saatleri';
+import { useTema } from '../../hooks/use-tema';
+import { Font, Palette, Radius, type TemaRenkleri } from '../../constants/theme';
+import { BirincilButon, BosDurum, Segmentler } from '../ui/pusula-ui';
 
 const GUNLER = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
 
@@ -22,6 +31,8 @@ const KATEGORILER = [
 ];
 
 type Sekme = 'milli_saraylar' | 'muzeler' | 'ozel_muzeler' | 'camiler';
+
+const gecerliSekme = (k?: string): k is Sekme => !!k && KATEGORILER.some(x => x.id === k);
 
 /* ═══════════════════════════════════════════
    Sultanahmet Camii Pencere Tipleri
@@ -62,20 +73,21 @@ function sultDurumRenk(ekstra: SultanahmetEkstra): string {
     const kapDk = kH * 60 + kM;
 
     if (dakika >= acDk && dakika < kapDk) {
-      // Kapanisa 30 dk veya daha az kaldiysa sari
-      if (kapDk - dakika <= 30) return '#E09F3E';
-      return '#059669'; // yesil — acik
+      // Kapanisa 30 dk veya daha az kaldiysa safran
+      if (kapDk - dakika <= 30) return Palette.uyari;
+      return Palette.acik; // yesil — acik
     }
   }
-  return '#D62828'; // kirmizi — kapali
+  return Palette.kapali; // kirmizi — kapali
 }
 
-export default function AdminSaatler() {
-  const insets = useSafeAreaInsets();
+export function MekanSaatleriYonetim(props: { kategori?: string }) {
+  const { kategori } = props;
+  const kilitli = gecerliSekme(kategori);
   const { t } = useTema();
   const s = createStyles(t);
   const { isAdmin, isYetkili, yukleniyor: adminYukleniyor } = useAdmin();
-  const [sekme, setSekme] = useState<Sekme>('milli_saraylar');
+  const [sekme, setSekme] = useState<Sekme>(kilitli ? (kategori as Sekme) : 'milli_saraylar');
   const [mekanlar, setMekanlar] = useState<MekanSaat[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [duzenleModal, setDuzenleModal] = useState(false);
@@ -161,7 +173,7 @@ export default function AdminSaatler() {
   const [yeniMekanId, setYeniMekanId] = useState('');
   const [duzenleIsim, setDuzenleIsim] = useState('');
   const [yeniTip, setYeniTip] = useState('muze');
-  const [yeniRenk, setYeniRenk] = useState('#0077B6');
+  const [yeniRenk, setYeniRenk] = useState(Palette.kobalt);
   const [yeniKapaliGun, setYeniKapaliGun] = useState('');
 
   // Form state
@@ -194,6 +206,13 @@ export default function AdminSaatler() {
 
   useEffect(() => { if (isYetkili) { veriCek(); sultanahmetCek(); } }, [sekme, isYetkili]);
 
+  // `kategori` prop'u ile senkron: ust ekranin aktif sekmesi degisince kilitli sekme de degisir
+  useEffect(() => {
+    if (kilitli && kategori !== sekme) {
+      setSekme(kategori as Sekme);
+    }
+  }, [kategori, kilitli]);
+
   // Moderator (admin degil) sadece camileri yonetir — kategori 'camiler'e kilitli
   useEffect(() => {
     if (!adminYukleniyor && isYetkili && !isAdmin && sekme !== 'camiler') {
@@ -207,7 +226,7 @@ export default function AdminSaatler() {
     setYeniIsim('');
     setYeniMekanId('');
     setYeniTip(!isAdmin ? 'cami' : sekme === 'camiler' ? 'cami' : sekme === 'milli_saraylar' ? 'saray' : 'muze');
-    setYeniRenk('#0077B6');
+    setYeniRenk(Palette.kobalt);
     setYeniKapaliGun('');
     setForm({
       acilis: '09:00', kapanis: '17:00', gise_kapanis: '',
@@ -399,38 +418,22 @@ export default function AdminSaatler() {
   };
 
   if (adminYukleniyor) {
-    return <View style={s.yukle}><ActivityIndicator size="large" color="#0077B6" /></View>;
-  }
-  if (!isYetkili) {
-    return (
-      <View style={s.yukle}>
-        <Text style={s.yetkisiz}>Erişim Engellendi</Text>
-        <TouchableOpacity style={s.geriBtn} onPress={() => router.back()}>
-          <Text style={s.geriBtnYazi}>Geri Dön</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return <ActivityIndicator size="small" color={t.primary} style={s.kucukYukle} />;
   }
 
+  // Moderator, kilitli kategori 'camiler' degilse bu sekmede duzenleme yapamaz
+  const moderatorKategoriDisi = !isAdmin && kilitli && kategori !== 'camiler';
+
   return (
-    <View style={s.container}>
-      <LinearGradient colors={['#005A8D','#0077B6','#0096C7']} start={{x:0,y:0}} end={{x:1,y:1}} style={[s.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.geriTus}>
-          <Text style={s.geriTusYazi}>{'<'} Geri</Text>
-        </TouchableOpacity>
-        <Text style={s.headerBaslik}>Mekan Saatleri</Text>
-        <Text style={s.headerAlt}>{isAdmin ? 'Müze, saray, cami saatlerini yönet' : 'Cami saatlerini yönet'}</Text>
-      </LinearGradient>
+    <View style={s.kutu}>
+      {/* Aciklama satiri (eski header alt yazisi) */}
+      <Text style={s.altYazi}>{isAdmin ? 'Müze, saray, cami saatlerini yönet' : 'Cami saatlerini yönet'}</Text>
 
       {/* Mevsim Gecis Butonlari (sadece admin) */}
       {isAdmin && (
         <View style={s.mevsimKutu}>
-          <TouchableOpacity style={[s.mevsimBtn, s.mevsimYaz]} onPress={() => mevsimGecisi('yaz')}>
-            <Text style={s.mevsimBtnYazi}>Yaz Saatine Geç</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.mevsimBtn, s.mevsimKis]} onPress={() => mevsimGecisi('kis')}>
-            <Text style={s.mevsimBtnYazi}>Kış Saatine Geç</Text>
-          </TouchableOpacity>
+          <BirincilButon baslik="Yaz Saatine Geç" onPress={() => mevsimGecisi('yaz')} varyant="cta" style={s.mevsimBtn} />
+          <BirincilButon baslik="Kış Saatine Geç" onPress={() => mevsimGecisi('kis')} varyant="kobalt" style={s.mevsimBtn} />
         </View>
       )}
 
@@ -450,55 +453,53 @@ export default function AdminSaatler() {
         </TouchableOpacity>
       )}
 
-      {/* Kategori Sekmeleri (sadece admin) */}
-      {isAdmin && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.sekmeScroll} contentContainerStyle={s.sekmeContainer}>
-          {KATEGORILER.map(k => (
-            <TouchableOpacity key={k.id} style={[s.sekmeBtn, sekme === k.id && s.sekmeBtnAktif]}
-              onPress={() => setSekme(k.id as Sekme)}>
-              <Text style={[s.sekmeYazi, sekme === k.id && s.sekmeYaziAktif]}>{k.baslik}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+      {/* Kategori Sekmeleri (sadece admin, kategori prop'u verilmemisse) */}
+      {isAdmin && !kilitli && (
+        <View style={s.sekmeContainer}>
+          <Segmentler secenekler={KATEGORILER} aktif={sekme} onSec={id => setSekme(id as Sekme)} />
+        </View>
       )}
 
       {/* Mekan Listesi (admin: tum kategoriler — moderator: sadece camiler) */}
       {isYetkili && (
-      <ScrollView style={s.liste} contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Yeni Ekle Butonu */}
-        <TouchableOpacity style={s.yeniEkleBtn} onPress={yeniEkleAc} activeOpacity={0.7}>
-          <Text style={s.yeniEklePlus}>+</Text>
-          <Text style={s.yeniEkleYazi}>Yeni Mekan Ekle</Text>
-        </TouchableOpacity>
-
-        {yukleniyor ? (
-          <ActivityIndicator size="large" color="#0077B6" style={{ marginTop: 40 }} />
-        ) : mekanlar.length === 0 ? (
-          <Text style={s.bosYazi}>Bu kategoride mekan bulunamadı.</Text>
+      <View style={s.liste}>
+        {moderatorKategoriDisi ? (
+          <BosDurum metin="Moderatörler yalnızca cami saatlerini düzenleyebilir." />
         ) : (
-          mekanlar.map(m => (
-            <TouchableOpacity key={m.id} style={[s.mekanKart, m.restorasyon && s.mekanKartRestorasyon]}
-              onPress={() => duzenleAc(m)} activeOpacity={0.7}>
-              <View style={[s.mekanRenk, { backgroundColor: m.renk }]} />
-              <View style={s.mekanBilgi}>
-                <Text style={s.mekanIsim}>{m.isim}</Text>
-                <Text style={s.mekanSaat}>
-                  {m.acilis} - {m.kapanis}
-                  {m.kapali_gun !== null ? ` (${GUNLER[m.kapali_gun]} kapalı)` : ''}
-                </Text>
-                {m.mevsimsel && (
-                  <Text style={s.mekanMevsim}>
-                    Mevsimsel: Yaz {m.yaz_acilis}-{m.yaz_kapanis} / Kış {m.kis_acilis}-{m.kis_kapanis}
-                  </Text>
-                )}
-                {m.restorasyon && <Text style={s.restorasyonYazi}>RESTORASYON</Text>}
-                {m.fiyat_yabanci && <Text style={s.mekanFiyat}>Yabancı: {m.fiyat_yabanci}</Text>}
-              </View>
-              <Text style={s.duzenleOk}>{'>'}</Text>
-            </TouchableOpacity>
-          ))
+          <>
+            {/* Yeni Ekle Butonu */}
+            <BirincilButon baslik="+ Yeni Mekan Ekle" onPress={yeniEkleAc} varyant="cta" style={s.yeniEkleBtn} />
+
+            {yukleniyor ? (
+              <ActivityIndicator size="small" color={t.primary} style={{ marginTop: 20 }} />
+            ) : mekanlar.length === 0 ? (
+              <BosDurum metin="Bu kategoride mekan bulunamadı." />
+            ) : (
+              mekanlar.map(m => (
+                <TouchableOpacity key={m.id} style={[s.mekanKart, m.restorasyon && s.mekanKartRestorasyon]}
+                  onPress={() => duzenleAc(m)} activeOpacity={0.7}>
+                  <View style={[s.mekanRenk, { backgroundColor: m.renk }]} />
+                  <View style={s.mekanBilgi}>
+                    <Text style={s.mekanIsim}>{m.isim}</Text>
+                    <Text style={s.mekanSaat}>
+                      {m.acilis} - {m.kapanis}
+                      {m.kapali_gun !== null ? ` (${GUNLER[m.kapali_gun]} kapalı)` : ''}
+                    </Text>
+                    {m.mevsimsel && (
+                      <Text style={s.mekanMevsim}>
+                        Mevsimsel: Yaz {m.yaz_acilis}-{m.yaz_kapanis} / Kış {m.kis_acilis}-{m.kis_kapanis}
+                      </Text>
+                    )}
+                    {m.restorasyon && <Text style={s.restorasyonYazi}>RESTORASYON</Text>}
+                    {m.fiyat_yabanci && <Text style={s.mekanFiyat}>Yabancı: {m.fiyat_yabanci}</Text>}
+                  </View>
+                  <Text style={s.duzenleOk}>{'>'}</Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </>
         )}
-      </ScrollView>
+      </View>
       )}
 
       {/* Sultanahmet Camii Ozel Modali */}
@@ -572,12 +573,8 @@ export default function AdminSaatler() {
                 <Text style={s.pencereEkleYazi}>+ Pencere Ekle</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={s.kaydetBtn} onPress={sultanahmetKaydet}>
-                <Text style={s.kaydetBtnYazi}>Kaydet</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.iptalBtn} onPress={() => setSultModal(false)}>
-                <Text style={s.iptalBtnYazi}>İptal</Text>
-              </TouchableOpacity>
+              <BirincilButon baslik="Kaydet" onPress={sultanahmetKaydet} varyant="kobalt" style={s.kaydetBtn} />
+              <BirincilButon baslik="İptal" onPress={() => setSultModal(false)} varyant="hayalet" style={s.iptalBtn} />
               <View style={{ height: 30 }} />
             </ScrollView>
           </View>
@@ -641,7 +638,7 @@ export default function AdminSaatler() {
 
                   <View style={s.inputGrup}>
                     <Text style={s.inputLabel}>Renk</Text>
-                    <TextInput style={s.input} value={yeniRenk} onChangeText={setYeniRenk} placeholder="#0077B6" />
+                    <TextInput style={s.input} value={yeniRenk} onChangeText={setYeniRenk} placeholder={Palette.kobalt} placeholderTextColor={t.textMuted} />
                   </View>
                 </>
               )}
@@ -666,7 +663,7 @@ export default function AdminSaatler() {
               {/* Mevsimsel Toggle */}
               <View style={s.switchSatir}>
                 <Text style={s.switchLabel}>Mevsimsel saat farkı var mı?</Text>
-                <Switch value={form.mevsimsel} onValueChange={v => setForm(f => ({...f, mevsimsel: v}))} trackColor={{true:'#0077B6'}} />
+                <Switch value={form.mevsimsel} onValueChange={v => setForm(f => ({...f, mevsimsel: v}))} trackColor={{ true: t.primary }} />
               </View>
 
               {form.mevsimsel && (
@@ -766,7 +763,7 @@ export default function AdminSaatler() {
               {/* Restorasyon */}
               <View style={s.switchSatir}>
                 <Text style={s.switchLabel}>Restorasyonda mı?</Text>
-                <Switch value={form.restorasyon} onValueChange={v => setForm(f => ({...f, restorasyon: v}))} trackColor={{true:'#D62828'}} />
+                <Switch value={form.restorasyon} onValueChange={v => setForm(f => ({...f, restorasyon: v}))} trackColor={{ true: t.durumKapali }} />
               </View>
               {form.restorasyon && (
                 <TextInput style={[s.input, s.inputGenis]} value={form.restorasyon_notu}
@@ -781,16 +778,10 @@ export default function AdminSaatler() {
                 placeholder="Rehberler için özel bilgi..." multiline />
 
               {/* Butonlar */}
-              <TouchableOpacity style={s.kaydetBtn} onPress={kaydet}>
-                <Text style={s.kaydetBtnYazi}>Kaydet</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.iptalBtn} onPress={() => setDuzenleModal(false)}>
-                <Text style={s.iptalBtnYazi}>İptal</Text>
-              </TouchableOpacity>
+              <BirincilButon baslik="Kaydet" onPress={kaydet} varyant="kobalt" style={s.kaydetBtn} />
+              <BirincilButon baslik="İptal" onPress={() => setDuzenleModal(false)} varyant="hayalet" style={s.iptalBtn} />
               {!yeniEkleModu && seciliMekan && isAdmin && (
-                <TouchableOpacity style={s.silBtn} onPress={mekanSil}>
-                  <Text style={s.silBtnYazi}>Mekanı Sil</Text>
-                </TouchableOpacity>
+                <BirincilButon baslik="Mekanı Sil" onPress={mekanSil} varyant="tehlike" style={s.silBtn} />
               )}
 
               <View style={{ height: 30 }} />
@@ -804,89 +795,66 @@ export default function AdminSaatler() {
 }
 
 const createStyles = (t: TemaRenkleri) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.bg },
-  yukle: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
-  yetkisiz: { fontSize: 18, fontWeight: '700', color: t.text, marginBottom: 16 },
-  geriBtn: { backgroundColor: '#0077B6', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
-  geriBtnYazi: { color: '#FFF', fontWeight: '700' },
+  kutu: { paddingBottom: 12 },
+  kucukYukle: { marginVertical: 16 },
+  altYazi: { fontFamily: Font.regular, color: t.textSecondary, fontSize: 12, paddingHorizontal: 16, paddingTop: 12 },
 
-  // Header
-  header: { paddingBottom: 16, paddingHorizontal: 16 },
-  geriTus: { marginBottom: 8 },
-  geriTusYazi: { color: 'rgba(255,255,255,0.8)', fontSize: 14 },
-  headerBaslik: { color: '#FFF', fontSize: 22, fontWeight: '800', textAlign: 'center' },
-  headerAlt: { color: 'rgba(255,255,255,0.7)', fontSize: 12, textAlign: 'center', marginTop: 4 },
+  // Mevsim (BirincilButon: yaz = cta/safran, kış = kobalt)
+  mevsimKutu: { flexDirection: 'row', marginHorizontal: 16, marginTop: 10, marginBottom: 8, gap: 10 },
+  mevsimBtn: { flex: 1, paddingHorizontal: 8 },
 
-  // Mevsim
-  mevsimKutu: { flexDirection: 'row', margin: 16, marginBottom: 8, gap: 10 },
-  mevsimBtn: { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  mevsimYaz: { backgroundColor: '#E09F3E' },
-  mevsimKis: { backgroundColor: '#0096C7' },
-  mevsimBtnYazi: { color: '#FFF', fontWeight: '700', fontSize: 13 },
-
-  // Sekmeler
-  sekmeScroll: { maxHeight: 48 },
-  sekmeContainer: { paddingHorizontal: 16, gap: 8 },
-  sekmeBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: t.kartBorder },
-  sekmeBtnAktif: { backgroundColor: '#0077B6' },
-  sekmeYazi: { color: t.textSecondary, fontSize: 12, fontWeight: '600' },
-  sekmeYaziAktif: { color: '#FFF' },
+  // Sekmeler (Segmentler sarmalayıcısı)
+  sekmeContainer: { paddingHorizontal: 16, marginTop: 4 },
 
   // Liste
-  liste: { flex: 1, paddingHorizontal: 16, marginTop: 12 },
-  bosYazi: { textAlign: 'center', color: t.textMuted, marginTop: 40, fontSize: 14 },
-  mekanKart: { backgroundColor: t.bgCard, borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: t.kartBorder },
-  mekanKartRestorasyon: { borderColor: '#D62828', borderWidth: 1.5 },
+  liste: { paddingHorizontal: 16, marginTop: 12 },
+  mekanKart: { backgroundColor: t.bgCard, borderRadius: Radius.lg, flexDirection: 'row', alignItems: 'center', marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: t.kartBorder, minHeight: 44 },
+  mekanKartRestorasyon: { borderColor: t.durumKapali, borderWidth: 1.5 },
   mekanRenk: { width: 5, alignSelf: 'stretch' },
   mekanBilgi: { flex: 1, padding: 14 },
-  mekanIsim: { fontSize: 14, fontWeight: '700', color: t.text },
-  mekanSaat: { fontSize: 12, color: t.textSecondary, marginTop: 3 },
-  mekanMevsim: { fontSize: 11, color: '#0096C7', marginTop: 2 },
-  restorasyonYazi: { fontSize: 10, fontWeight: '800', color: '#D62828', marginTop: 3, letterSpacing: 1 },
-  mekanFiyat: { fontSize: 11, color: t.textSecondary, marginTop: 2 },
-  duzenleOk: { color: t.textMuted, fontSize: 20, marginRight: 16 },
+  mekanIsim: { fontFamily: Font.bold, fontSize: 14, color: t.text, letterSpacing: -0.3 },
+  mekanSaat: { fontFamily: Font.regular, fontSize: 12, color: t.textSecondary, marginTop: 3 },
+  mekanMevsim: { fontFamily: Font.regular, fontSize: 11, color: t.primary, marginTop: 2 },
+  restorasyonYazi: { fontFamily: Font.extrabold, fontSize: 10, color: t.durumKapali, marginTop: 3, letterSpacing: 1 },
+  mekanFiyat: { fontFamily: Font.regular, fontSize: 11, color: t.textSecondary, marginTop: 2 },
+  duzenleOk: { fontFamily: Font.regular, color: t.textMuted, fontSize: 20, marginRight: 16 },
 
-  // Modal
+  // Modal (mevcut yapı; sadece renk/tipografi)
   modalArka: { flex: 1, backgroundColor: t.modalOverlay, justifyContent: 'flex-end' },
-  modalKutu: { backgroundColor: t.modalBg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
-  modalBaslik: { color: '#0077B6', fontSize: 20, fontWeight: '800' },
-  modalAlt: { color: t.textSecondary, fontSize: 12, marginBottom: 16 },
-  bolumBaslik: { color: t.text, fontSize: 13, fontWeight: '700', marginTop: 16, marginBottom: 8 },
+  modalKutu: { backgroundColor: t.modalBg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: '85%' },
+  modalBaslik: { fontFamily: Font.extrabold, color: t.text, fontSize: 20, letterSpacing: -0.3 },
+  modalAlt: { fontFamily: Font.regular, color: t.textSecondary, fontSize: 12, marginBottom: 16 },
+  bolumBaslik: { fontFamily: Font.bold, color: t.text, fontSize: 13, marginTop: 16, marginBottom: 8 },
   satirKutu: { flexDirection: 'row', gap: 10 },
   inputGrup: { flex: 1 },
-  inputLabel: { color: t.textSecondary, fontSize: 11, marginBottom: 4 },
-  input: { backgroundColor: t.bgInput, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder },
+  inputLabel: { fontFamily: Font.regular, color: t.textSecondary, fontSize: 11, marginBottom: 4 },
+  input: { minHeight: 48, backgroundColor: t.bgInput, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 10, fontFamily: Font.regular, fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder },
   inputGenis: { marginTop: 8, minHeight: 60, textAlignVertical: 'top' },
-  switchSatir: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingVertical: 8 },
-  switchLabel: { color: t.text, fontSize: 13, fontWeight: '600' },
-  kaydetBtn: { backgroundColor: '#0077B6', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 20 },
-  kaydetBtnYazi: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  iptalBtn: { borderWidth: 1, borderColor: t.kartBorder, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 10 },
-  iptalBtnYazi: { color: t.textSecondary, fontSize: 14, fontWeight: '600' },
-  silBtn: { borderWidth: 1, borderColor: '#D62828', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 20 },
-  silBtnYazi: { color: '#D62828', fontSize: 14, fontWeight: '700' },
+  switchSatir: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingVertical: 8, minHeight: 44 },
+  switchLabel: { fontFamily: Font.semibold, color: t.text, fontSize: 13 },
+  kaydetBtn: { marginTop: 20 },
+  iptalBtn: { marginTop: 10 },
+  silBtn: { marginTop: 20 },
 
   // Sultanahmet ozel
-  sultKart: { backgroundColor: t.bgCard, borderRadius: 14, flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 8, marginBottom: 8, padding: 14, borderWidth: 2, borderColor: '#0077B6', borderLeftWidth: 5 },
+  sultKart: { backgroundColor: t.bgCard, borderRadius: Radius.lg, flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 8, marginBottom: 8, padding: 14, borderWidth: 2, borderColor: t.primary, borderLeftWidth: 5, minHeight: 44 },
   sultSol: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   sultDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
-  sultIsim: { fontSize: 15, fontWeight: '800', color: '#0077B6' },
-  sultAlt: { fontSize: 11, color: t.textSecondary, marginTop: 2 },
-  pencereKart: { backgroundColor: t.bgInput, borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: t.kartBorder },
-  pencereSilBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#D6282820', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end' },
-  pencereSilYazi: { color: '#D62828', fontWeight: '800', fontSize: 12 },
-  pencereEkleBtn: { borderWidth: 1, borderColor: '#0077B6', borderStyle: 'dashed', borderRadius: 8, padding: 10, alignItems: 'center', marginBottom: 16 },
-  pencereEkleYazi: { color: '#0077B6', fontWeight: '700', fontSize: 12 },
+  sultIsim: { fontFamily: Font.extrabold, fontSize: 15, color: t.primary, letterSpacing: -0.3 },
+  sultAlt: { fontFamily: Font.regular, fontSize: 11, color: t.textSecondary, marginTop: 2 },
+  pencereKart: { backgroundColor: t.bgInput, borderRadius: Radius.md, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: t.kartBorder },
+  pencereSilBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Palette.kapaliTint, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end' },
+  pencereSilYazi: { fontFamily: Font.extrabold, color: t.durumKapali, fontSize: 12 },
+  pencereEkleBtn: { borderWidth: 1, borderColor: t.primary, borderStyle: 'dashed', borderRadius: Radius.sm, padding: 10, minHeight: 44, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  pencereEkleYazi: { fontFamily: Font.bold, color: t.primary, fontSize: 12 },
 
-  // Yeni ekle butonu
-  yeniEkleBtn: { backgroundColor: t.bgCard, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10, padding: 14, borderWidth: 1.5, borderColor: '#0077B6', borderStyle: 'dashed' },
-  yeniEklePlus: { color: '#0077B6', fontSize: 22, fontWeight: '700', marginRight: 8 },
-  yeniEkleYazi: { color: '#0077B6', fontSize: 14, fontWeight: '700' },
+  // Yeni ekle butonu (BirincilButon cta)
+  yeniEkleBtn: { marginBottom: 10 },
 
   // Gun / tip secici
   gunSecKutu: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
-  gunSecBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: t.kartBorder },
-  gunSecAktif: { backgroundColor: '#0077B6' },
-  gunSecYazi: { fontSize: 11, fontWeight: '600', color: t.textSecondary },
-  gunSecYaziAktif: { color: '#FFF' },
+  gunSecBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: Radius.sm, backgroundColor: t.bgSecondary, borderWidth: 1, borderColor: t.kartBorder },
+  gunSecAktif: { backgroundColor: t.primary, borderColor: t.primary },
+  gunSecYazi: { fontFamily: Font.semibold, fontSize: 11, color: t.textSecondary },
+  gunSecYaziAktif: { color: '#FFFFFF' },
 });

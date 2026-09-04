@@ -50,6 +50,19 @@ export function SearchIcon({ size = 24, color = '#000' }: IconProps) {
   );
 }
 
+/* Eyl 2026 — İş İlanları sekmesi: çanta ikonu (24px, fill; diğer ikonlarla aynı dil) */
+export function BriefcaseIcon({ size = 24, color = '#000' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19,3h-2.184C16.404,1.279,14.84,0,13,0h-2C9.16,0,7.596,1.279,7.184,3H5C2.243,3,0,5.243,0,8v11c0,2.757,2.243,5,5,5h14c2.757,0,5-2.243,5-5V8C24,5.243,21.757,3,19,3ZM11,2h2c.737,0,1.375,.405,1.722,1H9.278C9.625,2.405,10.263,2,11,2ZM5,5h14c1.654,0,3,1.346,3,3v3H2v-3C2,6.346,3.346,5,5,5ZM19,22H5c-1.654,0-3-1.346-3-3v-6h9v1c0,.552,.448,1,1,1s1-.448,1-1v-1h9v6C22,20.654,20.654,22,19,22Z"
+        fill={color}
+        fillRule="evenodd"
+      />
+    </Svg>
+  );
+}
+
 export function UserIcon({ size = 24, color = '#000' }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

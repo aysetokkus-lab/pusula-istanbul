@@ -8,12 +8,24 @@
 //   sehirhatlari.istanbul sayfalari server-rendered HTML → dogrudan fetch + parse.
 //   Bkz. DECISIONS #50.
 //
+// BUGFIX (3 Agu 2026):
+//   Eski surum, iptal-seferler sayfasinda GOSTERILEN duyurunun govdesini
+//   "Diger Duyurular" listesindeki EN YENI duyurunun basligiyla birlestiriyordu.
+//   Sonuc: "Mehtap Turu" basligi + sis iptali govdesi gibi karisik kayitlar.
+//   Ayrica 'DivTumDuyurular' kesim noktasi bir tag ID'sinin ortasina denk
+//   geldiginden metne "<div id=ctl00_..." yarim HTML etiketi siziyordu.
+//   YENI MANTIK:
+//     A) iptal-seferler'de gosterilen guncel iptal duyurusu → KENDI kaydi
+//        (tweet_id = "sh-iptal-<icerik-hash>", baslik eklenmez).
+//        "Iptal seferimiz bulunmamaktadir" goruluyorsa kayit acilmaz.
+//     B) Diger Duyurular'daki en yeni duyuru → KENDI detay sayfasindan
+//        baslik + govde + yayin tarihi cekilir (tutarli tek kaynak).
+//        Ekstra maliyet: kosu basina +1 istek (30 dk'da bir → onemsiz).
+//   `tarih` artik cekim ani degil, duyurunun yayin tarihi (varsa).
+//
 // KAYNAK:
-//   https://sehirhatlari.istanbul/tr/iptal-seferler  → en guncel duyuru detayi
-//   + "Diger Duyurular" listesindeki iptal/sefer ile ilgili duyurular.
-//   Yeni (DB'de olmayan) duyurularin detayi /tr/duyurular/<slug>-<id> sayfasindan cekilir.
-//   Mevcut kayitlarin etki tarihi, DB'de saklanan icerikten yeniden degerlendirilir
-//   (ekstra istek YOK → 30 dk'lik cron'da bant tasarrufu).
+//   https://sehirhatlari.istanbul/tr/iptal-seferler
+//   + /tr/duyurular/<slug>-<id> detay sayfalari
 //
 // SESSIZ MOD:
 //   delta = (yeni + guncellenen + pasiflesen) kayit sayisi.
@@ -21,8 +33,8 @@
 //   Hata olursa her zaman bildirilir.
 //
 // TABLO: ulasim_uyarilari
-//   tweet_id (UNIQUE, "sh-<id>"), kaynak ('web:sehirhatlari'), icerik, tip
-//   ('kesinti'/'duyuru'), hat, aktif (bool), cozuldu (false), tarih (timestamptz)
+//   tweet_id (UNIQUE, "sh-<id>" veya "sh-iptal-<hash>"), kaynak ('web:sehirhatlari'),
+//   icerik, tip ('kesinti'/'duyuru'), hat, aktif (bool), cozuldu (false), tarih (timestamptz)
 //
 // KULLANIM:
 //   node scripts/sehir-hatlari-iptal-senkron.mjs            # gercek senkron
@@ -98,7 +110,11 @@ function htmlDecode(s) {
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
 }
 
-function stripTags(s) { return htmlDecode(s.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim(); }
+// BUGFIX: sondaki YARIM (kapanmamis) etiket de temizlenir — "<div id=ctl00_..."
+// sizintisinin ikinci savunma hatti.
+function stripTags(s) {
+  return htmlDecode(s.replace(/<[^>]+>/g, ' ').replace(/<[^>]*$/, ' ')).replace(/\s+/g, ' ').trim();
+}
 
 async function fetchText(url) {
   const res = await fetch(url, { headers: { 'User-Agent': UA } });
@@ -107,18 +123,43 @@ async function fetchText(url) {
 }
 
 // Duyuru detay govdesini temiz cikar: notice-detail-text-content div'inin
-// ICERIGI (acilis tag'inden sonra) → DivTumDuyurular'a kadar. Yayin tarihi
-// paragrafi (news-detail-date) etki tarihi hesabini kirletmesin diye atilir.
+// ICERIGI → DivTumDuyurular'in TAG BASLANGICINA ('<' karakterine) kadar.
+// BUGFIX: eskiden kesim 'DivTumDuyurular' string'inden yapiliyordu; bu nokta
+// "<div id=ctl00_ContentPlaceHolder1_DivTumDuyurular" tag'inin ORTASI oldugundan
+// yarim etiket metne siziyordu. Yayin tarihi paragrafi (news-detail-date)
+// etki tarihi hesabini kirletmesin diye atilir.
 function extractBody(html) {
   const i = html.indexOf('notice-detail-text-content');
   if (i === -1) return '';
   const gt = html.indexOf('>', i);
   if (gt === -1) return '';
-  let td = html.indexOf('DivTumDuyurular', gt);
-  const end = td !== -1 ? td : Math.min(gt + 4000, html.length);
+  const td = html.indexOf('DivTumDuyurular', gt);
+  let end;
+  if (td !== -1) {
+    const lt = html.lastIndexOf('<', td);
+    end = lt > gt ? lt : td;
+  } else {
+    end = Math.min(gt + 4000, html.length);
+  }
   let block = html.slice(gt + 1, end);
   block = block.replace(/<p[^>]*news-detail-date[^>]*>[\s\S]*?<\/p>/i, '');
   return stripTags(block);
+}
+
+// Sayfadaki yayin tarihini (dd.mm.yyyy) cek
+function yayinTarihiBul(html) {
+  const m = html.match(/news-detail-date"?>\s*([\d.]+)/);
+  return m ? m[1].trim() : null;
+}
+
+// "dd.mm.yyyy" → ISO (Istanbul gunu baslangici). Parse edilemezse null.
+function trToIso(ddmmyyyy) {
+  if (!ddmmyyyy) return null;
+  const m = ddmmyyyy.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (!m) return null;
+  const [, g, a, y] = m;
+  if (+a < 1 || +a > 12 || +g < 1 || +g > 31) return null;
+  return `${y}-${String(a).padStart(2, '0')}-${String(g).padStart(2, '0')}T00:00:00+03:00`;
 }
 
 function bugun0() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
@@ -170,10 +211,14 @@ function tipTespit(text) {
   return /(iptal|yapılamayacak|uğrama|kaldır|gerçekleştirileme|seferler.{0,6}iptal)/i.test(text) ? 'kesinti' : 'duyuru';
 }
 
-// Diger Duyurular listesindeki bir basligin iptal/sefer ile ilgili olup olmadigi
-function ilgiliMi(baslik) {
-  if (/(genel kurul|kamuoyu|ihale|kongre|bilanço|olağan|çağrı)/i.test(baslik)) return false;
-  return /(iptal|sefer|hat|uğrama|tarife|düzenleme)/i.test(baslik);
+// Ulasimla acikca ALAKASIZ duyurular (kurumsal/idari) atlanir.
+function alakasizMi(baslik) {
+  return /(genel kurul|kamuoyu|ihale|kongre|bilanço|olağan|çağrı)/i.test(baslik);
+}
+
+// "Iptal seferimiz bulunmamaktadir" → aktif kesinti yok demektir.
+function iptalYokMu(text) {
+  return /iptal\s+seferimiz\s+bulunmamaktad/i.test(text);
 }
 
 function idFromSlug(href) {
@@ -181,16 +226,12 @@ function idFromSlug(href) {
   return m ? m[1] : null;
 }
 
-// === Iptal sayfasini parse et: ana duyuru + diger duyuru linkleri ===
+// === Iptal sayfasini parse et: gosterilen duyuru govdesi + diger duyuru linkleri ===
 function parseIndex(html) {
-  // Ana duyuru metni
   const anaMetin = extractBody(html);
+  const yayinTarihi = yayinTarihiBul(html);
   const tumDuyIdx = html.indexOf('DivTumDuyurular');
-  // yayin tarihi (bilgi amacli)
-  const yayinM = html.match(/news-detail-date"?>\s*([\d.]+)/);
-  const yayinTarihi = yayinM ? yayinM[1].trim() : null;
 
-  // Diger Duyurular linkleri
   const linkler = [];
   if (tumDuyIdx !== -1) {
     const blok = html.slice(tumDuyIdx, tumDuyIdx + 4000);
@@ -234,45 +275,86 @@ async function main() {
   const baslangic = new Date();
   log(`Sehir Hatlari iptal senkron — ${baslangic.toISOString()}${DRY ? ' [DRY]' : ''}`);
 
-  // 1. Index'i cek — sayfada gosterilen GUNCEL duyuru (ana) + ilk link (baslik/id)
+  // 1. Index'i cek
   const html = await fetchText(IPTAL_URL);
-  const { anaMetin, linkler } = parseIndex(html);
-  const ana = linkler[0] || null;
-  if (!ana || !anaMetin) throw new Error('Ana duyuru parse edilemedi (link/metin yok) — yapi degismis olabilir');
-  log(`Ana duyuru: ${ana.baslik} (sh-${ana.id})`);
+  const { anaMetin, yayinTarihi, linkler } = parseIndex(html);
+  if (!anaMetin && !linkler.length) {
+    throw new Error('Iptal sayfasi parse edilemedi (metin de link de yok) — yapi degismis olabilir');
+  }
 
   // 2. DB'deki mevcut kayitlar
-  const mevcut = await sbSelect(`kaynak=eq.${KAYNAK}&select=tweet_id,icerik,aktif`);
+  const mevcut = await sbSelect(`kaynak=eq.${KAYNAK}&select=tweet_id,icerik,aktif,tarih`);
   const mevcutMap = new Map(mevcut.map(r => [r.tweet_id, r]));
 
-  // 3. Tek kayit: gosterilen guncel duyuru (etki tarihi gecmisse aktif=false)
-  //    Not: app yalnizca guncel kesintiyle ilgilenir; arsiv "Diger Duyurular"
-  //    serbest-metin tarihiyle siniflandirmak kirilgan oldugundan ana duyuruya odaklanilir.
-  const tweetId = `sh-${ana.id}`;
-  const kayitlar = [{
-    tweet_id: tweetId,
-    kaynak: KAYNAK,
-    icerik: `${ana.baslik} — ${anaMetin}`.slice(0, 500),
-    tip: tipTespit(`${ana.baslik} ${anaMetin}`),
-    hat: hatTespit(anaMetin),
-    aktif: aktifMi(anaMetin),
-    cozuldu: false,
-    tarih: new Date().toISOString(),
-  }];
-  const gorulenTweetIds = new Set(kayitlar.filter(k => k.aktif).map(k => k.tweet_id));
+  const kayitlar = [];
 
-  // 5. Delta hesabi: gercekten yeni veya icerik/aktiflik degisen kayitlar
-  let yeni = 0, guncel = 0;
-  const degisenler = [];
-  for (const k of kayitlar) {
-    const eski = mevcutMap.get(k.tweet_id);
-    if (!eski) { yeni++; degisenler.push(`YENI ${k.tweet_id} [${k.aktif ? 'aktif' : 'pasif'}] ${k.icerik.slice(0, 60)}`); }
-    else if ((eski.icerik || '') !== k.icerik || !!eski.aktif !== !!k.aktif) {
-      guncel++; degisenler.push(`GUNCEL ${k.tweet_id} aktif:${eski.aktif}→${k.aktif}`);
+  // 3a. KAYIT A — iptal-seferler'de GOSTERILEN guncel iptal duyurusu.
+  //     Kimligi icerik hash'i: metin degisirse yeni kayit acilir, eskisi
+  //     adim 6'da otomatik pasiflenir. Baslik EKLENMEZ (baslik listeden degil,
+  //     govdenin kendisinden gelmeli — karisik kayit bug'inin kaynagi buydu).
+  if (anaMetin && !iptalYokMu(anaMetin)) {
+    const hash = createHash('sha1').update(anaMetin).digest('hex').slice(0, 12);
+    kayitlar.push({
+      tweet_id: `sh-iptal-${hash}`,
+      kaynak: KAYNAK,
+      icerik: anaMetin.slice(0, 500),
+      tip: tipTespit(anaMetin),
+      hat: hatTespit(anaMetin),
+      aktif: aktifMi(anaMetin),
+      cozuldu: false,
+      tarih: trToIso(yayinTarihi) || new Date().toISOString(),
+    });
+    log(`Iptal duyurusu: sh-iptal-${hash} — ${anaMetin.slice(0, 60)}...`);
+  } else {
+    log('Gosterilen iptal duyurusu yok ("iptal seferimiz bulunmamaktadir" veya bos).');
+  }
+
+  // 3b. KAYIT B — Diger Duyurular'daki EN YENI duyuru, KENDI detay sayfasindan.
+  //     Baslik + govde + yayin tarihi ayni sayfadan gelir → karisiklik imkansiz.
+  //     Detay her kosuda cekilir (+1 istek): DB'deki eski/bozuk icerige
+  //     guvenmek onceki bug'da oldugu gibi yaniltici olabiliyor.
+  const ana = linkler[0] || null;
+  if (ana && !alakasizMi(ana.baslik)) {
+    const detayHtml = await fetchText(ana.href);
+    const govde = extractBody(detayHtml);
+    const detayTarih = trToIso(yayinTarihiBul(detayHtml));
+    if (govde) {
+      const eskiB = mevcutMap.get(`sh-${ana.id}`);
+      kayitlar.push({
+        tweet_id: `sh-${ana.id}`,
+        kaynak: KAYNAK,
+        icerik: `${ana.baslik} — ${govde}`.slice(0, 500),
+        tip: tipTespit(`${ana.baslik} ${govde}`),
+        hat: hatTespit(govde),
+        aktif: aktifMi(govde),
+        cozuldu: false,
+        // Yayin tarihi > DB'deki eski tarih > simdi (cekim ani SON care)
+        tarih: detayTarih || (eskiB && eskiB.tarih) || new Date().toISOString(),
+      });
+      log(`Duyuru: ${ana.baslik} (sh-${ana.id})`);
+    } else {
+      log(`UYARI: sh-${ana.id} detay govdesi parse edilemedi, atlandi.`);
     }
   }
 
-  // 6. Sayfada/adaylarda gorulmeyen AMA DB'de aktif olan kayitlari pasif yap
+  const gorulenTweetIds = new Set(kayitlar.filter(k => k.aktif).map(k => k.tweet_id));
+
+  // 4. Delta hesabi: gercekten yeni veya icerik/aktiflik degisen kayitlar
+  let yeni = 0, guncel = 0;
+  const degisenler = [];
+  const degisenKayitlar = [];
+  for (const k of kayitlar) {
+    const eski = mevcutMap.get(k.tweet_id);
+    if (!eski) {
+      yeni++; degisenKayitlar.push(k);
+      degisenler.push(`YENI ${k.tweet_id} [${k.aktif ? 'aktif' : 'pasif'}] ${k.icerik.slice(0, 60)}`);
+    } else if ((eski.icerik || '') !== k.icerik || !!eski.aktif !== !!k.aktif) {
+      guncel++; degisenKayitlar.push(k);
+      degisenler.push(`GUNCEL ${k.tweet_id} aktif:${eski.aktif}→${k.aktif}`);
+    }
+  }
+
+  // 6. Sayfada gorulmeyen AMA DB'de aktif olan kayitlari pasif yap
   const pasifAdaylar = mevcut.filter(r => r.aktif && !gorulenTweetIds.has(r.tweet_id)).map(r => r.tweet_id);
   let pasiflenen = pasifAdaylar.length;
 
@@ -280,7 +362,9 @@ async function main() {
 
   const ozet = {
     timestamp: baslangic.toISOString(), dry: DRY, auto: AUTO,
-    ana: ana.baslik, yeni, guncellenen: guncel, pasiflenen, delta,
+    ana: ana ? ana.baslik : null,
+    iptalDuyurusu: anaMetin ? anaMetin.slice(0, 80) : null,
+    yeni, guncellenen: guncel, pasiflenen, delta,
     degisenler: VERBOSE ? degisenler : degisenler.slice(0, 10),
   };
 
@@ -291,9 +375,9 @@ async function main() {
     return;
   }
 
-  // 8. Yaz
+  // 8. Yaz — SADECE degisen kayitlar (degismeyenlerin tarih'i ellenmez)
   if (!DRY) {
-    if (kayitlar.length) await sbUpsert(kayitlar);
+    if (degisenKayitlar.length) await sbUpsert(degisenKayitlar);
     if (pasifAdaylar.length) {
       // PostgREST in.() ile toplu pasif
       const list = pasifAdaylar.map(t => `"${t}"`).join(',');

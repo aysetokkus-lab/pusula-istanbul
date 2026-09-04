@@ -1,5 +1,11 @@
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// Camgöbeği gradyan bant → Kart (kobalt accent şeridi) + sürüm Rozet'i + kobalt BirincilButon.
+// useGuncellemeKontrol (app_versions kontrolü), mağaza yönlendirmesi ve X ile 24 saat sessizleştirme birebir.
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
+import { useTema } from '../hooks/use-tema';
+import { Font } from '../constants/theme';
+import { BirincilButon, Kart, Rozet } from './ui/pusula-ui';
 import { useGuncellemeKontrol } from '../hooks/use-guncelleme-kontrol';
 
 /* ═══════════════════════════════════════════
@@ -10,7 +16,17 @@ import { useGuncellemeKontrol } from '../hooks/use-guncelleme-kontrol';
    tiklaninca App Store / Play Store'a yonlendirir.
    ═══════════════════════════════════════════ */
 
+/** Kapat ikonu — 24px stroke SVG (inline) */
+function KapatIkon({ color, size = 16 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 6l12 12M18 6L6 18" stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function GuncellemeBandi() {
+  const { t } = useTema();
   const { yeniSurumVar, latestVersion, storeUrl, sessizlestir } = useGuncellemeKontrol();
 
   if (!yeniSurumVar || !storeUrl) return null;
@@ -22,64 +38,48 @@ export function GuncellemeBandi() {
   };
 
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={magazaAc}>
-      <LinearGradient
-        colors={['#48CAE4', '#0096C7', '#0077B6']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={s.bant}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.baslik}>Pusula'nın yeni sürümü mevcut</Text>
-          <Text style={s.altYazi}>
-            v{latestVersion} — Güncellemek için dokunun
-          </Text>
+    <View style={s.zarf}>
+      <Kart accent={t.primary} onPress={magazaAc}>
+        <View style={s.ustSatir}>
+          <View style={{ flex: 1, gap: 6 }}>
+            <Text style={[s.baslik, { color: t.text }]}>Pusula'nın yeni sürümü mevcut</Text>
+            <Rozet renk={t.primary}>v{latestVersion}</Rozet>
+          </View>
+          <TouchableOpacity
+            onPress={sessizlestir}
+            hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+            style={[s.kapatBtn, { backgroundColor: t.bgCardAlt, borderColor: t.kartBorder }]}>
+            <KapatIkon color={t.textSecondary} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          onPress={sessizlestir}
-          hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
-          style={s.kapatBtn}>
-          <Text style={s.kapatBtnYazi}>×</Text>
-        </TouchableOpacity>
-      </LinearGradient>
-    </TouchableOpacity>
+        <BirincilButon baslik="Güncellemek için dokunun" onPress={magazaAc} varyant="kobalt" />
+      </Kart>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  bant: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  zarf: {
     paddingHorizontal: 16,
-    paddingVertical: 11,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 10,
+    paddingTop: 14,
+  },
+  ustSatir: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 12,
   },
   baslik: {
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 13,
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
-  },
-  altYazi: {
-    fontFamily: 'Poppins_400Regular',
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.92)',
-    marginTop: 1,
+    fontFamily: Font.bold,
+    fontSize: 15,
+    lineHeight: 20,
+    letterSpacing: -0.3,
   },
   kapatBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  kapatBtnYazi: {
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 20,
-    color: '#FFFFFF',
-    lineHeight: 22,
   },
 });

@@ -48,10 +48,10 @@ if (!RESEND_API_KEY) {
 
 // ===== HEDEF BLOGU — her silme talebinde sadece bu kismi duzenle =====
 const HEDEF = {
-  ad: 'Ayfer',
-  soyad: 'Artuç',
-  email: 'afa_ss@hotmail.com',
-  silme_tarihi_metin: '16 Haziran 2026', // mail icindeki tarih ibaresi
+  ad: 'Mahmut',
+  soyad: 'Özdemir',
+  email: 'mamt3452@gmail.com',
+  silme_tarihi_metin: '6 Temmuz 2026', // mail icindeki tarih ibaresi
 };
 // ====================================================================
 

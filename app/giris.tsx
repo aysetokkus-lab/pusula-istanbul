@@ -1,11 +1,18 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { supabase } from '../lib/supabase';
 import { useTema } from '../hooks/use-tema';
-import { Palette, type TemaRenkleri } from '../constants/theme';
+import { Font, Palette, type TemaRenkleri } from '../constants/theme';
+import { BirincilButon, GradyanHeader, Segmentler } from '../components/ui/pusula-ui';
+
+/* ═══════════════════════════════════════════
+   Giriş / Kayıt Ekranı
+   Eyl 2026 redesign — Kobalt & Menekşe; işlev değişmedi.
+   Gradyan üst alan + logo, Segmentler sekme, safran CTA.
+   ═══════════════════════════════════════════ */
 
 export default function Giris() {
   const { t } = useTema();
@@ -147,118 +154,134 @@ export default function Giris() {
     setYukleniyor(false);
   };
 
+  // Sekme değişimi — eski iki TouchableOpacity'nin onPress davranışları birebir
+  const sekmeSec = (id: 'giris' | 'kayit') => {
+    if (id === 'giris') {
+      setMod('giris'); setHata(''); setBasari(''); setSifreTekrar('');
+    } else {
+      setMod('kayit'); setHata(''); setBasari('');
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={[styles.icerik, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}
+        contentContainerStyle={[styles.icerik, { paddingBottom: insets.bottom + 20 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logo}>
+        {/* ── Gradyan üst alan + logo ── */}
+        <GradyanHeader paddingTop={insets.top + 20} style={styles.header}>
           <View style={styles.logoRow}>
             <Text style={styles.logoPusula}>PUSULA</Text>
-            <Image
-              source={require('../assets/images/logo-icon.png')}
-              style={styles.logoGorsel}
-              contentFit="contain"
-              tintColor={t.accent}
-            />
+            <View style={styles.logoDisk}>
+              <Image
+                source={require('../assets/images/logo-icon.png')}
+                style={styles.logoGorsel}
+                contentFit="contain"
+                tintColor={t.primary}
+              />
+            </View>
             <Text style={styles.logoIstanbul}>İSTANBUL</Text>
           </View>
           <Text style={styles.altBaslik}>Profesyonel Turist Rehberinin Dijital Asistanı</Text>
-        </View>
+        </GradyanHeader>
 
-        <View style={styles.sekmeKutu}>
-          <TouchableOpacity style={[styles.sekme, mod === 'giris' && styles.sekmeAktif]} onPress={() => { setMod('giris'); setHata(''); setBasari(''); setSifreTekrar(''); }}>
-            <Text style={[styles.sekmeYazi, mod === 'giris' && styles.sekmeYaziAktif]}>Giriş Yap</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.sekme, mod === 'kayit' && styles.sekmeAktif]} onPress={() => { setMod('kayit'); setHata(''); setBasari(''); }}>
-            <Text style={[styles.sekmeYazi, mod === 'kayit' && styles.sekmeYaziAktif]}>Kayıt Ol</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.form}>
+          <View style={styles.sekmeKutu}>
+            <Segmentler
+              secenekler={[{ id: 'giris', baslik: 'Giriş Yap' }, { id: 'kayit', baslik: 'Kayıt Ol' }]}
+              aktif={mod}
+              onSec={sekmeSec}
+            />
+          </View>
 
-        {mod === 'kayit' && (
-          <>
-            <Text style={[styles.ruhsatUyari, { color: t.textSecondary }]}>
-              Lütfen adınızı ve soyadınızı ruhsatnamenizdeki gibi yazınız.
-            </Text>
-            <View style={styles.satirGrid}>
-              <TextInput style={[styles.input, { flex: 1 }]} placeholder="İsim" placeholderTextColor={t.textSecondary}
-                value={isim} onChangeText={setIsim} />
-              <TextInput style={[styles.input, { flex: 1 }]} placeholder="Soyisim" placeholderTextColor={t.textSecondary}
-                value={soyisim} onChangeText={setSoyisim} />
-            </View>
-            <TextInput style={styles.input} placeholder="TUREB Ruhsat No" placeholderTextColor={t.textSecondary}
-              value={ruhsatNo} onChangeText={setRuhsatNo} keyboardType="default" autoCapitalize="characters" />
-          </>
-        )}
+          {mod === 'kayit' && (
+            <>
+              <Text style={styles.ruhsatUyari}>
+                Lütfen adınızı ve soyadınızı ruhsatnamenizdeki gibi yazınız.
+              </Text>
+              <View style={styles.satirGrid}>
+                <TextInput style={[styles.input, { flex: 1 }]} placeholder="İsim" placeholderTextColor={t.textSecondary}
+                  value={isim} onChangeText={setIsim} />
+                <TextInput style={[styles.input, { flex: 1 }]} placeholder="Soyisim" placeholderTextColor={t.textSecondary}
+                  value={soyisim} onChangeText={setSoyisim} />
+              </View>
+              <TextInput style={styles.input} placeholder="TUREB Ruhsat No" placeholderTextColor={t.textSecondary}
+                value={ruhsatNo} onChangeText={setRuhsatNo} keyboardType="default" autoCapitalize="characters" />
+            </>
+          )}
 
-        <TextInput style={styles.input} placeholder="E-posta" placeholderTextColor={t.textSecondary}
-          value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-        <View style={styles.sifreWrap}>
-          <TextInput
-            style={styles.sifreInput}
-            placeholder="Şifre"
-            placeholderTextColor={t.textSecondary}
-            value={sifre}
-            onChangeText={setSifre}
-            secureTextEntry={!sifreGorunur}
-            autoCapitalize="none"
-          />
-          <TouchableOpacity
-            style={styles.sifreToggle}
-            onPress={() => setSifreGorunur(v => !v)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.sifreToggleYazi}>{sifreGorunur ? 'Gizle' : 'Göster'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {mod === 'kayit' && (
+          <TextInput style={styles.input} placeholder="E-posta" placeholderTextColor={t.textSecondary}
+            value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
           <View style={styles.sifreWrap}>
             <TextInput
               style={styles.sifreInput}
-              placeholder="Şifre Tekrar"
+              placeholder="Şifre"
               placeholderTextColor={t.textSecondary}
-              value={sifreTekrar}
-              onChangeText={setSifreTekrar}
-              secureTextEntry={!sifreTekrarGorunur}
+              value={sifre}
+              onChangeText={setSifre}
+              secureTextEntry={!sifreGorunur}
               autoCapitalize="none"
             />
             <TouchableOpacity
               style={styles.sifreToggle}
-              onPress={() => setSifreTekrarGorunur(v => !v)}
+              onPress={() => setSifreGorunur(v => !v)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={styles.sifreToggleYazi}>{sifreTekrarGorunur ? 'Gizle' : 'Göster'}</Text>
+              <Text style={styles.sifreToggleYazi}>{sifreGorunur ? 'Gizle' : 'Göster'}</Text>
             </TouchableOpacity>
           </View>
-        )}
 
-        {mod === 'giris' && (
-          <TouchableOpacity onPress={sifremiUnuttum} style={styles.sifreBtn}>
-            <Text style={styles.sifreYazi}>Şifremi unuttum</Text>
-          </TouchableOpacity>
-        )}
-
-        {hata ? <Text style={styles.hata}>{hata}</Text> : null}
-        {basari ? (
-          <View style={styles.basariKutu}>
-            <Text style={styles.basariBaslik}>Doğrulama E-postası Gönderildi</Text>
-            <Text style={styles.basariYazi}>{basari}</Text>
-          </View>
-        ) : null}
-
-        <TouchableOpacity style={styles.buton} onPress={mod === 'giris' ? girisYap : kayitOl} disabled={yukleniyor}>
-          {yukleniyor ? <ActivityIndicator color={t.bg} /> : (
-            <Text style={styles.butonYazi}>{mod === 'giris' ? 'Giriş Yap' : 'Kayıt Ol'}</Text>
+          {mod === 'kayit' && (
+            <View style={styles.sifreWrap}>
+              <TextInput
+                style={styles.sifreInput}
+                placeholder="Şifre Tekrar"
+                placeholderTextColor={t.textSecondary}
+                value={sifreTekrar}
+                onChangeText={setSifreTekrar}
+                secureTextEntry={!sifreTekrarGorunur}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.sifreToggle}
+                onPress={() => setSifreTekrarGorunur(v => !v)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.sifreToggleYazi}>{sifreTekrarGorunur ? 'Gizle' : 'Göster'}</Text>
+              </TouchableOpacity>
+            </View>
           )}
-        </TouchableOpacity>
 
-        {/* Uygulama ücretli — misafir girişi kapatıldı */}
+          {mod === 'giris' && (
+            <TouchableOpacity onPress={sifremiUnuttum} style={styles.sifreBtn}>
+              <Text style={styles.sifreYazi}>Şifremi unuttum</Text>
+            </TouchableOpacity>
+          )}
+
+          {hata ? <Text style={styles.hata}>{hata}</Text> : null}
+          {basari ? (
+            <View style={styles.basariKutu}>
+              <Text style={styles.basariBaslik}>Doğrulama E-postası Gönderildi</Text>
+              <Text style={styles.basariYazi}>{basari}</Text>
+            </View>
+          ) : null}
+
+          <BirincilButon
+            baslik={mod === 'giris' ? 'Giriş Yap' : 'Kayıt Ol'}
+            onPress={mod === 'giris' ? girisYap : kayitOl}
+            varyant="cta"
+            yukleniyor={yukleniyor}
+            disabled={yukleniyor}
+            style={styles.buton}
+          />
+
+          {/* Uygulama ücretli — misafir girişi kapatıldı */}
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -267,55 +290,64 @@ export default function Giris() {
 function createStyles(t: TemaRenkleri) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: t.bg },
-    icerik: { flexGrow: 1, padding: 24, justifyContent: 'center' },
-    logo: { alignItems: 'center', marginBottom: 40 },
-    logoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 10 },
-    logoGorsel: { width: 56, height: 56, marginTop: -6 },
-    logoPusula: { fontFamily: 'Poppins_700Bold', fontSize: 20, color: t.accent, letterSpacing: 4 },
-    logoIstanbul: { fontFamily: 'Poppins_700Bold', fontSize: 19, color: t.accent, letterSpacing: 3 },
-    altBaslik: { color: t.textSecondary, fontSize: 13, marginTop: 10 },
-    sekmeKutu: { flexDirection: 'row', backgroundColor: t.bgCard, borderRadius: 10, padding: 4, marginBottom: 24 },
-    sekme: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
-    sekmeAktif: { backgroundColor: t.accent },
-    sekmeYazi: { color: t.textSecondary, fontSize: 14, fontWeight: '600' },
-    sekmeYaziAktif: { color: t.bg, fontWeight: '700' },
-    ruhsatUyari: { fontSize: 12, marginBottom: 8, fontFamily: 'Poppins_400Regular', fontStyle: 'italic', textAlign: 'center' },
+    icerik: { flexGrow: 1 },
+    header: { alignItems: 'center', paddingBottom: 30 },
+    logoRow: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 12 },
+    logoDisk: { width: 64, height: 64, borderRadius: 32, backgroundColor: Palette.beyaz, alignItems: 'center', justifyContent: 'center' },
+    logoGorsel: { width: 44, height: 44 },
+    logoPusula: { fontFamily: Font.bold, fontSize: 20, color: '#FFFFFF', letterSpacing: 4 },
+    logoIstanbul: { fontFamily: Font.bold, fontSize: 19, color: '#FFFFFF', letterSpacing: 3 },
+    altBaslik: { fontFamily: Font.regular, color: t.headerSubtext, fontSize: 13, marginTop: 12, textAlign: 'center' },
+    form: { flex: 1, paddingHorizontal: 16, paddingTop: 24, justifyContent: 'center' },
+    sekmeKutu: { marginBottom: 20 },
+    ruhsatUyari: { fontFamily: Font.regular, fontSize: 12, color: t.textSecondary, marginBottom: 10, fontStyle: 'italic', textAlign: 'center' },
     satirGrid: { flexDirection: 'row', gap: 10 },
-    input: { backgroundColor: t.bgInput, borderRadius: 10, padding: 16, color: t.text, fontSize: 15, marginBottom: 12, borderWidth: 1, borderColor: t.divider },
+    input: {
+      backgroundColor: t.bgCard,
+      borderRadius: 14,
+      height: 48,
+      paddingHorizontal: 16,
+      color: t.text,
+      fontFamily: Font.regular,
+      fontSize: 14,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: t.kartBorder,
+    },
     sifreWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: t.bgInput,
-      borderRadius: 10,
+      backgroundColor: t.bgCard,
+      borderRadius: 14,
+      height: 48,
       borderWidth: 1,
-      borderColor: t.divider,
+      borderColor: t.kartBorder,
       marginBottom: 12,
-      paddingRight: 12,
+      paddingRight: 8,
     },
     sifreInput: {
       flex: 1,
-      padding: 16,
+      height: 46,
+      paddingHorizontal: 16,
       color: t.text,
-      fontSize: 15,
+      fontFamily: Font.regular,
+      fontSize: 14,
     },
     sifreToggle: {
       paddingHorizontal: 8,
       paddingVertical: 6,
     },
     sifreToggleYazi: {
-      color: t.accent,
-      fontSize: 13,
-      fontWeight: '600',
+      color: t.primary,
+      fontFamily: Font.semibold,
+      fontSize: 12,
     },
-    hata: { color: Palette.kapali, fontSize: 13, marginBottom: 12, textAlign: 'center' },
-    basariKutu: { backgroundColor: 'rgba(0, 150, 199, 0.12)', borderRadius: 10, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(0, 150, 199, 0.3)' },
-    basariBaslik: { color: Palette.acik, fontSize: 15, fontFamily: 'Poppins_700Bold', textAlign: 'center', marginBottom: 6 },
-    basariYazi: { color: Palette.acik, fontSize: 13, textAlign: 'center', lineHeight: 20 },
-    buton: { backgroundColor: t.accent, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
-    butonYazi: { color: t.bg, fontSize: 16, fontWeight: '700' },
-    sifreBtn: { alignSelf: 'flex-end', marginBottom: 12, marginTop: -4 },
-    sifreYazi: { color: t.accent, fontSize: 13, fontWeight: '600' },
-    misafirBtn: { marginTop: 20, alignItems: 'center' },
-    misafirYazi: { color: t.textSecondary, fontSize: 13 },
+    hata: { fontFamily: Font.regular, color: t.durumKapali, fontSize: 13, marginBottom: 12, textAlign: 'center' },
+    basariKutu: { backgroundColor: `${t.durumAcik}22`, borderRadius: 18, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: `${t.durumAcik}55` },
+    basariBaslik: { color: t.durumAcik, fontSize: 14, fontFamily: Font.bold, textAlign: 'center', marginBottom: 6 },
+    basariYazi: { fontFamily: Font.regular, color: t.durumAcik, fontSize: 13, textAlign: 'center', lineHeight: 20 },
+    buton: { marginTop: 8 },
+    sifreBtn: { alignSelf: 'flex-end', marginBottom: 12, marginTop: -4, minHeight: 24, justifyContent: 'center' },
+    sifreYazi: { color: t.primary, fontFamily: Font.semibold, fontSize: 12 },
   });
 }

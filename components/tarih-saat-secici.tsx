@@ -1,8 +1,14 @@
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// Tarih/saat seçici tokenlarla yeniden boyandı: Segmentler (Tarih/Saat), Rozet dilinde yıl/ay/saat çipleri,
+// kobalt seçili gün, safran BirincilButon "Onayla". +03:00 TZ mantığı, prop imzası ve tüm state'ler birebir.
 import { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { useTema } from '../hooks/use-tema';
+import { Font, Radius } from '../constants/theme';
+import { BirincilButon, Kicker, Segmentler } from './ui/pusula-ui';
 
 /* ═══════════════════════════════════════════
    Turkce aylar ve gunler
@@ -48,6 +54,17 @@ function parseISO(iso: string): { yil: number; ay: number; gun: number; saat: nu
   } catch {
     return null;
   }
+}
+
+/* ═══════════════════════════════════════════
+   Küçük ikon: aşağı ok (24px stroke SVG, inline)
+   ═══════════════════════════════════════════ */
+function AsagiOkIkon({ color, size = 18 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
 }
 
 /* ═══════════════════════════════════════════
@@ -124,29 +141,35 @@ export function TarihSaatSecici({ label, value, onChange, required }: Props) {
   // Yil secenekleri
   const yillar = [simdi.getFullYear(), simdi.getFullYear() + 1, simdi.getFullYear() + 2];
 
+  // Çip stilleri (seçili = kobalt dolu, değil = giriş zemini + ince border)
+  const cipZemin = { backgroundColor: t.bgInput, borderColor: t.kartBorder };
+  const cipAktif = { backgroundColor: t.primary, borderColor: t.primary };
+
   return (
     <View>
       <Text style={[s.label, { color: t.textSecondary }]}>{label}{required ? ' *' : ''}</Text>
-      <TouchableOpacity style={[s.seciciBtn, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]} onPress={ac} activeOpacity={0.7}>
+      <TouchableOpacity style={[s.seciciBtn, { backgroundColor: t.bgInput, borderColor: t.kartBorder }]} onPress={ac} activeOpacity={0.7}>
         <Text style={[s.seciciBtnYazi, { color: t.text }, !goruntuMetni && { color: t.textMuted }]}>
           {goruntuMetni || 'Tarih ve saat seç...'}
         </Text>
-        <Text style={[s.seciciOk, { color: t.textMuted }]}>▼</Text>
+        <AsagiOkIkon color={t.textMuted} />
       </TouchableOpacity>
 
       <Modal visible={acik} transparent animationType="slide" onRequestClose={() => setAcik(false)}>
         <View style={[s.modalArka, { backgroundColor: t.modalOverlay }]}>
           <View style={[s.modalKutu, { backgroundColor: t.modalBg }]}>
+            <View style={[s.modalTutamac, { backgroundColor: t.kartBorder }]} />
+
             {/* Baslik */}
             <View style={[s.modalHeader, { borderBottomColor: t.divider }]}>
-              <TouchableOpacity onPress={() => setAcik(false)}>
+              <TouchableOpacity onPress={() => setAcik(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text style={[s.modalIptal, { color: t.textSecondary }]}>Kapat</Text>
               </TouchableOpacity>
               <Text style={[s.modalBaslik, { color: t.text }]}>
                 {adim === 'tarih' ? 'Tarih Seç' : 'Saat Seç'}
               </Text>
-              <TouchableOpacity onPress={temizle}>
-                <Text style={s.modalTemizle}>Temizle</Text>
+              <TouchableOpacity onPress={temizle} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={[s.modalTemizle, { color: t.durumKapali }]}>Temizle</Text>
               </TouchableOpacity>
             </View>
 
@@ -159,14 +182,11 @@ export function TarihSaatSecici({ label, value, onChange, required }: Props) {
 
             {/* Adim sekmeleri */}
             <View style={s.adimKutu}>
-              <TouchableOpacity style={[s.adimBtn, { backgroundColor: t.bgInput }, adim === 'tarih' && s.adimBtnAktif]}
-                onPress={() => setAdim('tarih')}>
-                <Text style={[s.adimBtnYazi, { color: t.textSecondary }, adim === 'tarih' && s.adimBtnYaziAktif]}>Tarih</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.adimBtn, { backgroundColor: t.bgInput }, adim === 'saat' && s.adimBtnAktif]}
-                onPress={() => setAdim('saat')}>
-                <Text style={[s.adimBtnYazi, { color: t.textSecondary }, adim === 'saat' && s.adimBtnYaziAktif]}>Saat</Text>
-              </TouchableOpacity>
+              <Segmentler
+                secenekler={[{ id: 'tarih', baslik: 'Tarih' }, { id: 'saat', baslik: 'Saat' }]}
+                aktif={adim}
+                onSec={id => setAdim(id)}
+              />
             </View>
 
             <ScrollView style={s.icerik} showsVerticalScrollIndicator={false}>
@@ -175,9 +195,9 @@ export function TarihSaatSecici({ label, value, onChange, required }: Props) {
                   {/* Yil secici */}
                   <View style={s.yilKutu}>
                     {yillar.map(y => (
-                      <TouchableOpacity key={y} style={[s.yilBtn, { backgroundColor: t.bgInput }, yil === y && s.yilBtnAktif]}
+                      <TouchableOpacity key={y} style={[s.yilBtn, cipZemin, yil === y && cipAktif]}
                         onPress={() => setYil(y)}>
-                        <Text style={[s.yilBtnYazi, { color: t.textSecondary }, yil === y && s.yilBtnYaziAktif]}>{y}</Text>
+                        <Text style={[s.yilBtnYazi, { color: t.textSecondary }, yil === y && s.cipYaziAktif]}>{y}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -185,9 +205,9 @@ export function TarihSaatSecici({ label, value, onChange, required }: Props) {
                   {/* Ay secici */}
                   <View style={s.ayKutu}>
                     {AYLAR.map((a, i) => (
-                      <TouchableOpacity key={i} style={[s.ayBtn, { backgroundColor: t.bgInput }, ay === i && s.ayBtnAktif]}
+                      <TouchableOpacity key={i} style={[s.ayBtn, cipZemin, ay === i && cipAktif]}
                         onPress={() => { setAy(i); if (gun > ayGunSayisi(yil, i)) setGun(ayGunSayisi(yil, i)); }}>
-                        <Text style={[s.ayBtnYazi, { color: t.textSecondary }, ay === i && s.ayBtnYaziAktif]}>{a.substring(0, 3)}</Text>
+                        <Text style={[s.ayBtnYazi, { color: t.textSecondary }, ay === i && s.cipYaziAktif]}>{a.substring(0, 3)}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -204,7 +224,7 @@ export function TarihSaatSecici({ label, value, onChange, required }: Props) {
                     {takvimHucreleri.map((h, i) => (
                       <TouchableOpacity
                         key={i}
-                        style={[s.takvimHucre, h === gecerliGun && s.takvimHucreAktif]}
+                        style={[s.takvimHucre, h === gecerliGun && { backgroundColor: t.primary }]}
                         onPress={() => h && setGun(h)}
                         disabled={!h}
                         activeOpacity={0.6}
@@ -219,30 +239,28 @@ export function TarihSaatSecici({ label, value, onChange, required }: Props) {
                   </View>
 
                   {/* Saat adimina gec butonu */}
-                  <TouchableOpacity style={[s.sonrakiBtn, { backgroundColor: t.bgSecondary }]} onPress={() => setAdim('saat')}>
-                    <Text style={[s.sonrakiBtnYazi, { color: t.primary }]}>Saat Seçimi</Text>
-                  </TouchableOpacity>
+                  <BirincilButon baslik="Saat Seçimi" onPress={() => setAdim('saat')} varyant="hayalet" style={s.sonrakiBtn} />
                 </>
               ) : (
                 <>
                   {/* Saat secici */}
-                  <Text style={[s.saatLabel, { color: t.text }]}>Saat</Text>
+                  <Kicker color={t.primary} style={s.saatLabel}>Saat</Kicker>
                   <View style={s.saatGrid}>
                     {Array.from({ length: 24 }, (_, i) => i).map(h => (
-                      <TouchableOpacity key={h} style={[s.saatBtn, { backgroundColor: t.bgInput }, saat === h && s.saatBtnAktif]}
+                      <TouchableOpacity key={h} style={[s.saatBtn, cipZemin, saat === h && cipAktif]}
                         onPress={() => setSaat(h)}>
-                        <Text style={[s.saatBtnYazi, { color: t.textSecondary }, saat === h && s.saatBtnYaziAktif]}>{pad(h)}</Text>
+                        <Text style={[s.saatBtnYazi, { color: t.textSecondary }, saat === h && s.cipYaziAktif]}>{pad(h)}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
 
                   {/* Dakika secici */}
-                  <Text style={[s.saatLabel, { color: t.text }]}>Dakika</Text>
+                  <Kicker color={t.primary} style={s.saatLabel}>Dakika</Kicker>
                   <View style={s.saatGrid}>
                     {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map(m => (
-                      <TouchableOpacity key={m} style={[s.saatBtn, { backgroundColor: t.bgInput }, dakika === m && s.saatBtnAktif]}
+                      <TouchableOpacity key={m} style={[s.saatBtn, cipZemin, dakika === m && cipAktif]}
                         onPress={() => setDakika(m)}>
-                        <Text style={[s.saatBtnYazi, { color: t.textSecondary }, dakika === m && s.saatBtnYaziAktif]}>{pad(m)}</Text>
+                        <Text style={[s.saatBtnYazi, { color: t.textSecondary }, dakika === m && s.cipYaziAktif]}>{pad(m)}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -256,11 +274,12 @@ export function TarihSaatSecici({ label, value, onChange, required }: Props) {
             </ScrollView>
 
             {/* Onayla */}
-            <TouchableOpacity style={s.onaylaBtn} onPress={onayla} activeOpacity={0.8}>
-              <Text style={s.onaylaBtnYazi}>
-                {turkceFormat(yil, ay, gecerliGun, saat, dakika)} — Onayla
-              </Text>
-            </TouchableOpacity>
+            <BirincilButon
+              baslik={`${turkceFormat(yil, ay, gecerliGun, saat, dakika)} — Onayla`}
+              onPress={onayla}
+              varyant="cta"
+              style={s.onaylaBtn}
+            />
           </View>
         </View>
       </Modal>
@@ -272,86 +291,75 @@ export function TarihSaatSecici({ label, value, onChange, required }: Props) {
    Stiller
    ═══════════════════════════════════════════ */
 const s = StyleSheet.create({
-  label: { fontSize: 12, fontWeight: '600', color: '#8A9BAE', marginTop: 16, marginBottom: 6 },
+  label: { fontFamily: Font.semibold, fontSize: 12, marginTop: 16, marginBottom: 6 },
 
   seciciBtn: {
-    backgroundColor: '#FFF', borderRadius: 10, padding: 14,
-    borderWidth: 1, borderColor: '#E2E8F0',
+    borderRadius: Radius.md, padding: 14, minHeight: 48,
+    borderWidth: 1,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  seciciBtnYazi: { fontSize: 14, color: '#1E293B', fontWeight: '500' },
-  seciciBtnPlaceholder: { color: '#94A3B8' },
-  seciciOk: { fontSize: 10, color: '#94A3B8' },
+  seciciBtnYazi: { fontFamily: Font.semibold, fontSize: 14, flex: 1 },
 
   // Modal
-  modalArka: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalKutu: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
+  modalArka: { flex: 1, justifyContent: 'flex-end' },
+  modalKutu: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '90%', paddingTop: 12 },
+  modalTutamac: { width: 44, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 6 },
 
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10,
-    borderBottomWidth: 1, borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10,
+    borderBottomWidth: 1,
   },
-  modalIptal: { color: '#64748B', fontSize: 14 },
-  modalBaslik: { fontSize: 16, fontWeight: '700', color: '#1E293B' },
-  modalTemizle: { color: '#D62828', fontSize: 14 },
+  modalIptal: { fontFamily: Font.semibold, fontSize: 14 },
+  modalBaslik: { fontFamily: Font.extrabold, fontSize: 18, letterSpacing: -0.3 },
+  modalTemizle: { fontFamily: Font.semibold, fontSize: 14 },
 
   // Onizleme
-  onizleme: { backgroundColor: '#EAF4FB', paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center' },
-  onizlemeYazi: { fontSize: 16, fontWeight: '700', color: '#0077B6' },
+  onizleme: { paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center' },
+  onizlemeYazi: { fontFamily: Font.bold, fontSize: 16, letterSpacing: -0.3 },
 
   // Adim sekmeleri
-  adimKutu: { flexDirection: 'row', padding: 12, gap: 8 },
-  adimBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10, backgroundColor: '#F5F7FA' },
-  adimBtnAktif: { backgroundColor: '#0077B6' },
-  adimBtnYazi: { fontSize: 13, fontWeight: '600', color: '#64748B' },
-  adimBtnYaziAktif: { color: '#FFF' },
+  adimKutu: { paddingHorizontal: 16, paddingVertical: 12 },
 
   icerik: { paddingHorizontal: 16 },
 
+  // Ortak çip aktif yazı
+  cipYaziAktif: { color: '#FFFFFF' },
+
   // Yil
   yilKutu: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  yilBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', backgroundColor: '#F5F7FA' },
-  yilBtnAktif: { backgroundColor: '#0077B6' },
-  yilBtnYazi: { fontSize: 14, fontWeight: '600', color: '#64748B' },
-  yilBtnYaziAktif: { color: '#FFF' },
+  yilBtn: { flex: 1, paddingVertical: 10, borderRadius: Radius.sm, borderWidth: 1, alignItems: 'center' },
+  yilBtnYazi: { fontFamily: Font.semibold, fontSize: 14 },
 
   // Ay
   ayKutu: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
-  ayBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: '#F5F7FA' },
-  ayBtnAktif: { backgroundColor: '#0077B6' },
-  ayBtnYazi: { fontSize: 12, fontWeight: '600', color: '#64748B' },
-  ayBtnYaziAktif: { color: '#FFF' },
+  ayBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.full, borderWidth: 1 },
+  ayBtnYazi: { fontFamily: Font.semibold, fontSize: 12 },
 
   // Takvim
   takvimBaslik: { flexDirection: 'row', marginBottom: 4 },
   takvimBaslikHucre: { flex: 1, alignItems: 'center', paddingVertical: 4 },
-  takvimBaslikYazi: { fontSize: 11, fontWeight: '700', color: '#94A3B8' },
+  takvimBaslikYazi: { fontFamily: Font.bold, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' },
   takvimGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   takvimHucre: {
     width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: Radius.sm,
   },
-  takvimHucreAktif: { backgroundColor: '#0077B6' },
-  takvimGunYazi: { fontSize: 14, fontWeight: '500', color: '#1E293B' },
-  takvimGunYaziAktif: { color: '#FFF', fontWeight: '700' },
+  takvimGunYazi: { fontFamily: Font.semibold, fontSize: 14 },
+  takvimGunYaziAktif: { color: '#FFFFFF', fontFamily: Font.bold },
 
   // Sonraki adim
-  sonrakiBtn: { backgroundColor: '#EAF4FB', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 16, marginBottom: 12 },
-  sonrakiBtnYazi: { color: '#0077B6', fontWeight: '700', fontSize: 14 },
+  sonrakiBtn: { marginTop: 16, marginBottom: 12 },
 
   // Saat
-  saatLabel: { fontSize: 13, fontWeight: '700', color: '#1E293B', marginTop: 8, marginBottom: 8 },
+  saatLabel: { marginTop: 8, marginBottom: 8 },
   saatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
-  saatBtn: { width: 48, paddingVertical: 10, borderRadius: 8, alignItems: 'center', backgroundColor: '#F5F7FA' },
-  saatBtnAktif: { backgroundColor: '#0077B6' },
-  saatBtnYazi: { fontSize: 14, fontWeight: '600', color: '#64748B' },
-  saatBtnYaziAktif: { color: '#FFF' },
+  saatBtn: { width: 48, paddingVertical: 10, borderRadius: Radius.sm, borderWidth: 1, alignItems: 'center' },
+  saatBtnYazi: { fontFamily: Font.semibold, fontSize: 14 },
 
-  geriBtn: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 12 },
-  geriBtnYazi: { color: '#64748B', fontWeight: '600', fontSize: 13 },
+  geriBtn: { borderWidth: 1, borderRadius: Radius.md, padding: 12, minHeight: 44, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  geriBtnYazi: { fontFamily: Font.semibold, fontSize: 13 },
 
   // Onayla
-  onaylaBtn: { backgroundColor: '#0077B6', margin: 16, borderRadius: 12, padding: 16, alignItems: 'center' },
-  onaylaBtnYazi: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  onaylaBtn: { margin: 16 },
 });

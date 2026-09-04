@@ -1,9 +1,15 @@
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// GradyanHeader + Segmentler (havalimanı / yön) + Kart/Rozet + ModalKapak ile yeniden boyandı.
+// Havaist / Havabüs listesi, fiyat, sonraki sefer hesabı, "Tüm saatler" modalı ve YetkiliBolum aynen korundu.
 import { useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useUlasimTarife, type HavalimaniSefer } from '../../hooks/use-ulasim-tarife';
 import { useTema } from '../../hooks/use-tema';
+import { YetkiliBolum } from '../../components/yetkili/yetkili-bolum';
+import { UlasimTarifeYonetim } from '../../components/yetkili/ulasim-tarife-yonetim';
+import { BosDurum, GradyanHeader, HeaderBaslik, Kart, Kicker, ModalKapak, Rozet, Segmentler } from '../../components/ui/pusula-ui';
+import { Font, Palette, Radius } from '../../constants/theme';
 
 type Yon = 'gidis' | 'donus';
 
@@ -14,9 +20,19 @@ interface ModalVeri {
   guzergah: string | null;  // Yon'e gore guzergah aciklamasi (admin panelinden duzenlenebilir)
 }
 
+const HAVALIMANLARI = [
+  { id: 'IST', baslik: 'İST — İstanbul' },
+  { id: 'SAW', baslik: 'SAW — Sabiha' },
+] as const;
+
+const YONLER = [
+  { id: 'gidis', baslik: 'Şehir → Havalimanı' },
+  { id: 'donus', baslik: 'Havalimanı → Şehir' },
+] as const;
+
 export default function Ulasim() {
   const insets = useSafeAreaInsets();
-  const { t, isDark } = useTema();
+  const { t } = useTema();
   const [aktifHavaAlani, setAktifHavaAlani] = useState<'IST' | 'SAW'>('IST');
   const [yon, setYon] = useState<Yon>('gidis');
   const [modal, setModal] = useState<ModalVeri | null>(null);
@@ -42,48 +58,53 @@ export default function Ulasim() {
 
   return (
     <ScrollView style={[s.container, { backgroundColor: t.bg }]}>
-      <LinearGradient colors={['#00A8E8','#0077B6','#0096C7','#48CAE4']} start={{x:0,y:0}} end={{x:1,y:1}} style={[s.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={s.headerBaslik}>Havalimanı Ulaşım</Text>
-        <Text style={s.headerAlt}>Duraklara tıklayın → tüm saatleri görün</Text>
-      </LinearGradient>
+      <GradyanHeader paddingTop={insets.top + 12}>
+        <HeaderBaslik baslik="Havalimanı Ulaşım" alt="Duraklara tıklayın → tüm saatleri görün" />
+      </GradyanHeader>
 
-      <View style={[s.segmentKutu, { backgroundColor: t.bgCard }]}>
-        <TouchableOpacity style={[s.segBtn, aktifHavaAlani === 'IST' && s.segAktif]} onPress={() => setAktifHavaAlani('IST')}>
-          <Text style={[s.segYazi, { color: t.textSecondary }, aktifHavaAlani === 'IST' && s.segYaziAktif]}>İST — İstanbul</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[s.segBtn, aktifHavaAlani === 'SAW' && s.segAktif]} onPress={() => setAktifHavaAlani('SAW')}>
-          <Text style={[s.segYazi, { color: t.textSecondary }, aktifHavaAlani === 'SAW' && s.segYaziAktif]}>SAW — Sabiha</Text>
-        </TouchableOpacity>
+      {/* Havalimanı seçici */}
+      <View style={s.segKutu}>
+        <Segmentler
+          secenekler={HAVALIMANLARI.map(h => ({ id: h.id, baslik: h.baslik }))}
+          aktif={aktifHavaAlani}
+          onSec={id => setAktifHavaAlani(id)}
+        />
       </View>
 
-      <View style={[s.segmentKutu, { backgroundColor: t.bgCard }]}>
-        <TouchableOpacity style={[s.segBtn, yon === 'gidis' && s.segAktif]} onPress={() => setYon('gidis')}>
-          <Text style={[s.segYazi, { color: t.textSecondary }, yon === 'gidis' && s.segYaziAktif]}>Şehir → Havalimanı</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[s.segBtn, yon === 'donus' && s.segAktif]} onPress={() => setYon('donus')}>
-          <Text style={[s.segYazi, { color: t.textSecondary }, yon === 'donus' && s.segYaziAktif]}>Havalimanı → Şehir</Text>
-        </TouchableOpacity>
+      {/* Yön seçici */}
+      <View style={s.segKutuAlt}>
+        <Segmentler
+          secenekler={YONLER.map(y => ({ id: y.id, baslik: y.baslik }))}
+          aktif={yon}
+          onSec={id => setYon(id)}
+          renk={Palette.uyari}
+        />
       </View>
 
       {yukleniyor ? (
-        <ActivityIndicator size="large" color="#0077B6" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={t.primary} style={{ marginTop: 40 }} />
       ) : seferler.length === 0 ? (
-        <Text style={[s.bosYazi, { color: t.textMuted }]}>Sefer verisi bulunamadı.</Text>
+        <BosDurum metin="Sefer verisi bulunamadı." />
       ) : (
         <View style={s.bolum}>
-          <Text style={[s.sirketAdi, { color: t.text }]}>{firmaAdi}</Text>
-          <Text style={[s.sirketAlt, { color: t.textSecondary }]}>{havAlaniAdi}</Text>
+          <View style={s.sirketBaslik}>
+            <Kicker color={Palette.uyari}>{firmaAdi}</Kicker>
+            <Text style={[s.sirketAlt, { color: t.textSecondary }]}>{havAlaniAdi}</Text>
+          </View>
           {seferler.map(durak => {
             const saatler = yon === 'gidis' ? (durak.sehirden_hav || []) : (durak.havdan_sehir || []);
             const snrk = sonraki(saatler);
             return (
-              <TouchableOpacity key={durak.id} style={[s.durakKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}
+              <Kart
+                key={durak.id}
+                accent={Palette.uyari}
                 onPress={() => setModal({
                   durak: durak.durak_adi,
                   saatler,
                   yon: yon === 'gidis' ? 'Şehir → Havalimanı' : 'Havalimanı → Şehir',
                   guzergah: yon === 'gidis' ? durak.sehirden_hav_guzergah : durak.havdan_sehir_guzergah,
-                })}>
+                })}
+              >
                 <View style={s.durakUst}>
                   <View style={s.durakBilgi}>
                     <Text style={[s.durakAdi, { color: t.text }]}>{durak.durak_adi}</Text>
@@ -93,101 +114,74 @@ export default function Ulasim() {
                       {durak.sure ? ` (${durak.sure})` : ''}
                     </Text>
                   </View>
-                  <View style={[s.seferKutu, { backgroundColor: t.bgSecondary }]}>
-                    <Text style={s.seferSayi}>{saatler.length}</Text>
-                    <Text style={[s.seferYazi, { color: t.textSecondary }]}>sefer</Text>
-                  </View>
+                  <Rozet renk={t.primary}>{saatler.length} sefer</Rozet>
                 </View>
-                <View style={[s.snrkSatir, { borderTopColor: t.kartBorder }]}>
+                <View style={[s.snrkSatir, { borderTopColor: t.divider }]}>
                   <Text style={[s.snrkEtiket, { color: t.textSecondary }]}>Sonraki:</Text>
-                  <Text style={s.snrkSaat}>{snrk || '—'}</Text>
-                  <Text style={s.tumBtn}>Tümü →</Text>
+                  <Text style={[s.snrkSaat, { color: t.primary }]}>{snrk || '—'}</Text>
+                  <Text style={[s.tumBtn, { color: t.accent }]}>Tümü →</Text>
                 </View>
-              </TouchableOpacity>
+              </Kart>
             );
           })}
           {kaynak ? <Text style={[s.kaynak, { color: t.textMuted }]}>Kaynak: {kaynak}</Text> : null}
         </View>
       )}
 
+      <YetkiliBolum baslik="Havalimanı Tarifeleri" aciklama="Havaist / Havabüs sefer ve fiyat" sadeceAdmin>
+        <UlasimTarifeYonetim tip="havalimani" />
+      </YetkiliBolum>
       <View style={{ height: 30 }} />
 
       {/* MODAL — TÜM SAATLER */}
       <Modal visible={!!modal} transparent animationType="slide" onRequestClose={() => setModal(null)}>
-        <View style={[s.modalArka, { backgroundColor: t.modalOverlay }]}>
-          <View style={[s.modalKutu, { backgroundColor: t.modalBg }]}>
-            <View style={[s.modalBaslik, { borderBottomColor: t.kartBorder }]}>
-              <Text style={s.modalBaslikYazi}>{modal?.durak}</Text>
-              <Text style={[s.modalAlt, { color: t.textSecondary }]}>{modal?.yon}</Text>
+        <ModalKapak baslik={modal?.durak ?? ''} alt={modal?.yon} onKapat={() => setModal(null)}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={s.saatGrid}>
+              {modal?.saatler.map((saat, i) => {
+                const gecti = saatDk(saat) <= simdiDk;
+                return (
+                  <View key={i} style={[s.saatKutu, { backgroundColor: t.bgCard, borderColor: gecti ? t.kartBorder : t.primary }, gecti && s.saatGecti]}>
+                    <Text style={[s.saatYazi, { color: gecti ? t.textMuted : t.text }]}>{saat}</Text>
+                  </View>
+                );
+              })}
             </View>
-            <ScrollView>
-              <View style={s.saatGrid}>
-                {modal?.saatler.map((saat, i) => {
-                  const gecti = saatDk(saat) <= simdiDk;
-                  return (
-                    <View key={i} style={[s.saatKutu, { backgroundColor: t.bg }, gecti && [s.saatGecti, { borderColor: t.kartBorder }]]}>
-                      <Text style={[s.saatYazi, { color: t.text }, gecti && { color: t.textMuted }]}>{saat}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-              {modal?.guzergah ? (
-                <View style={[s.guzergahKutu, { backgroundColor: t.bg, borderColor: t.kartBorder }]}>
-                  <Text style={[s.guzergahBaslik, { color: t.textSecondary }]}>Güzergah</Text>
-                  <Text style={[s.guzergahYazi, { color: t.text }]}>{modal.guzergah}</Text>
-                </View>
-              ) : null}
-            </ScrollView>
-            <TouchableOpacity style={s.kapat} onPress={() => setModal(null)}>
-              <Text style={s.kapatYazi}>Kapat</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            {modal?.guzergah ? (
+              <Kart accent={Palette.uyari} style={s.guzergahKart}>
+                <Kicker color={Palette.uyari}>Güzergah</Kicker>
+                <Text style={[s.guzergahYazi, { color: t.text }]}>{modal.guzergah}</Text>
+              </Kart>
+            ) : null}
+          </ScrollView>
+        </ModalKapak>
       </Modal>
     </ScrollView>
   );
 }
 
+// ═══ Stiller ═══
 const s = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingBottom: 16, paddingHorizontal: 16 },
-  headerBaslik: { color: '#FFFFFF', fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  headerAlt: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4, textAlign: 'center' },
-  bosYazi: { textAlign: 'center', marginTop: 40, fontSize: 14 },
-  segmentKutu: { flexDirection: 'row', margin: 16, marginBottom: 8, borderRadius: 10, padding: 4 },
-  segBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  segAktif: { backgroundColor: '#0077B6' },
-  segYazi: { fontSize: 13, fontWeight: '600' },
-  segYaziAktif: { color: '#FFFFFF' },
-  bolum: { marginHorizontal: 16, marginTop: 8 },
-  sirketAdi: { fontSize: 18, fontWeight: '800', letterSpacing: 1 },
-  sirketAlt: { fontSize: 12, marginTop: 2, marginBottom: 12 },
-  durakKart: { borderRadius: 12, padding: 16, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#0077B6', borderWidth: 1 },
-  durakUst: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  segKutu: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
+  segKutuAlt: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 6 },
+  bolum: { paddingHorizontal: 16, paddingTop: 8, gap: 14 },
+  sirketBaslik: { gap: 2 },
+  sirketAlt: { fontFamily: Font.regular, fontSize: 12 },
+  durakUst: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   durakBilgi: { flex: 1 },
-  durakAdi: { fontSize: 16, fontWeight: '700' },
-  durakNot: { fontSize: 11, marginTop: 2 },
-  seferKutu: { alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
-  seferSayi: { color: '#0077B6', fontSize: 20, fontWeight: '800' },
-  seferYazi: { fontSize: 10 },
-  snrkSatir: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, paddingTop: 10 },
-  snrkEtiket: { fontSize: 12, marginRight: 6 },
-  snrkSaat: { color: '#0077B6', fontSize: 16, fontWeight: '700', flex: 1 },
-  tumBtn: { color: '#0077B6', fontSize: 12, fontWeight: '600' },
-  kaynak: { fontSize: 11, textAlign: 'right', marginTop: 4, marginBottom: 8 },
+  durakAdi: { fontFamily: Font.bold, fontSize: 15, letterSpacing: -0.3 },
+  durakNot: { fontFamily: Font.regular, fontSize: 11, marginTop: 2 },
+  snrkSatir: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, paddingTop: 10, gap: 6 },
+  snrkEtiket: { fontFamily: Font.regular, fontSize: 12 },
+  snrkSaat: { fontFamily: Font.bold, fontSize: 16, flex: 1 },
+  tumBtn: { fontFamily: Font.bold, fontSize: 12 },
+  kaynak: { fontFamily: Font.regular, fontSize: 11, textAlign: 'right', marginBottom: 4 },
   // Modal
-  modalArka: { flex: 1, justifyContent: 'flex-end' },
-  modalKutu: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '80%' },
-  modalBaslik: { marginBottom: 16, borderBottomWidth: 1, paddingBottom: 12 },
-  modalBaslikYazi: { color: '#0077B6', fontSize: 20, fontWeight: '700' },
-  modalAlt: { fontSize: 13, marginTop: 4 },
   saatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 8 },
-  saatKutu: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#0096C7' },
+  saatKutu: { borderRadius: Radius.sm, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, alignItems: 'center' },
   saatGecti: { opacity: 0.5 },
-  saatYazi: { fontSize: 15, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  guzergahKutu: { borderRadius: 10, padding: 14, marginTop: 8, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: '#0077B6', borderWidth: 1 },
-  guzergahBaslik: { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
-  guzergahYazi: { fontSize: 14, lineHeight: 20 },
-  kapat: { backgroundColor: '#0077B6', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8 },
-  kapatYazi: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  saatYazi: { fontFamily: Font.semibold, fontSize: 15, fontVariant: ['tabular-nums'] },
+  guzergahKart: { marginTop: 4, marginBottom: 8, padding: 14 },
+  guzergahYazi: { fontFamily: Font.regular, fontSize: 14, lineHeight: 20 },
 });

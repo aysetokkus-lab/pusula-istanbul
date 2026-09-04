@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// GradyanHeader + HeaderBaslik, kendi mesaj = kobalt balon / beyaz yazı, diğerleri = kart zemini.
+// Hook'lar, realtime, polling, Alert akışları, KeyboardAvoidingView/FlatList yapısı birebir korundu.
+// Eyl 2026 DM: header altında Segmentler [Genel | Mesajlarım]; "Mesajlarım" konuşma listesi (hooks/use-dm.ts),
+// genel sohbette isim dokunma / menü "Özel mesaj gönder" → /dm/[id]. Genel sohbet işlevleri AYNEN.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,17 +17,26 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path, Rect } from 'react-native-svg';
 import * as ScreenCapture from 'expo-screen-capture';
 import { useTema } from '../../hooks/use-tema';
-import { Palette, Space, Radius, Typo, type TemaRenkleri } from '../../constants/theme';
+import { Font, Palette, Space, Radius, type TemaRenkleri } from '../../constants/theme';
+import { BirincilButon, BosDurum, GradyanHeader, HeaderBaslik, Kart, Segmentler } from '../../components/ui/pusula-ui';
+import { ChatIcon } from '../../components/tab-icons';
 import { supabase } from '../../lib/supabase';
 import { router, useFocusEffect } from 'expo-router';
 import { useKufurFiltre } from '../../hooks/use-kufur-filtre';
 import { useOkunmamisMesaj } from '../../hooks/use-okunmamis-mesaj';
-import { useAbonelik } from '../../hooks/use-abonelik';
 import { useAdmin } from '../../hooks/use-admin';
+import { YetkiliBolum } from '../../components/yetkili/yetkili-bolum';
+import { SohbetYonetim } from '../../components/yetkili/sohbet-yonetim';
 import { usePinliMesajlar } from '../../hooks/use-pinli-mesajlar';
+import { useSohbetTepkileri, type TepkiTipi } from '../../hooks/use-sohbet-tepkileri';
+import { MesajMenusu, TepkiSatiri, TepkiVerenlerModal, YanitAlinti, YanitSeridi, type MenuAksiyon } from '../../components/sohbet-tepkiler';
+import { GorselButon, GorselOnizleme, MesajGorseli, TamEkranGorsel, gorselSec, sohbetGorselYukle, type SecilenGorsel } from '../../components/sohbet-gorsel';
+import { konusmaBaslat, useDmKonusmalar, type DmKonusma } from '../../hooks/use-dm';
+
+type SohbetSekme = 'genel' | 'dm';
 
 /* ═══════════════════════════════════════════
    Tipler
@@ -37,6 +51,8 @@ interface Mesaj {
   pinned_at?: string | null;
   pinned_by?: string | null;
   pinned_by_isim?: string | null;
+  yanit_id?: string | null;   // Eyl 2026: mesaja yanıt
+  gorsel_url?: string | null; // Eyl 2026: görsel paylaşımı
 }
 
 interface KullaniciBilgi {
@@ -83,16 +99,28 @@ function saat(iso: string): string {
   }
 }
 
+// Avatar rengi: isim ilk harfine göre deterministik (mantık aynı, renkler paletten)
 function renkUret(isim: string): string {
   const renkler = [
-    '#0077B6', // Primary blue
-    '#00B4D8', // Light blue
-    '#023E8A', // Dark blue
-    '#0096C7', // Medium blue
-    '#0077B6', // Repeat primary
+    Palette.kobalt,       // ana kobalt
+    Palette.kobaltAcik,   // açık kobalt
+    Palette.kobaltKoyu,   // koyu kobalt
+    Palette.menekse,      // menekşe
+    Palette.kobaltOrta,   // orta kobalt
   ];
   const kod = isim.charCodeAt(0);
   return renkler[kod % renkler.length];
+}
+
+/* Kilit ikonu (misafir modu) — 24px stroke SVG, emoji yok */
+function KilitIkon({ size = 40, color }: { size?: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={4} y={10} width={16} height={11} rx={3} stroke={color} strokeWidth={2} />
+      <Path d="M8 10V7a4 4 0 0 1 8 0v3" stroke={color} strokeWidth={2} strokeLinecap="round" />
+      <Path d="M12 14v3" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
 }
 
 /* ═══════════════════════════════════════════
@@ -103,7 +131,6 @@ export default function SohbetEkrani() {
   const { t } = useTema();
   const styles = createStyles(t);
   const flatListRef = useRef<FlatList>(null);
-  const { premiumMi, yukleniyor: abonelikYukleniyor } = useAbonelik();
   const { isYetkili } = useAdmin();  // admin/moderator: dogrudan mesaj silme yetkisi (v1.1.0)
   const { pinle, pinKaldir } = usePinliMesajlar();  // v1.1.0: sabitle/pin kaldir
 
@@ -135,6 +162,22 @@ export default function SohbetEkrani() {
   const [guncelSayac, setGuncelSayac] = useState(0);
   const subscriptionRef = useRef<any>(null);
 
+  // Eyl 2026: tepkiler + yanıt + mesaj menüsü
+  const [yanitlanan, setYanitlanan] = useState<Mesaj | null>(null);
+  const [secilenGorsel, setSecilenGorsel] = useState<SecilenGorsel | null>(null);  // Eyl 2026: görsel
+  const [gorselYukleniyor, setGorselYukleniyor] = useState(false);
+  const [tamEkranUrl, setTamEkranUrl] = useState<string | null>(null);
+  const [menuMesaj, setMenuMesaj] = useState<Mesaj | null>(null);
+  const [kimlerMesajId, setKimlerMesajId] = useState<string | null>(null);
+  const [kullaniciIsim, setKullaniciIsim] = useState<string>('Rehber');
+  const sonDokunus = useRef<{ id: string; zaman: number }>({ id: '', zaman: 0 });
+
+  // Eyl 2026 DM: sekme + konuşma listesi
+  const [sekme, setSekme] = useState<SohbetSekme>('genel');
+  const { konusmalar, yukleniyor: dmYukleniyor, okunmamisSayisi: dmOkunmamis } = useDmKonusmalar();
+  const mesajIdleri = useMemo(() => mesajlar.map(m => m.id), [mesajlar]);
+  const { ozet: tepkiOzet, benimTepkim, tepkiVer } = useSohbetTepkileri(mesajIdleri, kullanici?.id ?? null);
+
   /* ─── Kullanıcı bilgisi çek ─── */
   const kullaniciBilgiCek = useCallback(async () => {
     try {
@@ -148,6 +191,9 @@ export default function SohbetEkrani() {
         id: user.id,
         email: user.email || '',
       });
+      // Tepki/yanıt için görünen ad (mesajGonder ile aynı mantık)
+      const { data: p } = await supabase.from('profiles').select('isim, soyisim').eq('id', user.id).single();
+      setKullaniciIsim(p && (p.isim || p.soyisim) ? `${p.isim || ''} ${p.soyisim || ''}`.trim() : (user.email || '').split('@')[0]);
     } catch (e) {
       console.warn('Kullanıcı bilgisi çekme hatası:', e);
     } finally {
@@ -336,7 +382,7 @@ export default function SohbetEkrani() {
 
   /* ─── Mesaj gönder ─── */
   const mesajGonder = async () => {
-    if (!yeniMesaj.trim() || !kullanici) return;
+    if ((!yeniMesaj.trim() && !secilenGorsel) || !kullanici) return;
 
     // Ban kontrolü
     if (banliMi) {
@@ -344,9 +390,9 @@ export default function SohbetEkrani() {
       return;
     }
 
-    // Küfür filtresi
+    // Küfür filtresi (görsel-only mesajda boş metin filtreden geçer)
     const filtreResult = filtrele(yeniMesaj.trim());
-    if (filtreResult.engellendi) {
+    if (yeniMesaj.trim() && filtreResult.engellendi) {
       Alert.alert(
         'Mesaj Engelendi',
         'Mesajınız uygunsuz içerik barındırıyor. Lütfen düzenleyip tekrar gönderin.'
@@ -367,10 +413,24 @@ export default function SohbetEkrani() {
         ? `${profil.isim || ''} ${profil.soyisim || ''}`.trim()
         : kullanici.email.split('@')[0];
 
+      // Eyl 2026: görsel varsa önce storage'a yükle
+      let gorselUrl: string | null = null;
+      if (secilenGorsel) {
+        setGorselYukleniyor(true);
+        gorselUrl = await sohbetGorselYukle(secilenGorsel.uri, secilenGorsel.mime);
+        setGorselYukleniyor(false);
+        if (!gorselUrl) {
+          Alert.alert('Görsel yüklenemedi', 'İnternet bağlantınızı kontrol edip tekrar deneyin.');
+          return;
+        }
+      }
+
       const { data: inserted, error } = await supabase.from('sohbet_mesajlari').insert({
         kullanici_id: kullanici.id,
         kullanici_isim: kullaniciIsim,
         mesaj: yeniMesaj.trim(),
+        yanit_id: yanitlanan?.id ?? null,   // Eyl 2026: mesaja yanıt
+        gorsel_url: gorselUrl,              // Eyl 2026: görsel
       }).select().single();
 
       if (error) throw error;
@@ -381,12 +441,22 @@ export default function SohbetEkrani() {
       }
 
       setYeniMesaj('');
+      setYanitlanan(null);
+      setSecilenGorsel(null);
       await mesajlariYukle();
     } catch (e: any) {
       console.warn('Mesaj gönderme hatası:', e);
     } finally {
       setGonderiyor(false);
+      setGorselYukleniyor(false);
     }
+  };
+
+  /* ─── Eyl 2026: görsel seç ─── */
+  const gorselEkle = async () => {
+    if (banliMi) { Alert.alert('Erişim Engeli', 'Hesabınız askıya alındığı için görsel paylaşamazsınız.'); return; }
+    const g = await gorselSec();
+    if (g) setSecilenGorsel(g);
   };
 
   /* ─── Aşağı kaydır ─── */
@@ -461,49 +531,48 @@ export default function SohbetEkrani() {
     );
   }, []);
 
-  /* ─── Mesaj aksiyonları menüsü ─── */
-  /* Kendi mesaj:    Vazgeç + Sil
-     Başkasının:     Vazgeç + Raporla + Engelle + (yetkili ise) Sil */
+  /* ─── Mesaj aksiyonları menüsü (Eyl 2026: alt sayfa — tepkiler + Yanıtla + eski aksiyonlar) ───
+     Kendi mesaj:    Yanıtla + Sil
+     Başkasının:     Yanıtla + Raporla + Engelle + (yetkili ise) Sabitle + Sil */
   const mesajAksiyonlari = useCallback((mesaj: Mesaj) => {
     if (!kullanici) return;
+    setMenuMesaj(mesaj);
+  }, [kullanici]);
 
-    const kendi = mesaj.kullanici_id === kullanici.id;
-
-    if (kendi) {
-      // Kendi mesaj: sadece silme secenegi (v1.1.0)
-      Alert.alert(
-        'Mesajınız',
-        `"${mesaj.mesaj.substring(0, 100)}${mesaj.mesaj.length > 100 ? '...' : ''}"`,
-        [
-          { text: 'Vazgeç', style: 'cancel' },
-          {
-            text: 'Mesajı Sil',
-            style: 'destructive',
-            onPress: () => mesajSil(mesaj),
-          },
-        ]
-      );
-      return;
+  /* ─── Eyl 2026 DM: özel mesaj başlat → /dm/[id] ─── */
+  const dmBaslat = useCallback(async (aliciId: string, aliciIsim: string) => {
+    if (!kullanici) return;
+    if (aliciId === kullanici.id) { Alert.alert('Bilgi', 'Kendinize özel mesaj gönderemezsiniz.'); return; }
+    try {
+      const id = await konusmaBaslat(aliciId);
+      router.push({ pathname: '/dm/[id]', params: { id, isim: aliciIsim } } as never);
+    } catch (e: any) {
+      Alert.alert('Mesaj gönderilemiyor', e?.message || 'Konuşma başlatılamadı. Lütfen tekrar deneyin.');
     }
+  }, [kullanici]);
 
-    // Baskasinin mesaji: raporla / engelle / (yetkili ise) sabitle + sil
-    const butonlar: any[] = [
-      { text: 'Vazgeç', style: 'cancel' },
-      {
-        text: 'Mesajı Raporla',
-        onPress: () => mesajRaporla(mesaj),
-      },
-      {
-        text: 'Kullanıcıyı Engelle',
-        style: 'destructive',
-        onPress: () => kullaniciEngelle(mesaj.kullanici_id, mesaj.kullanici_isim, mesaj.mesaj),
-      },
-    ];
+  const dmKonusmaAc = useCallback((k: DmKonusma) => {
+    router.push({ pathname: '/dm/[id]', params: { id: k.id, isim: k.karsi_isim } } as never);
+  }, []);
 
+  const menuAksiyonlari = useMemo<MenuAksiyon[]>(() => {
+    if (!menuMesaj || !kullanici) return [];
+    const mesaj = menuMesaj;
+    const kendi = mesaj.kullanici_id === kullanici.id;
+    const liste: MenuAksiyon[] = [];
+    // Eyl 2026 DM: başkasının mesajında EN ÜSTE "Özel mesaj gönder"
+    if (!kendi) liste.push({ baslik: 'Özel mesaj gönder', vurgulu: true, onPress: () => dmBaslat(mesaj.kullanici_id, mesaj.kullanici_isim) });
+    liste.push({ baslik: 'Yanıtla', vurgulu: true, onPress: () => setYanitlanan(mesaj) });
+    if (kendi) {
+      liste.push({ baslik: 'Mesajı Sil', tehlike: true, onPress: () => mesajSil(mesaj) });
+      return liste;
+    }
+    liste.push({ baslik: 'Mesajı Raporla', onPress: () => mesajRaporla(mesaj) });
+    liste.push({ baslik: 'Kullanıcıyı Engelle', tehlike: true, onPress: () => kullaniciEngelle(mesaj.kullanici_id, mesaj.kullanici_isim, mesaj.mesaj) });
     if (isYetkili) {
       // v1.1.0: Pin/Sabit kaldir (kritik saha bilgisini ana sayfada one cikar)
-      butonlar.push({
-        text: mesaj.pinned ? 'Sabitten Kaldır' : 'Sabitle (Yetkili)',
+      liste.push({
+        baslik: mesaj.pinned ? 'Sabitten Kaldır' : 'Sabitle (Yetkili)',
         onPress: async () => {
           if (mesaj.pinned) {
             const ok = await pinKaldir(mesaj.id);
@@ -526,19 +595,33 @@ export default function SohbetEkrani() {
           }
         },
       });
-      butonlar.push({
-        text: 'Mesajı Sil (Yetkili)',
-        style: 'destructive',
-        onPress: () => mesajSil(mesaj),
-      });
+      liste.push({ baslik: 'Mesajı Sil (Yetkili)', tehlike: true, onPress: () => mesajSil(mesaj) });
     }
+    return liste;
+  }, [menuMesaj, kullanici, mesajRaporla, kullaniciEngelle, mesajSil, isYetkili, pinle, pinKaldir, dmBaslat]);
 
-    Alert.alert(
-      mesaj.kullanici_isim,
-      `"${mesaj.mesaj.substring(0, 100)}${mesaj.mesaj.length > 100 ? '...' : ''}"`,
-      butonlar
-    );
-  }, [kullanici, mesajRaporla, kullaniciEngelle, mesajSil, isYetkili, pinle, pinKaldir]);
+  /* ─── Tepki ver (menüden, pill'den veya çift dokunuşla) ─── */
+  const tepkiUygula = useCallback((mesajId: string, tip: TepkiTipi) => {
+    tepkiVer(mesajId, tip, kullaniciIsim);
+  }, [tepkiVer, kullaniciIsim]);
+
+  // Balona ÇİFT DOKUNMA = Beğen (300 ms içinde ikinci dokunuş)
+  const balonaDokun = useCallback((mesaj: Mesaj) => {
+    const simdi = Date.now();
+    if (sonDokunus.current.id === mesaj.id && simdi - sonDokunus.current.zaman < 300) {
+      sonDokunus.current = { id: '', zaman: 0 };
+      tepkiUygula(mesaj.id, 'begen');
+      return;
+    }
+    sonDokunus.current = { id: mesaj.id, zaman: simdi };
+  }, [tepkiUygula]);
+
+  // Yanıt alıntısına dokununca orijinal mesaja kaydır
+  const mesajaKaydir = useCallback((mesajId: string) => {
+    const gorunen = mesajlar.filter((m) => !engellenenIdler.has(m.kullanici_id));
+    const idx = gorunen.findIndex(m => m.id === mesajId);
+    if (idx >= 0) flatListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.3 });
+  }, [mesajlar, engellenenIdler]);
 
   /* ─── Yenile ─── */
   const yenile = async () => {
@@ -558,7 +641,7 @@ export default function SohbetEkrani() {
   if (yukleniyor) {
     return (
       <View style={[styles.container, { backgroundColor: t.bg, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Palette.istanbulMavi} />
+        <ActivityIndicator size="large" color={t.primary} />
       </View>
     );
   }
@@ -567,62 +650,24 @@ export default function SohbetEkrani() {
   if (!kullanici) {
     return (
       <View style={[styles.container, { backgroundColor: t.bg }]}>
-        <LinearGradient
-          colors={['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, { paddingTop: insets.top + 12 }]}
-        >
-          <Text style={styles.headerTitle}>Sohbet</Text>
-        </LinearGradient>
+        <GradyanHeader paddingTop={insets.top + 12}>
+          <HeaderBaslik baslik="Sohbet" />
+        </GradyanHeader>
 
         <View style={styles.misafirIcerik}>
-          <View style={[styles.misafirIkon, { backgroundColor: '#EAF4FB' }]}>
-            <Text style={{ fontSize: 36, color: '#94A3B8' }}>⊘</Text>
+          <View style={[styles.misafirIkon, { backgroundColor: Palette.kobaltTint }]}>
+            <KilitIkon color={t.primary} />
           </View>
           <Text style={[styles.misafirBaslik, { color: t.text }]}>Sohbet Kilitli</Text>
           <Text style={[styles.misafirAciklama, { color: t.textSecondary }]}>
             Diğer rehberlerle sohbet etmek ve mesaj görmek için giriş yapmanız gerekiyor.
           </Text>
-          <TouchableOpacity
-            style={[styles.girisBtn, { backgroundColor: Palette.istanbulMavi }]}
+          <BirincilButon
+            baslik="Giriş Yap / Kayıt Ol"
+            varyant="cta"
             onPress={() => router.push('/giris')}
-          >
-            <Text style={styles.girisBtnYazi}>Giriş Yap / Kayıt Ol</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  // ─── Premium gate (giris yapilmis ama abonelik yok) ───
-  if (!premiumMi && !abonelikYukleniyor) {
-    return (
-      <View style={[styles.container, { backgroundColor: t.bg }]}>
-        <LinearGradient
-          colors={['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, { paddingTop: insets.top + 12 }]}
-        >
-          <Text style={styles.headerTitle}>Sohbet</Text>
-          <Text style={styles.headerAlt}>Premium özellik</Text>
-        </LinearGradient>
-
-        <View style={styles.misafirIcerik}>
-          <View style={[styles.misafirIkon, { backgroundColor: '#F3E8FF' }]}>
-            <Text style={{ fontSize: 36, color: '#7B2D8E' }}>P</Text>
-          </View>
-          <Text style={[styles.misafirBaslik, { color: t.text }]}>Premium Özellik</Text>
-          <Text style={[styles.misafirAciklama, { color: t.textSecondary }]}>
-            Rehber sohbet odası premium abonelere özeldir. Diğer rehberlerle anlık iletişim kurabilmek için abone olun.
-          </Text>
-          <TouchableOpacity
-            style={[styles.girisBtn, { backgroundColor: '#7B2D8E' }]}
-            onPress={() => router.push('/abone-ol')}
-          >
-            <Text style={styles.girisBtnYazi}>Abone Ol</Text>
-          </TouchableOpacity>
+            style={styles.girisBtn}
+          />
         </View>
       </View>
     );
@@ -634,48 +679,123 @@ export default function SohbetEkrani() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
-      {/* ── Gradient Header ── */}
-      <LinearGradient
-        colors={['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 12 }]}
-      >
-        <Text style={styles.headerTitle}>Rehber Sohbeti</Text>
-        <Text style={styles.headerAlt}>Uygunsuz içerik için mesajdaki (...) butonunu kullanın</Text>
-      </LinearGradient>
+      {/* ── Gradyan Header ── */}
+      <GradyanHeader paddingTop={insets.top + 12}>
+        <HeaderBaslik baslik="Rehber Sohbeti" alt="Uzun bas: tepki ver, yanıtla, raporla · Çift dokun: beğen" />
+      </GradyanHeader>
 
-      {/* ── Mesajlar ── */}
+      {/* ── Eyl 2026 DM: Genel | Mesajlarım ── */}
+      <View style={styles.sekmeler}>
+        <Segmentler<SohbetSekme>
+          secenekler={[
+            { id: 'genel', baslik: 'Genel' },
+            { id: 'dm', baslik: dmOkunmamis > 0 ? `Mesajlarım (${dmOkunmamis})` : 'Mesajlarım' },
+          ]}
+          aktif={sekme}
+          onSec={setSekme}
+        />
+      </View>
+
+      {/* ── Eyl 2026 DM: konuşma listesi ── */}
+      {sekme === 'dm' && (
+        <FlatList
+          data={konusmalar}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.dmListesi}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          renderItem={({ item }) => (
+            <Kart onPress={() => dmKonusmaAc(item)} style={styles.dmKart}>
+              <View style={styles.dmSatir}>
+                <View style={[styles.mesajAvatar, { backgroundColor: renkUret(item.karsi_isim) }]}>
+                  <Text style={styles.mesajAvatarHarf}>{basHarfler(item.karsi_isim)}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[item.okunmamis ? styles.dmIsimKalin : styles.dmIsim, { color: t.text }]} numberOfLines={1}>
+                    {item.karsi_isim}
+                  </Text>
+                  <Text style={[item.okunmamis ? styles.dmOzetKalin : styles.dmOzet, { color: item.okunmamis ? t.text : t.textSecondary }]} numberOfLines={1}>
+                    {item.son_mesaj || 'Görsel'}
+                  </Text>
+                </View>
+                <View style={styles.dmSag}>
+                  {item.son_mesaj_at ? (
+                    <Text style={[styles.dmZaman, { color: item.okunmamis ? t.primary : t.textMuted }]}>{saat(item.son_mesaj_at)}</Text>
+                  ) : null}
+                  {item.okunmamis && <View style={[styles.dmNokta, { backgroundColor: t.primary }]} />}
+                </View>
+              </View>
+            </Kart>
+          )}
+          ListEmptyComponent={
+            dmYukleniyor ? (
+              <ActivityIndicator size="small" color={t.primary} style={{ marginTop: 32 }} />
+            ) : (
+              <BosDurum metin="Henüz özel mesajın yok. Genel sohbette bir rehberin adına dokunarak yazabilirsin." />
+            )
+          }
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+        />
+      )}
+
+      {/* ── Mesajlar (Genel) ── */}
+      {sekme === 'genel' && (
       <FlatList
         ref={flatListRef}
         data={mesajlar.filter((m) => !engellenenIdler.has(m.kullanici_id))}
         extraData={guncelSayac}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.mesajListesi}
+        ListHeaderComponent={
+          <YetkiliBolum baslik="Sohbet Moderasyonu" aciklama="Raporlar, banlar, küfür listesi" sadeceAdmin>
+            <SohbetYonetim />
+          </YetkiliBolum>
+        }
         renderItem={({ item }) => {
           const isimHarf = basHarfler(item.kullanici_isim);
           const avatarRenk = renkUret(item.kullanici_isim);
+          const kendi = kullanici && item.kullanici_id === kullanici.id;
+          const ozet = tepkiOzet(item.id);
           return (
+            <View style={styles.mesajBlok}>
             <TouchableOpacity
-              style={styles.mesajSatir}
+              style={[styles.mesajSatir, kendi && styles.mesajSatirKendi]}
               activeOpacity={0.7}
+              onPress={() => balonaDokun(item)}
               onLongPress={() => mesajAksiyonlari(item)}
               delayLongPress={600}
             >
-              <LinearGradient
-                colors={[avatarRenk, `${avatarRenk}CC`]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.mesajAvatar}
-              >
+              {/* Avatar harfi — renk isimden üretilir */}
+              <View style={[styles.mesajAvatar, { backgroundColor: avatarRenk }]}>
                 <Text style={styles.mesajAvatarHarf}>{isimHarf}</Text>
-              </LinearGradient>
+              </View>
 
-              <View style={[styles.mesajBubble, { backgroundColor: t.bgCard }]}>
+              <View
+                style={[
+                  styles.mesajBubble,
+                  kendi
+                    ? [styles.mesajBubbleKendi, { backgroundColor: t.primary }]
+                    : [styles.mesajBubbleDiger, { backgroundColor: t.bgCard, borderColor: t.kartBorder }],
+                ]}
+              >
                 <View style={styles.mesajUstSatir}>
-                  <Text style={[styles.mesajIsim, { color: Palette.istanbulMavi, flex: 1 }]}>
-                    {item.kullanici_isim}
-                  </Text>
+                  {/* Eyl 2026 DM: başkasının adına dokun → özel mesaj */}
+                  {kendi ? (
+                    <Text style={[styles.mesajIsim, { color: t.headerSubtext, flex: 1 }]} numberOfLines={1}>
+                      {item.kullanici_isim}
+                    </Text>
+                  ) : (
+                    <TouchableOpacity
+                      style={{ flex: 1 }}
+                      onPress={() => dmBaslat(item.kullanici_id, item.kullanici_isim)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel={`${item.kullanici_isim} adlı rehbere özel mesaj gönder`}
+                    >
+                      <Text style={[styles.mesajIsim, { color: t.primary }]} numberOfLines={1}>
+                        {item.kullanici_isim}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                   {/* Gorünür Raporla/Engelle butonu (iPad uyumlu — Apple Guideline 4) */}
                   {kullanici && item.kullanici_id !== kullanici.id && (
                     <TouchableOpacity
@@ -687,19 +807,47 @@ export default function SohbetEkrani() {
                     </TouchableOpacity>
                   )}
                 </View>
-                <Text style={[styles.mesajMetin, { color: t.text }]}>
-                  {item.mesaj}
-                </Text>
-                <Text style={[styles.mesajSaat, { color: t.textMuted }]}>
+                {/* Eyl 2026: yanıt alıntısı */}
+                {item.yanit_id && (() => {
+                  const orijinal = mesajlar.find(m => m.id === item.yanit_id);
+                  return (
+                    <YanitAlinti
+                      isim={orijinal?.kullanici_isim ?? 'Önceki mesaj'}
+                      metin={orijinal ? (orijinal.mesaj || (orijinal.gorsel_url ? 'Görsel' : '')) : 'Mesaj artık görüntülenemiyor'}
+                      kendi={!!kendi}
+                      onPress={orijinal ? () => mesajaKaydir(orijinal.id) : undefined}
+                    />
+                  );
+                })()}
+                {/* Eyl 2026: görsel */}
+                {item.gorsel_url && (
+                  <MesajGorseli url={item.gorsel_url} onPress={() => setTamEkranUrl(item.gorsel_url!)} />
+                )}
+                {!!item.mesaj && (
+                  <Text style={[styles.mesajMetin, { color: kendi ? t.textOnPrimary : t.text }]}>
+                    {item.mesaj}
+                  </Text>
+                )}
+                <Text style={[styles.mesajSaat, { color: kendi ? t.headerSubtext : t.textMuted }]}>
                   {saat(item.created_at)}
                 </Text>
               </View>
             </TouchableOpacity>
+            {/* Eyl 2026: tepki pill'leri */}
+            <TepkiSatiri
+              ozet={ozet}
+              kendi={!!kendi}
+              onTepki={(tip) => tepkiUygula(item.id, tip)}
+              onKimler={() => setKimlerMesajId(item.id)}
+            />
+            </View>
           );
         }}
         ListEmptyComponent={
           <View style={styles.bosMesaj}>
-            <Text style={{ fontSize: 36, marginBottom: 12, color: '#94A3B8' }}>—</Text>
+            <View style={[styles.bosIkon, { backgroundColor: Palette.kobaltTint }]}>
+              <ChatIcon size={28} color={t.primary} />
+            </View>
             <Text style={[styles.bosMesajYazi, { color: t.text }]}>Henüz mesaj yok</Text>
             <Text style={[styles.bosMesajAlt, { color: t.textSecondary }]}>
               Sohbeti başlatmak için ilk mesajı gönderin
@@ -709,15 +857,32 @@ export default function SohbetEkrani() {
         onEndReachedThreshold={0.3}
         onEndReached={yenile}
         inverted={false}
+        onScrollToIndexFailed={(info) => {
+          flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+          setTimeout(() => flatListRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.3 }), 300);
+        }}
         scrollEnabled={true}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       />
+      )}
 
-      {/* ── Giriş Alanı ── */}
+      {/* ── Eyl 2026: yanıt şeridi ── */}
+      {sekme === 'genel' && yanitlanan && (
+        <YanitSeridi isim={yanitlanan.kullanici_isim} metin={yanitlanan.mesaj || (yanitlanan.gorsel_url ? 'Görsel' : '')} onIptal={() => setYanitlanan(null)} />
+      )}
+
+      {/* ── Eyl 2026: seçilen görsel önizleme ── */}
+      {sekme === 'genel' && secilenGorsel && (
+        <GorselOnizleme gorsel={secilenGorsel} yukleniyor={gorselYukleniyor} onKaldir={() => setSecilenGorsel(null)} />
+      )}
+
+      {/* ── Giriş Alanı — görsel butonu + yuvarlak kutu + safran gönder (Genel sekmesi) ── */}
+      {sekme === 'genel' && (
       <View style={[styles.girisBolumu, { paddingBottom: insets.bottom + 8 }]}>
+        <GorselButon onPress={gorselEkle} disabled={gonderiyor} />
         <TextInput
-          style={[styles.girisiInput, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
+          style={[styles.girisiInput, { backgroundColor: t.bgInput, color: t.text, borderColor: t.kartBorder }]}
           placeholder="Mesaj yazın..."
           placeholderTextColor={t.textMuted}
           value={yeniMesaj}
@@ -728,17 +893,35 @@ export default function SohbetEkrani() {
           textAlignVertical="top"
         />
         <TouchableOpacity
-          style={[styles.gonderBtn, { backgroundColor: Palette.istanbulMavi, opacity: gonderiyor || !yeniMesaj.trim() ? 0.6 : 1 }]}
+          style={[styles.gonderBtn, { backgroundColor: t.accent, opacity: gonderiyor || (!yeniMesaj.trim() && !secilenGorsel) ? 0.6 : 1 }]}
           onPress={mesajGonder}
-          disabled={gonderiyor || !yeniMesaj.trim()}
+          disabled={gonderiyor || (!yeniMesaj.trim() && !secilenGorsel)}
         >
           {gonderiyor ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <Text style={styles.gonderBtnYazi}>Gönder</Text>
           )}
         </TouchableOpacity>
       </View>
+      )}
+
+      {/* ── Eyl 2026: mesaj menüsü (tepkiler + aksiyonlar) ── */}
+      <MesajMenusu
+        acik={!!menuMesaj}
+        baslik={menuMesaj ? (menuMesaj.kullanici_id === kullanici.id ? 'Mesajınız' : menuMesaj.kullanici_isim) : ''}
+        ozetMetin={menuMesaj ? (menuMesaj.mesaj ? `"${menuMesaj.mesaj.substring(0, 100)}${menuMesaj.mesaj.length > 100 ? '...' : ''}"` : 'Görsel') : ''}
+        benimTepkim={menuMesaj ? benimTepkim(menuMesaj.id) : null}
+        aksiyonlar={menuAksiyonlari}
+        onTepki={(tip) => { if (menuMesaj) tepkiUygula(menuMesaj.id, tip); }}
+        onKapat={() => setMenuMesaj(null)}
+      />
+      <TamEkranGorsel url={tamEkranUrl} onKapat={() => setTamEkranUrl(null)} />
+      <TepkiVerenlerModal
+        acik={!!kimlerMesajId}
+        ozet={kimlerMesajId ? tepkiOzet(kimlerMesajId) : []}
+        onKapat={() => setKimlerMesajId(null)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -752,34 +935,75 @@ function createStyles(t: TemaRenkleri) {
       flex: 1,
     },
 
-    // Header
-    header: {
+    // Eyl 2026 DM: sekmeler + konuşma listesi
+    sekmeler: {
       paddingHorizontal: Space.lg,
-      paddingBottom: 14,
+      paddingTop: Space.md,
+      paddingBottom: Space.xs,
     },
-    headerTitle: {
-      fontFamily: 'Poppins_700Bold',
-      fontSize: 20,
-      color: '#FFFFFF',
-      textAlign: 'center',
-      marginBottom: 4,
+    dmListesi: {
+      flexGrow: 1,
+      paddingHorizontal: Space.lg,
+      paddingVertical: Space.md,
     },
-    headerAlt: {
+    dmKart: {
+      paddingVertical: 12,
+    },
+    dmSatir: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      minHeight: 44,
+    },
+    dmIsim: {
+      fontFamily: Font.semibold,
+      fontSize: 14,
+    },
+    dmIsimKalin: {
+      fontFamily: Font.extrabold,
+      fontSize: 14,
+    },
+    dmOzet: {
+      fontFamily: Font.regular,
       fontSize: 12,
-      color: 'rgba(255,255,255,0.9)',
-      textAlign: 'center',
+      marginTop: 1,
+    },
+    dmOzetKalin: {
+      fontFamily: Font.semibold,
+      fontSize: 12,
+      marginTop: 1,
+    },
+    dmSag: {
+      alignItems: 'flex-end',
+      gap: 6,
+    },
+    dmZaman: {
+      fontFamily: Font.regular,
+      fontSize: 11,
+    },
+    dmNokta: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
     },
 
     // Mesajlar
     mesajListesi: {
       flexGrow: 1,
       paddingHorizontal: Space.lg,
-      paddingVertical: Space.md,
+      paddingVertical: Space.lg,
+    },
+    mesajBlok: {
+      marginBottom: 14,
     },
     mesajSatir: {
       flexDirection: 'row',
-      marginBottom: Space.lg,
       alignItems: 'flex-start',
+      gap: 10,
+    },
+    // Kendi mesajı: sağa yaslı, avatar sağda
+    mesajSatirKendi: {
+      flexDirection: 'row-reverse',
     },
     mesajAvatar: {
       width: 36,
@@ -787,21 +1011,28 @@ function createStyles(t: TemaRenkleri) {
       borderRadius: 18,
       justifyContent: 'center',
       alignItems: 'center',
-      marginRight: Space.md,
     },
     mesajAvatarHarf: {
+      fontFamily: Font.bold,
       fontSize: 14,
-      fontWeight: '700',
       color: '#FFFFFF',
       letterSpacing: 0.5,
     },
     mesajBubble: {
       flex: 1,
+      maxWidth: '84%',
       borderRadius: Radius.lg,
       paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
+      paddingVertical: 10,
+    },
+    // Diğerleri: kart zemini + ince border, sol üst köşe sivri
+    mesajBubbleDiger: {
       borderWidth: 1,
-      borderColor: t.kartBorder,
+      borderTopLeftRadius: 6,
+    },
+    // Kendi: kobalt dolu, sağ üst köşe sivri
+    mesajBubbleKendi: {
+      borderTopRightRadius: 6,
     },
     mesajUstSatir: {
       flexDirection: 'row',
@@ -811,25 +1042,27 @@ function createStyles(t: TemaRenkleri) {
     aksiyonBtn: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       marginLeft: 4,
     },
     aksiyonBtnYazi: {
+      fontFamily: Font.extrabold,
       fontSize: 18,
-      fontWeight: '900',
       lineHeight: 18,
       letterSpacing: 1,
     },
     mesajIsim: {
-      fontSize: 13,
-      fontWeight: '700',
+      fontFamily: Font.bold,
+      fontSize: 12,
     },
     mesajMetin: {
+      fontFamily: Font.regular,
       fontSize: 14,
       lineHeight: 20,
       marginBottom: 4,
     },
     mesajSaat: {
+      fontFamily: Font.regular,
       fontSize: 11,
     },
 
@@ -840,12 +1073,22 @@ function createStyles(t: TemaRenkleri) {
       alignItems: 'center',
       paddingVertical: 80,
     },
+    bosIkon: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 14,
+    },
     bosMesajYazi: {
+      fontFamily: Font.bold,
       fontSize: 16,
-      fontWeight: '700',
+      letterSpacing: -0.3,
       marginBottom: 6,
     },
     bosMesajAlt: {
+      fontFamily: Font.regular,
       fontSize: 13,
       textAlign: 'center',
     },
@@ -853,6 +1096,7 @@ function createStyles(t: TemaRenkleri) {
     // Giriş alanı
     girisBolumu: {
       flexDirection: 'row',
+      alignItems: 'flex-end',
       paddingHorizontal: Space.lg,
       paddingTop: Space.md,
       gap: Space.sm,
@@ -862,26 +1106,27 @@ function createStyles(t: TemaRenkleri) {
     },
     girisiInput: {
       flex: 1,
-      borderRadius: Radius.md,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
+      borderRadius: Radius.xl,
+      paddingHorizontal: Space.lg,
+      paddingVertical: Space.md,
+      fontFamily: Font.regular,
       fontSize: 14,
-      minHeight: 44,
+      minHeight: 48,
       maxHeight: 100,
       borderWidth: 1,
     },
     gonderBtn: {
-      borderRadius: Radius.md,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
+      height: 48,
+      borderRadius: Radius.xl,
+      paddingHorizontal: Space.lg,
       justifyContent: 'center',
       alignItems: 'center',
-      minWidth: 70,
+      minWidth: 76,
     },
     gonderBtnYazi: {
+      fontFamily: Font.bold,
       color: '#FFFFFF',
       fontSize: 13,
-      fontWeight: '700',
     },
 
     // Misafir ekranı
@@ -900,25 +1145,20 @@ function createStyles(t: TemaRenkleri) {
       marginBottom: 20,
     },
     misafirBaslik: {
-      fontFamily: 'Poppins_700Bold',
+      fontFamily: Font.bold,
       fontSize: 22,
+      letterSpacing: -0.3,
       marginBottom: 8,
     },
     misafirAciklama: {
+      fontFamily: Font.regular,
       fontSize: 14,
       textAlign: 'center',
       lineHeight: 22,
       marginBottom: 28,
     },
     girisBtn: {
-      paddingHorizontal: 40,
-      paddingVertical: 14,
-      borderRadius: Radius.md,
-    },
-    girisBtnYazi: {
-      color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '700',
+      alignSelf: 'stretch',
     },
   });
 }

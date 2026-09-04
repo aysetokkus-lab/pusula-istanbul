@@ -1,6 +1,9 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// Yalnızca tipografi (Poppins Font + tema tokenları) yeniden boyandı; metinler ve insets kullanımı aynen.
+import { ScrollView, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTema } from '../hooks/use-tema';
+import { Font } from '../constants/theme';
 
 /* ═══════════════════════════════════════════
    Kullanım Koşulları
@@ -9,11 +12,11 @@ import { useTema } from '../hooks/use-tema';
 
 export default function KullanimKosullari() {
   const insets = useSafeAreaInsets();
-  const { t, isDark } = useTema();
+  const { t } = useTema();
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: t.bgCard }]}
+      style={[styles.container, { backgroundColor: t.bg }]}
       contentContainerStyle={[styles.icerik, { paddingBottom: insets.bottom + 40 }]}
     >
       <Text style={[styles.baslik, { color: t.text }]}>Kullanım Koşulları</Text>
@@ -39,23 +42,14 @@ export default function KullanimKosullari() {
         TUREB ruhsat numaranız doğrulama amacıyla talep edilmektedir.
       </Text>
 
-      <Text style={[styles.altBaslik, { color: t.text }]}>4. Abonelik ve Ödeme</Text>
+      <Text style={[styles.altBaslik, { color: t.text }]}>4. Ücretsiz Kullanım</Text>
       <Text style={[styles.paragraf, { color: t.textSecondary }]}>
-        Pusula İstanbul ücretsiz olarak indirilebilir ve temel özellikler (müze/saray/cami
-        ziyaret saatleri, ulaşım rehberi, acil durum bilgileri) herkes tarafından ücretsiz
-        kullanılabilir. Rehber sohbeti, canlı saha durumu, ulaşım uyarıları ve kent
-        etkinlikleri gibi premium özellikler için uygulama içi satın alma (In-App Purchase)
-        ile abonelik gereklidir.
-      </Text>
-      <Text style={[styles.madde, { color: t.textSecondary }]}>• Aylık plan: 99 ₺/ay</Text>
-      <Text style={[styles.madde, { color: t.textSecondary }]}>• Yıllık plan: 699 ₺/yıl (%41 tasarruf)</Text>
-      <Text style={[styles.paragraf, { color: t.textSecondary }]}>
-        Tüm satın alma işlemleri Apple App Store veya Google Play Store üzerinden
-        gerçekleştirilir. Abonelikler, mevcut dönem sona ermeden en az 24 saat önce iptal
-        edilmezse otomatik olarak yenilenir. İptal işlemi, cihazınızın uygulama mağazası
-        ayarlarından yapılabilir. Kısmi dönem için iade yapılmamaktadır. Farklı bir cihazda
-        oturum açtıysanız, mevcut aboneliğinizi "Satın Almaları Geri Yükle" seçeneği ile
-        geri yükleyebilirsiniz.
+        Pusula İstanbul, profesyonel turist rehberlerine tamamen ücretsiz sunulmaktadır.
+        Uygulama içinde satın alma veya abonelik bulunmaz; tüm özellikler (mekan ziyaret
+        saatleri, ulaşım rehberi, acil durum bilgileri, rehber sohbeti, canlı saha durumu,
+        ulaşım uyarıları ve kent etkinlikleri) kayıtlı her kullanıcıya açıktır. Daha önce
+        satın alınmış abonelikler, dönem sonunda mağaza tarafından otomatik olarak sona erer;
+        yeni tahsilat yapılmaz.
       </Text>
 
       <Text style={[styles.altBaslik, { color: t.text }]}>5. Kullanım Kuralları</Text>
@@ -154,28 +148,33 @@ export default function KullanimKosullari() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  icerik: { padding: 20 },
+  icerik: { paddingHorizontal: 16, paddingTop: 20 },
   baslik: {
+    fontFamily: Font.extrabold,
     fontSize: 20,
-    fontWeight: '800',
+    letterSpacing: -0.3,
     marginBottom: 4,
   },
   tarih: {
-    fontSize: 12,
+    fontFamily: Font.regular,
+    fontSize: 11,
     marginBottom: 24,
   },
   altBaslik: {
+    fontFamily: Font.bold,
     fontSize: 16,
-    fontWeight: '700',
+    letterSpacing: -0.3,
     marginTop: 20,
     marginBottom: 8,
   },
   paragraf: {
+    fontFamily: Font.regular,
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 8,
   },
   madde: {
+    fontFamily: Font.regular,
     fontSize: 14,
     lineHeight: 22,
     marginLeft: 8,

@@ -1,7 +1,12 @@
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// Mavi bant → Kart + Kicker "YAKLAŞAN ETKİNLİKLER"; her satır kobalt tarih kutusu (gün + ay) + başlık + yer/saat.
+// useEtkinlikler (realtime + 15 sn polling), detay modalı (ModalKapak) ve tüm onPress'ler birebir korundu.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useTema } from '../hooks/use-tema';
+import { Font, Palette, Radius } from '../constants/theme';
+import { BolumBaslik, DurumNoktasi, Kart, Kicker, ModalKapak, Rozet } from './ui/pusula-ui';
 
 /* ═══════════════════════════════════════════
    Tipler
@@ -22,11 +27,11 @@ export interface Etkinlik {
 
 
 const ETKI_STIL: Record<string, { renk: string; etiket: string }> = {
-  yol_kapanma: { renk: '#D62828', etiket: 'YOL KAPANMA' },
-  kopru_kapanma: { renk: '#E09F3E', etiket: 'KÖPRÜ KAPANMA' },
-  trafik: { renk: '#B0D4E8', etiket: 'TRAFİK' },
-  gezi_kisitlama: { renk: '#D62828', etiket: 'GEZİ KISITLAMA' },
-  diger: { renk: '#7B8FA1', etiket: 'DİĞER' },
+  yol_kapanma: { renk: Palette.kapali, etiket: 'YOL KAPANMA' },
+  kopru_kapanma: { renk: Palette.uyari, etiket: 'KÖPRÜ KAPANMA' },
+  trafik: { renk: Palette.kobaltOrta, etiket: 'TRAFİK' },
+  gezi_kisitlama: { renk: Palette.kapali, etiket: 'GEZİ KISITLAMA' },
+  diger: { renk: Palette.bilgi, etiket: 'DİĞER' },
 };
 
 /* ═══════════════════════════════════════════
@@ -38,6 +43,9 @@ const AYLAR = [
   'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
 ];
 
+/** Tarih kutusu için 3 harfli ay kısaltması (büyük harf, Türkçe) */
+const AY_KISA = ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
+
 const GUNLER = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
 function tarihinTurkce(iso: string): string {
@@ -48,6 +56,12 @@ function tarihinTurkce(iso: string): string {
   const saat = tarih.getHours().toString().padStart(2, '0');
   const dakika = tarih.getMinutes().toString().padStart(2, '0');
   return `${gunSayisi} ${ay} ${gun}, ${saat}:${dakika}`;
+}
+
+/** "07:00" */
+function saatKisa(iso: string): string {
+  const tarih = new Date(iso);
+  return `${tarih.getHours().toString().padStart(2, '0')}:${tarih.getMinutes().toString().padStart(2, '0')}`;
 }
 
 /* ═══════════════════════════════════════════
@@ -137,79 +151,80 @@ export function EtkinliklerBandi() {
   };
 
   return (
-    <View style={[s.container, { backgroundColor: t.bgSecondary, borderBottomColor: t.kartBorder }]}>
-      {/* Baslik */}
-      <View style={s.baslikSatir}>
-        <Text style={[s.baslik, { color: t.primary }]}>Yaklaşan Kent Etkinlikleri</Text>
-      </View>
+    <View style={s.bolum}>
+      <Kart>
+        {/* Kicker */}
+        <BolumBaslik baslik="Yaklaşan Etkinlikler" renk={t.primary} />
 
-      {/* Yukleniyor */}
-      {yukleniyor && (
-        <View style={[s.durumKutu, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-          <ActivityIndicator size="small" color={t.primary} />
-          <Text style={[s.durumYazi, { color: t.textSecondary }]}>Etkinlikler kontrol ediliyor...</Text>
-        </View>
-      )}
-
-      {/* Hata */}
-      {!yukleniyor && hata && (
-        <View style={[s.durumKutu, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: '#D62828' }}>!</Text>
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={[s.normalYazi, { color: t.text }]}>Bağlantı hatası</Text>
-            <Text style={[s.normalAlt, { color: t.textSecondary }]}>Etkinlikler yüklenemiyor</Text>
+        {/* Yukleniyor */}
+        {yukleniyor && (
+          <View style={s.durumKutu}>
+            <ActivityIndicator size="small" color={t.primary} />
+            <Text style={[s.durumYazi, { color: t.textSecondary }]}>Etkinlikler kontrol ediliyor...</Text>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Etkinlik yok */}
-      {!yukleniyor && !hata && etkinlikler.length === 0 && (
-        <View style={[s.durumKutu, { backgroundColor: '#E8F5E9', borderColor: '#A5D6A7' }]}>
-          <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#A5D6A7', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>+</Text></View>
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={[s.normalYazi, { color: '#2E7D32' }]}>Yaklaşan etkinlik yok</Text>
-            <Text style={[s.normalAlt, { color: t.textSecondary }]}>İstanbul'da trafik rahat!</Text>
+        {/* Hata */}
+        {!yukleniyor && hata && (
+          <View style={s.durumKutu}>
+            <DurumNoktasi renk={t.durumKapali} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[s.normalYazi, { color: t.text }]}>Bağlantı hatası</Text>
+              <Text style={[s.normalAlt, { color: t.textSecondary }]}>Etkinlikler yüklenemiyor</Text>
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Etkinlik kartlari */}
-      {!yukleniyor && etkinlikler.length > 0 && (
-        <ScrollView showsVerticalScrollIndicator={false} scrollEventThrottle={16}>
-          {etkinlikler.map(e => {
-            const efkiStil = ETKI_STIL[e.etki] || ETKI_STIL.diger;
-            return (
-              <TouchableOpacity
-                key={e.id}
-                style={[s.etkinlikKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}
-                onPress={() => ayrinti(e)}
-                activeOpacity={0.7}
-              >
-                <View style={s.kartUst}>
+        {/* Etkinlik yok */}
+        {!yukleniyor && !hata && etkinlikler.length === 0 && (
+          <View style={s.durumKutu}>
+            <DurumNoktasi renk={t.durumAcik} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[s.normalYazi, { color: t.durumAcik }]}>Yaklaşan etkinlik yok</Text>
+              <Text style={[s.normalAlt, { color: t.textSecondary }]}>İstanbul'da trafik rahat!</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Etkinlik kartlari */}
+        {!yukleniyor && etkinlikler.length > 0 && (
+          <ScrollView showsVerticalScrollIndicator={false} scrollEventThrottle={16}>
+            {etkinlikler.map((e, i) => {
+              const efkiStil = ETKI_STIL[e.etki] || ETKI_STIL.diger;
+              const tarih = new Date(e.tarih);
+              const saatAraligi = e.bitis_tarih ? `${saatKisa(e.tarih)}–${saatKisa(e.bitis_tarih)}` : saatKisa(e.tarih);
+              return (
+                <TouchableOpacity
+                  key={e.id}
+                  style={[s.etkinlikSatir, i > 0 && { borderTopWidth: 1, borderTopColor: t.divider }]}
+                  onPress={() => ayrinti(e)}
+                  activeOpacity={0.7}
+                >
+                  {/* Tarih kutusu: kobalt dolgu, gün büyük + ay kısaltması */}
+                  <View style={[s.tarihKutu, { backgroundColor: t.tileBg }]}>
+                    <Text style={[s.tarihGun, { color: t.tileIcon }]}>{tarih.getDate().toString().padStart(2, '0')}</Text>
+                    <Text style={[s.tarihAy, { color: t.tileIcon }]}>{AY_KISA[tarih.getMonth()]}</Text>
+                  </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[s.baslikKart, { color: t.primary }]} numberOfLines={2}>
+                    <Text style={[s.baslikKart, { color: t.text }]} numberOfLines={2}>
                       {e.baslik}
                     </Text>
-                    <Text style={[s.tarihKart, { color: t.textSecondary }]}>
-                      {tarihinTurkce(e.tarih)}
+                    <Text style={[s.konumKart, { color: t.textSecondary }]} numberOfLines={1}>
+                      {e.konum} · {saatAraligi}
                     </Text>
+                    <View style={s.kartAlt}>
+                      <Rozet renk={efkiStil.renk}>{efkiStil.etiket}</Rozet>
+                      <Text style={[s.tarihKart, { color: t.textMuted }]} numberOfLines={1}>
+                        {tarihinTurkce(e.tarih)}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <View style={s.kartAlt}>
-                  <View style={[s.etkiBadge, { backgroundColor: efkiStil.renk + '20' }]}>
-                    <Text style={[s.etkiBadgeYazi, { color: efkiStil.renk }]}>
-                      {efkiStil.etiket}
-                    </Text>
-                  </View>
-                  <Text style={[s.konumKart, { color: t.text }]} numberOfLines={1}>
-                    {e.konum}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+      </Kart>
 
       {/* Detail Modal */}
       {secilenEtkinlik && (
@@ -225,7 +240,7 @@ export function EtkinliklerBandi() {
 }
 
 /* ═══════════════════════════════════════════
-   Detail Modal
+   Detail Modal — ModalKapak dili
    ═══════════════════════════════════════════ */
 
 function EtkinlikDetailModal({
@@ -247,66 +262,44 @@ function EtkinlikDetailModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[s.modalArka, { backgroundColor: t.modalOverlay }]}>
-        <View style={[s.modalKutu, { backgroundColor: t.modalBg }]}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Baslik */}
-            <View style={s.detailBaslik}>
-              <Text style={[s.detailBaslikYazi, { color: t.primary }]}>
-                {etkinlik.baslik}
-              </Text>
-            </View>
+      <ModalKapak baslik={etkinlik.baslik} onKapat={onClose}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Etki Badge */}
+          <Rozet renk={efkiStil.renk} style={s.detailEtkiBadge}>{efkiStil.etiket}</Rozet>
 
-            {/* Etki Badge */}
-            <View style={[s.detailEtkiBadge, { backgroundColor: efkiStil.renk + '20' }]}>
-              <Text style={[s.detailEtkiBadgeYazi, { color: efkiStil.renk }]}>
-                {efkiStil.etiket}
-              </Text>
-            </View>
+          {/* Tarih Araligi */}
+          <View style={[s.detailSecim, { borderTopColor: t.divider }]}>
+            <Kicker color={t.primary}>Tarih</Kicker>
+            <Text style={[s.detailSecimIcerik, { color: t.text }]}>
+              {tarihAraligi}
+            </Text>
+          </View>
 
-            {/* Tarih Araligi */}
-            <View style={s.detailSecim}>
-              <Text style={[s.detailSecimBaslik, { color: t.primary }]}>Tarih</Text>
-              <Text style={[s.detailSecimIcerik, { color: t.text }]}>
-                {tarihAraligi}
-              </Text>
-            </View>
+          {/* Konum */}
+          <View style={[s.detailSecim, { borderTopColor: t.divider }]}>
+            <Kicker color={t.primary}>Konum</Kicker>
+            <Text style={[s.detailSecimIcerik, { color: t.text }]}>
+              {etkinlik.konum}
+            </Text>
+          </View>
 
-            {/* Konum */}
-            <View style={s.detailSecim}>
-              <Text style={[s.detailSecimBaslik, { color: t.primary }]}>Konum</Text>
-              <Text style={[s.detailSecimIcerik, { color: t.text }]}>
-                {etkinlik.konum}
-              </Text>
-            </View>
+          {/* Etkilenen Yollar */}
+          <View style={[s.detailSecim, { borderTopColor: t.divider }]}>
+            <Kicker color={t.primary}>Etkilenen Yollar</Kicker>
+            <Text style={[s.detailSecimIcerik, { color: t.text }]}>
+              {etkinlik.etkilenen_yollar}
+            </Text>
+          </View>
 
-            {/* Etkilenen Yollar */}
-            <View style={s.detailSecim}>
-              <Text style={[s.detailSecimBaslik, { color: t.primary }]}>Etkilenen Yollar</Text>
-              <Text style={[s.detailSecimIcerik, { color: t.text }]}>
-                {etkinlik.etkilenen_yollar}
-              </Text>
-            </View>
-
-            {/* Aciklama */}
-            <View style={s.detailSecim}>
-              <Text style={[s.detailSecimBaslik, { color: t.primary }]}>Açıklama</Text>
-              <Text style={[s.detailSecimIcerik, { color: t.text }]}>
-                {etkinlik.aciklama}
-              </Text>
-            </View>
-          </ScrollView>
-
-          {/* Kapat Butonu */}
-          <TouchableOpacity
-            style={[s.kapatBtn, { backgroundColor: t.bgSecondary }]}
-            onPress={onClose}
-            activeOpacity={0.7}
-          >
-            <Text style={[s.kapatYazi, { color: t.primary }]}>Kapat</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+          {/* Aciklama */}
+          <View style={[s.detailSecim, { borderTopColor: t.divider }]}>
+            <Kicker color={t.primary}>Açıklama</Kicker>
+            <Text style={[s.detailSecimIcerik, { color: t.text }]}>
+              {etkinlik.aciklama}
+            </Text>
+          </View>
+        </ScrollView>
+      </ModalKapak>
     </Modal>
   );
 }
@@ -316,164 +309,96 @@ function EtkinlikDetailModal({
    ═══════════════════════════════════════════ */
 
 const s = StyleSheet.create({
-  // Container
-  container: {
+  // Bölüm zarfı (Kart dışı)
+  bolum: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#EAF4FB',
-    borderTopWidth: 1.5,
-    borderTopColor: 'rgba(255,255,255,0.6)',
-    borderBottomWidth: 2.5,
-    borderBottomColor: '#9DC5DB',
-    borderLeftWidth: 0.5,
-    borderLeftColor: 'rgba(255,255,255,0.3)',
-    borderRightWidth: 0.5,
-    borderRightColor: 'rgba(0,0,0,0.08)',
-    shadowColor: '#0077B6',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-
-  // Başlık satırı
-  baslikSatir: {
-    marginBottom: 12,
-  },
-  baslik: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0077B6',
+    paddingTop: 14,
   },
 
   // Durum kutusu (yükleniyor, hata, boş)
   durumKutu: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
+    minHeight: 44,
+    paddingVertical: 4,
   },
   durumYazi: {
     marginLeft: 10,
+    fontFamily: Font.regular,
     fontSize: 13,
   },
   normalYazi: {
+    fontFamily: Font.semibold,
     fontSize: 14,
-    fontWeight: '600',
   },
   normalAlt: {
+    fontFamily: Font.regular,
     fontSize: 11,
     marginTop: 2,
   },
 
-  // Etkinlik kartı
-  etkinlikKart: {
-    borderRadius: 10,
-    borderWidth: 1,
-    padding: 12,
-    marginBottom: 10,
-    shadowColor: '#0077B6',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  kartUst: {
+  // Etkinlik satırı
+  etkinlikSatir: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    gap: 12,
+    paddingVertical: 10,
+    minHeight: 44,
+  },
+  tarihKutu: {
+    width: 52,
+    height: 52,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tarihGun: {
+    fontFamily: Font.extrabold,
+    fontSize: 20,
+    lineHeight: 24,
+    letterSpacing: -0.5,
+  },
+  tarihAy: {
+    fontFamily: Font.bold,
+    fontSize: 10,
+    letterSpacing: 1,
+    lineHeight: 12,
   },
   baslikKart: {
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 18,
+    fontFamily: Font.bold,
+    fontSize: 15,
+    lineHeight: 20,
+    letterSpacing: -0.3,
   },
-  tarihKart: {
+  konumKart: {
+    fontFamily: Font.regular,
     fontSize: 12,
-    marginTop: 4,
+    marginTop: 2,
   },
   kartAlt: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 8,
+    marginTop: 6,
   },
-  etkiBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  etkiBadgeYazi: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  konumKart: {
+  tarihKart: {
+    fontFamily: Font.regular,
     fontSize: 11,
     flex: 1,
   },
 
   // Detail Modal
-  modalArka: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalKutu: {
-    backgroundColor: '#F0F8FF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 18,
-    maxHeight: '88%',
-  },
-  detailBaslik: {
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 10,
-  },
-  detailBaslikYazi: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 4,
-    textAlign: 'center',
-    lineHeight: 28,
-  },
   detailEtkiBadge: {
-    alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  detailEtkiBadgeYazi: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  detailSecim: {
-    marginBottom: 16,
-  },
-  detailSecimBaslik: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0077B6',
     marginBottom: 6,
   },
+  detailSecim: {
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    gap: 4,
+  },
   detailSecimIcerik: {
+    fontFamily: Font.regular,
     fontSize: 13,
-    lineHeight: 18,
-  },
-
-  // Kapat butonu
-  kapatBtn: {
-    borderRadius: 10,
-    padding: 13,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  kapatYazi: {
-    fontSize: 14,
-    fontWeight: '600',
+    lineHeight: 19,
   },
 });

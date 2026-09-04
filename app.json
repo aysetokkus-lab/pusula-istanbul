@@ -14,9 +14,10 @@
       "buildNumber": "42",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Konumunuz yakındaki müze ve ulaşım bilgilerini göstermek için kullanılır.",
-        "NSPhotoLibraryUsageDescription": "Yetkili kullanıcılar duyuru görseli yüklemek için fotoğraflara erişim sağlar.",
+        "NSPhotoLibraryUsageDescription": "Sohbette görsel paylaşmak, duyuru görseli ve masraf fişi yüklemek için fotoğraflarınıza erişim gerekir.",
         "NSPhotoLibraryAddUsageDescription": "Duyuru görsellerini cihaza kaydetmek için izin gerekir.",
-        "CFBundleAllowMixedLocalizations": true
+        "CFBundleAllowMixedLocalizations": true,
+        "NSCameraUsageDescription": "Sohbette sahadan fotoğraf çekip paylaşmak ve masraf fişi çekmek için kamera erişimi gerekir."
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -27,7 +28,8 @@
       "versionCode": 43,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#005A8D",
+        "backgroundColor": "#1E40AF",
+        "backgroundImage": "./assets/images/android-icon-background.png",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -58,21 +60,29 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 240,
           "resizeMode": "contain",
-          "backgroundColor": "#005A8D",
+          "backgroundColor": "#1E40AF",
           "android": {
             "image": "./assets/images/splash-icon.png",
-            "imageWidth": 200,
+            "imageWidth": 240,
             "resizeMode": "contain",
-            "backgroundColor": "#005A8D"
+            "backgroundColor": "#1E40AF"
           },
           "dark": {
-            "backgroundColor": "#005A8D"
+            "backgroundColor": "#0F1530"
           }
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Sohbette görsel paylaşmak, duyuru görseli ve masraf fişi yüklemek için fotoğraflarınıza erişim gerekir.",
+          "cameraPermission": "Sohbette sahadan fotoğraf çekip paylaşmak ve masraf fişi çekmek için kamera erişimi gerekir."
+        }
+      ],
+      "expo-mail-composer"
     ],
     "experiments": {
       "typedRoutes": true

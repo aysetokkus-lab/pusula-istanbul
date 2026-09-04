@@ -118,6 +118,7 @@ async function androidKanallariOlustur() {
     { id: 'etkinlikler-v3', name: 'Etkinlikler', importance: 4 },
     { id: 'sohbet-v3', name: 'Sohbet Mesajları', importance: 4 },
     { id: 'sistem-v3', name: 'Sistem Güncellemeleri', importance: 4 },
+    { id: 'ilanlar-v3', name: 'Rehber Aranıyor İlanları', importance: 4 },  // Eyl 2026
   ];
   try {
     for (const k of kanallar) {

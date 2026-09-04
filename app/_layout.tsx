@@ -9,8 +9,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { supabase } from '../lib/supabase';
 import { useBildirimler } from '../hooks/use-bildirimler';
 import { usePushToken } from '../hooks/use-push-token';
-import { useAbonelik } from '../hooks/use-abonelik';
-import { revenueCatInit } from '../lib/revenuecat';
 import { TemaProvider } from '../hooks/use-tema';
 // v1.1.0: X API senkronu Edge Function'a (ulasim-senkron) tasindi, client-side artiklari kaldirildi.
 // Bkz. DECISIONS #36, INFRASTRUCTURE.md Bolum 13.
@@ -18,12 +16,10 @@ import { TemaProvider } from '../hooks/use-tema';
 SplashScreen.preventAutoHideAsync();
 
 /* ═══════════════════════════════════════════
-   Root Layout — Freemium Model
+   Root Layout — TAMAMEN UCRETSIZ MODEL (Eyl 2026)
    ─────────────────────────────────────────
-   Temel ozellikler herkese acik (muzeler, ulasim, acil vb.)
-   Premium ozellikler (sohbet, canli durum, etkinlikler)
-   icin abonelik gerekir — ekran bazinda kontrol edilir.
-   Giris zorunlu DEGIL — misafirler de bilgi ekranlarini gorebilir.
+   Abonelik/paywall/RevenueCat KALDIRILDI. Tum ozellikler
+   giris yapan her rehbere acik. Kayit zorunlu (v1.0.13).
    ═══════════════════════════════════════════ */
 
 export default function RootLayout() {
@@ -40,10 +36,6 @@ export default function RootLayout() {
   // işareti veriyoruz. Stack hazır olur olmaz aşağıdaki useEffect navigate eder.
   const [sifreSifirlamaPending, setSifreSifirlamaPending] = useState(false);
   const segments = useSegments();
-
-  // RevenueCat'i uygulama acilirken baslat (anonim — giris gerekmez)
-  // Boylece giris yapmamis kullanicilar da IAP satin alabilir.
-  useEffect(() => { revenueCatInit(); }, []);
 
   // Şifre sıfırlama deep link handler'ı
   // Mailden gelen "Şifremi Sıfırla" linki bu app'i açar.
@@ -185,9 +177,6 @@ export default function RootLayout() {
   // X (Twitter) senkronizasyonu kaldirildi — server-side Edge Function 'ulasim-senkron'
   // pg_cron ile 15 dk'da bir tetikleniyor (6 May 2026'dan beri). Bkz. DECISIONS #36.
 
-  // Abonelik durumu kontrolü (premium özellik gating için)
-  const abonelik = useAbonelik();
-
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -206,43 +195,41 @@ export default function RootLayout() {
   }, []);
 
   // Recovery navigate — Stack mount edildikten sonra koşar.
-  // _layout.tsx'in render'ı `if (!fontsLoaded || oturum === null || abonelik.yukleniyor) return null;`
-  // ile gating ediliyor. Yani fonts/oturum/abonelik hazır olmadan Stack yok,
+  // _layout.tsx'in render'ı `if (!fontsLoaded || oturum === null) return null;`
+  // ile gating ediliyor. Yani fonts/oturum hazır olmadan Stack yok,
   // erken router.replace silently fail eder. Bu useEffect tüm hazır işaretler
   // geldikten sonra (Stack mount olduktan sonra) navigate'i tetikler.
   // EK: setTimeout ile defer — Expo Router state batch'inden sonra navigate
   // (group escape race condition icin sigorta).
   useEffect(() => {
     if (!sifreSifirlamaPending) return;
-    if (!fontsLoaded || oturum === null || abonelik.yukleniyor) return;
+    if (!fontsLoaded || oturum === null) return;
     console.log('[DeepLink] Stack hazır, /sifre-sifirla\'ya yönlendiriliyor');
     const t = setTimeout(() => {
       router.replace('/sifre-sifirla' as never);
       setSifreSifirlamaPending(false);
     }, 150);
     return () => clearTimeout(t);
-  }, [sifreSifirlamaPending, fontsLoaded, oturum, abonelik.yukleniyor]);
+  }, [sifreSifirlamaPending, fontsLoaded, oturum]);
 
   // Kayit zorunlu routing (v1.0.13):
   // - Oturum yoksa → giris ekranina yonlendir (yasal/paywall ekranlari haric)
   // - Oturum varsa + giris ekraninda → ana ekrana yonlendir
   // - Sifre sifirlama ve onboarding korumali ekranlar
   useEffect(() => {
-    if (oturum === null || !fontsLoaded || abonelik.yukleniyor) return;
+    if (oturum === null || !fontsLoaded) return;
 
     const mevcut = segments[0];
     const girisEkraninda = mevcut === 'giris';
     const hosgeldinEkraninda = mevcut === 'hos-geldin';
     const gizlilikEkraninda = mevcut === 'gizlilik-politikasi' || mevcut === 'kullanim-kosullari';
-    const aboneOlEkraninda = mevcut === 'abone-ol';
     const sifreSifirlamaEkraninda = mevcut === ('sifre-sifirla' as typeof mevcut);
 
     // Korunan ekranlar — bunlardayken yönlendirme YAPMA
     // - hos-geldin: kayit sonrasi onboarding (oturum YENI acildi)
     // - gizlilik/kullanim: yasal sayfalar, herkese acik
-    // - abone-ol: paywall, herkes erisebilmeli (Apple zorunlu)
     // - sifre-sifirla: recovery session'i aktifken bu ekranda kalmamiz gerekiyor
-    if (hosgeldinEkraninda || gizlilikEkraninda || aboneOlEkraninda || sifreSifirlamaEkraninda) return;
+    if (hosgeldinEkraninda || gizlilikEkraninda || sifreSifirlamaEkraninda) return;
 
     // Recovery modunda iken hiçbir koşulda redirect yapma
     // Ref synchronous okunur (state async, race oluyor) — ikisini birden kontrol et
@@ -260,15 +247,15 @@ export default function RootLayout() {
     if (oturum && girisEkraninda) {
       router.replace('/(tabs)');
     }
-  }, [oturum, segments, fontsLoaded, abonelik.yukleniyor, sifreSifirlamaModu]);
+  }, [oturum, segments, fontsLoaded, sifreSifirlamaModu]);
 
   useEffect(() => {
-    if (fontsLoaded && oturum !== null && !abonelik.yukleniyor) {
+    if (fontsLoaded && oturum !== null) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, oturum, abonelik.yukleniyor]);
+  }, [fontsLoaded, oturum]);
 
-  if (!fontsLoaded || oturum === null || abonelik.yukleniyor) return null;
+  if (!fontsLoaded || oturum === null) return null;
 
   return (
     <TemaProvider>
@@ -277,20 +264,13 @@ export default function RootLayout() {
         initialRouteName={oturum ? "(tabs)" : "giris"}>
         <Stack.Screen name="giris" />
         <Stack.Screen name="sifre-sifirla" />
-        <Stack.Screen name="abone-ol" />
         <Stack.Screen name="hos-geldin" />
         <Stack.Screen name="gizlilik-politikasi" options={{ headerShown: true, headerTitle: 'Gizlilik Politikası', headerBackTitle: 'Geri' }} />
         <Stack.Screen name="kullanim-kosullari" options={{ headerShown: true, headerTitle: 'Kullanım Koşulları', headerBackTitle: 'Geri' }} />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="admin" />
-        <Stack.Screen name="admin-saha" />
-        <Stack.Screen name="admin-etkinlik" />
-        <Stack.Screen name="admin-moderasyon" />
-        <Stack.Screen name="admin-banlar" />
-        <Stack.Screen name="admin-kufur" />
-        <Stack.Screen name="admin-saatler" />
-        <Stack.Screen name="admin-ulasim-tarife" />
-        <Stack.Screen name="admin-acil" />
+        <Stack.Screen name="ajanda" />{/* Eyl 2026: ajanda (tur takvimi) — rota planlayıcının yerine */}
+        <Stack.Screen name="tur/[id]" />{/* Eyl 2026: tur + masraf pusulası + acenteye gönderim */}
+        <Stack.Screen name="dm/[id]" />{/* Eyl 2026: özel mesaj (DM) ekranı */}
       </Stack>
     </TemaProvider>
   );

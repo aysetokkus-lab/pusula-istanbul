@@ -13,6 +13,7 @@ export interface BildirimTercihleri {
   etkinlikler: boolean;  // Yaklaşan etkinlikler
   sohbet: boolean;       // Yeni sohbet mesajları
   admin: boolean;        // Admin güncellemeleri (saat değişikliği, mevsim geçişi vb.)
+  ilanlar: boolean;      // İş ilanları (Eyl 2026) — profil dillerine göre filtrelenir
 }
 
 export const VARSAYILAN_TERCIHLER: BildirimTercihleri = {
@@ -22,6 +23,7 @@ export const VARSAYILAN_TERCIHLER: BildirimTercihleri = {
   etkinlikler: true,
   sohbet: true,
   admin: true,
+  ilanlar: true,
 };
 
 export type BildirimKategori = keyof BildirimTercihleri;
@@ -57,6 +59,11 @@ export const BILDIRIM_KATEGORI_BILGI: Record<BildirimKategori, { baslik: string;
     baslik: 'Sistem Güncellemeleri',
     aciklama: 'Saat değişikliği, mevsim geçişi ve tarife güncellemeleri açık',
     aciklamaKapali: 'Sistem güncelleme bildirimleri kapalı',
+  },
+  ilanlar: {
+    baslik: 'Rehber Aranıyor İlanları',
+    aciklama: 'Profilindeki dillerde yeni ilan bildirimleri açık (dil seçilmediyse tümü)',
+    aciklamaKapali: 'Rehber aranıyor bildirimleri kapalı',
   },
 };
 

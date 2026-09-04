@@ -84,23 +84,15 @@ Altin:   #C77A15 (saraylar / uyari vurgusu)
 ### Ekranlar (`app/`)
 ```
 app/
+  ajanda.tsx           -- Eyl 2026: AJANDA (Stack) — tur takvimi, ?yeni=1 form, ?tarih=YYYY-MM-DD
+  tur/[id].tsx         -- Eyl 2026: TUR + MASRAF PUSULASI + acenteye gonder (PDF/Word/Excel)
   _layout.tsx          -- Root layout: auth + abonelik gating + routing + deep link handler
   giris.tsx            -- Login/Register ekrani
   hos-geldin.tsx       -- EKRAN 1: Onboarding (kayit sonrasi)
-  deneme-baslat.tsx    -- EKRAN 2: REDIRECT (eski 7 gun deneme — kullanilmiyor)
-  abone-ol.tsx         -- EKRAN 3: Paywall (premium gate)
   sifre-sifirla.tsx    -- Sifre sifirlama ekrani (deep link recovery)
   gizlilik-politikasi.tsx
   kullanim-kosullari.tsx
-  admin.tsx            -- Admin panel ana ekrani
-  admin-etkinlik.tsx
-  admin-moderasyon.tsx
-  admin-banlar.tsx
-  admin-kufur.tsx
-  admin-saatler.tsx    -- Muze/saray/cami saat yonetimi (mevsim gecisi dahil)
-  admin-ulasim-tarife.tsx
-  admin-acil.tsx
-  admin-saha.tsx
+  (admin*.tsx Eyl 2026'da SILINDI → components/yetkili/)
   modal.tsx
 
 app/(tabs)/
@@ -108,7 +100,8 @@ app/(tabs)/
   index.tsx            -- Ana Sayfa (hava, namaz, gemi, canli durum, ulasim, etkinlikler)
   acil.tsx             -- Acil durum (tek 112 + sozlesmeler)
   sohbet.tsx           -- Rehber sohbet (realtime, kufur filtreli, screenshot korumali)
-  ara.tsx              -- Arama
+  ara.tsx              -- Arama (Eyl 2026: alt bardan cikti, href:null; ana sayfa header buyutec butonundan acilir)
+  ilanlar.tsx          -- Eyl 2026: Is ilanlari sekmesi (hooks/use-ilanlar.ts)
   profil.tsx           -- Profil (abonelik durumu, gorunum secici)
   muzeler.tsx          -- Muze/saray/cami (gizli tab)
   bogaz.tsx            -- Bogaz turlari (gizli tab)
@@ -118,7 +111,6 @@ app/(tabs)/
 
 ### Hook'lar (`hooks/`)
 ```
-use-abonelik.ts          -- Abonelik durumu (freemium: premiumMi flag) + RC + Supabase realtime
 use-admin.ts             -- Admin/moderator rol kontrolu
 use-canli-durum.ts       -- Canli muze kuyruk bilgileri
 use-kufur-filtre.ts      -- Sohbet kufur filtresi
@@ -133,6 +125,8 @@ use-acil-rehber.ts       -- Acil durum numaralari
 use-gemi-takvimi.ts      -- Galataport gemi takvimi
 use-x-ulasim.ts          -- X (Twitter) API'den ulasim uyarisi
 use-bildirimler.ts       -- Birlesik bildirim sistemi (6 kategori)
+use-ajanda.ts            -- Eyl 2026: ajanda_turlar CRUD (useAjanda / useTur)
+use-masraflar.ts         -- Eyl 2026: masraflar (masraf+avans) CRUD, fis yukleme (masraf-fisler), ozet
 ```
 
 ### Bilesenler (`components/`)
@@ -143,14 +137,19 @@ ulasim-uyari.tsx       -- Ulasim uyari bandi (rayli sistem — IBB Ulasim haric)
 trafik-uyari.tsx       -- Trafik bandi (IBB Ulasim — kopru, metrobus, karayolu)
 tab-icons.tsx          -- SVG tab ikonlari
 tarih-saat-secici.tsx  -- Turkce tarih-saat picker
+ajanda-karti.tsx       -- Eyl 2026: ana sayfa Ajandam karti (hafta seridi, bugun/siradaki tur)
+tur-form-modal.tsx     -- Eyl 2026: tur ekle/duzenle formu
+ui/takvim.tsx          -- aylik takvim (gecmisSecilebilir + isaretler destegi)
 ```
 
 ### Kutuphane & Sabitler
 ```
 lib/supabase.ts        -- Supabase client (detectSessionInUrl: false — onemli!)
-lib/revenuecat.ts      -- RC init (ENTITLEMENT_ID = 'pro')
 lib/config.ts          -- API anahtarlari (.gitignore'da)
 constants/theme.ts     -- Tema sistemi (light+dark, Palette, Typo, Space, Radius)
+constants/masraf.ts    -- Eyl 2026: masraf kategorileri, para birimleri, TR para bicimi (DB CHECK + Edge Function ile ayni)
+lib/masraf-disa-aktar.ts -- Eyl 2026: Edge Function cagrisi + dosya yazma + MailComposer/Sharing (web: indirme + mailto)
+lib/uyari.ts           -- Eyl 2026: uyar()/onayla() — web'de Alert.alert no-op oldugu icin window.alert/confirm yedegi
 ```
 
 ### Asset'ler
@@ -194,77 +193,27 @@ google-service-account.json          -- Google Play eas submit icin
 
 ---
 
-## 4. ABONELIK SISTEMI (FREEMIUM — v1.0.3'ten beri)
+## 4. ERISIM MODELI — TAMAMEN UCRETSIZ (Eyl 2026)
 
-### Is Mantigi
-- Uygulama **FREEMIUM** (temel ozellikler ucretsiz, premium ozellikler IAP ile)
-- v1.0.3'te 7 gunluk deneme modeli KALDIRILDI (Apple reject'leri sonrasi)
-- Kayit/giris GEREKMEZ — uygulama direkt tab'lara acilir
-- Premium ozellikler: Rehber Sohbeti, Canli Saha Durumu, Ulasim/Trafik Uyarilari, Etkinlikler
-- Ucretsiz: Tur Organizasyonu (muzeler/saraylar/camiler/bogaz/havalimani), Acil Durum, Arama, MuzeKart
-- Fiyatlar: Aylik 99 TL / Yillik 699 TL (%41 tasarruf)
-- Admin/moderator otomatik premium
-
-### Akis
-```
-Anonim/Yeni:        Uygulama acilir → /(tabs) [temel ozellikler ucretsiz]
-Kayitli ucretsiz:   Giris Yap → /(tabs) [premium ekranlarda "Abone Ol" karti]
-Premium:            Giris Yap → /(tabs) [tam erisim]
-Admin/Moderator:    Giris Yap → /(tabs) [tam erisim + admin panel]
-```
-
-### Premium Gate
-- Ana Sayfa premium icerikler (canli durum, ulasim/trafik uyari, etkinlikler) gradient kart ile "Abone Ol" yonlendirir
-- Sohbet ekraninda premium olmayanlara "Premium ozelliktir" ekrani
-- Kontrol: `const { premiumMi } = useAbonelik();`
-- Yonlendirme: `/abone-ol`
-
-### Routing Korumasi (`_layout.tsx`)
-- `initialRouteName` her zaman `"(tabs)"` — uygulama direkt acilir
-- Global paywall redirect YOK
-- Admin ekranlari auth gerektirir
-- Sifre sifirlama deep link handler ile yakalanir → `/sifre-sifirla` (bkz. DECISIONS.md "Pending Pattern")
-
-### `useAbonelik` Hook'u (FREEMIUM)
-- `premiumMi`: Ana flag — IAP aktif VEYA admin/moderator ise true
-- `aktifAbonelik`: RevenueCat'ten dogrulanmis abonelik
-- `denemeSuresi`: Her zaman false (geriye uyumluluk)
-- `paywallGoster`: Her zaman false
-- Supabase realtime listener var: `abonelik-degisim` channel ile profiles UPDATE event'leri dinleniyor
-- RC listener dependency `[]` (boş — RC ready polling icinde)
-
-### Supabase profiles abonelik kolonlari
-```sql
-abonelik_durumu TEXT DEFAULT 'deneme' CHECK ('deneme','aktif','iptal','suresi_dolmus')
-abonelik_bitis  TIMESTAMPTZ
-abonelik_plani  TEXT CHECK ('aylik','yillik')
-revenuecat_id   TEXT
-```
-
-### RevenueCat Yapilandirmasi
-- **Entitlement ID:** `pro` (lib/revenuecat.ts) — RC dashboard ile eslesti
-- **Products:** com.pusulaistanbul.app.aylik + com.pusulaistanbul.app.yillik (App Store + Play Store)
-- **Offering:** "default" — Monthly ($rc_monthly) + Yearly ($rc_annual)
-- **Init:** revenueCatInit() _layout.tsx'de uygulama acilisinda (anonim), revenueCatLogin() giris sonrasi
+- Uygulama profesyonel turist rehberlerine **tamamen ucretsiz**. IAP/abonelik/paywall/RevenueCat YOK (Eyl 2026'da kaldirildi; onceki freemium modeli icin CHANGELOG + DECISIONS #52).
+- Kayit zorunlu (v1.0.13), TUREB ruhsat no formda var ama dogrulanmaz. Giris yapan herkes tum ozelliklere erisir.
+- `profiles.abonelik_*` kolonlari DB'de duruyor (tarihsel), kod okumuyor. `app_versions` guncelleme bandi ayni.
+- Silinen dosyalar: abone-ol.tsx, deneme-baslat.tsx, hooks/use-abonelik.ts, lib/revenuecat.ts; `react-native-purchases` package.json'dan cikti.
 
 ---
 
-## 5. TASARIM KURALLARI (KESINLIKLE UYULACAK)
+## 5. TASARIM SISTEMI v2 — "KOBALT & MENEKSE" (Eyl 2026 redesign) — KESINLIKLE UYULACAK
 
-- **EMOJI YOK** — Hicbir ekranda, hicbir kodda emoji kullanilmayacak. Yeni kod yazarken de ASLA emoji ekleme.
-  - Durum gostergesi: renkli daire View (`width:8, height:8, borderRadius:4`) veya Unicode (●/◐/✕/⚙)
-  - Tip gostergesi: tek harf kisaltmalar (M, Y, B, D, R, E) — AMA kullanici icin anlamsiz olduklari icin etkinlikler.tsx'ten KALDIRILDI
-  - Hata durumu: "!" metin
-- **Muze/saray/cami kartlarinda kategori tipi (ozel_muze, saray vb.) GOSTERILMEZ** — v1.0.3'te kaldirildi
-- **Kendi logosu kullanilacak** — `assets/icons/logo.svg` (windrose pusula), beyaz arkaplanda `tintColor="#0077B6"`
-- **Ozellik kartlarinda ikon YOK** — Sadece tipografi ve spacing
-- **Ozellik kartlarinda sol mavi accent bar** (4px genislik, Palette.istanbulMavi)
-- **Sticky footer pattern** — CTA butonlari ekranin altinda sabit
-- **LinearGradient** header ve butonlarda: `['#005A8D', '#0077B6', '#0096C7']`
-- **Poppins font ailesi** tum ekranlarda explicit (fontFamily belirt)
-- **Turkce karakter** — Tum UI metinlerinde duzgun karakter (ı/İ, ö/Ö, ü/Ü, ş/Ş, ç/Ç, ğ/Ğ). 98 duzeltme v1.0.6'da tamamlandi.
-- **MuzeKart yazimi** — "MuzeKart" (M ve K buyuk, bitisik). "Muze Kart" veya "Muzekart" KULLANILMAZ.
-- **Sayfa basliklari = buton metinleri** — "Muze · Saray · Cami", "Bogaz Turlari", "Havalimani Ulasim" (buton ile uyumlu)
+- **Kaynak:** `constants/theme.ts` (Palette, Gradient, Tema light/dark, Font, Typo, Radius) + ortak parcalar `components/ui/pusula-ui.tsx` (Kicker, BolumBaslik, Kart, Rozet, DurumNoktasi, BirincilButon, IkonKaro, GradyanHeader, HeaderBaslik, ModalKapak, Segmentler, BosDurum). Yeni ekran/bilesen YALNIZCA bu parcalarla yazilir.
+- **Palet:** kobalt `#1E40AF` (ana: header, kobalt buton, aktif tab), menekse `#7C3AED` (ikincil: gradyan ucu, muzeler, rozet), safran `#F59E0B` (CTA: "Sahadan bildir", "+ Yeni", Kaydet/Ekle), durum: acik `#16A34A` / uyari `#F59E0B` / kapali `#DC2626`, altin `#B45309` (saraylar). Zemin beyaz, kart `#F6F7FD` (acik lavanta), border `#E6E8F5`, metin `#121A3E`. Dark mod tokenlarla otomatik. Hey Istanbul'dan ayrisma: turkuaz/mercan/krem KULLANILMAZ.
+- **Header:** yalnizca ekran header'i gradyan (`GradyanHeader`, kobalt→menekse, alt koseler 28px). Bolum basliklari gradyan bant DEGIL — KICKER (11px, bold, 1px letter-spacing, uppercase) + `Kart` (radius 24, ince border).
+- **HEX YAZMA** — `t.*` / `Palette.*` / `Gradient.*`; tek istisna `#FFFFFF`. `fontFamily` varken `fontWeight` VERME (Android sahte-bold). Poppins ailesi (Font.regular/semibold/bold/extrabold).
+- **EMOJI YOK** — hicbir ekranda, hicbir kodda. Durum = `DurumNoktasi`; ikon = react-native-svg (assets/icons/*.svg, tab-icons.tsx, inline 24px stroke).
+- Modallar `ModalKapak` (alttan, 28px, tutamac, kobalt "Kapat"). Sekmeler `Segmentler`. Ikon izgarasi `IkonKaro` (58px kobalt karo, beyaz ikon).
+- Kart/duyuru/etkinlik gibi bloklarda **sol accent cizgisi** (5px) yalnizca durum tasidiginda (acik/kapali, sabit) kullanilir.
+- **MuzeKart yazimi** — "MuzeKart" (M ve K buyuk, bitisik). **Turkce karakter** tum UI metinlerinde duzgun. **Sayfa basliklari = buton metinleri**.
+- Mekan kartlarinda kategori tipi (ozel_muze, saray vb.) GOSTERILMEZ. Kendi logosu `assets/icons/logo.svg`, beyaz arkaplanda `tintColor={t.primary}`.
+- Eski `Palette.istanbulMavi/maviAcik/maviOrta/maviKoyu` adlari geriye uyumluluk icin duruyor, yeni degerlere baglidir — yeni kodda `Palette.kobalt` vb. kullan.
 
 ---
 
@@ -320,21 +269,13 @@ revenuecat_id   TEXT
 
 ---
 
-## 8. ADMIN SISTEMI
+## 8. YETKILI (ADMIN/MODERATOR) SISTEMI — INLINE YONETIM (Eyl 2026)
 
-- `profiles.rol`: 'admin', 'moderator', 'user'
-- `useAdmin` hook'u: isAdmin, isMod, isYetkili
-- Admin panel butonu profil ekraninda sadece yetkililere
-- Ekranlar: etkinlik yonetimi, sohbet moderasyonu, ban yonetimi, kufur filtresi, mekan saatleri, ulasim tarife, acil durum, saha bildirimleri
-- Admin/moderator abonelik kontrolunden muaf
-
-### Moderator Yetkileri (sinirli)
-- Etkinlik yonetimi (admin-etkinlik.tsx — tam erisim)
-- Saha durumu bildirim (canli-durum-panel + admin-saha — tum kullanicilar gibi)
-- Genel duyurular (ana sayfadaki GenelDuyuruPanel — ekle/duzenle/sabitle/sil, gating `isYetkili`, RLS admin+moderator)
-- **Mekan saatleri — CAMILER (26 Haz 2026 genisletildi):** moderator admin-saatler.tsx'te Sultanahmet ozel kartina ek olarak TUM camileri (kategori=`camiler`) gorur, duzenler ve yeni cami EKLEYEBILIR. Kategori moderatorde `camiler`e kilitli (useEffect ile zorlanir), kategori sekmeleri gizli, header alt yazi "Cami saatlerini yonet". RLS zaten admin+moderator'a aciydi (`mekan_saatleri_admin_yazar`), degisiklik tamamen frontend. Mekan SILME butonu moderatorde gizli (sadece admin).
-- **GOREMEZ:** Sohbet moderasyonu, ban yonetimi, kufur listesi, mevsim gecisi (toplu yaz/kis), muze/saray/ozel-muze kategorileri, ulasim tarifeleri, acil durum rehberi
-- admin-saatler.tsx'de `{isAdmin && (...)}` ile sarili (moderator GOREMEZ): mevsim gecis butonlari, kategori sekmeleri, mekan silme butonu. `{isYetkili && (...)}` (moderator GORUR): mekan listesi (camiler'e kilitli), yeni ekle butonu, duzenleme modali
+- `profiles.rol`: 'admin', 'moderator', 'user'. `useAdmin` hook'u: isAdmin, isMod, isYetkili.
+- **Ayri admin paneli YOK** (app/admin*.tsx Eyl 2026'da silindi). Yonetim, ilgili bolumun hemen altinda `components/yetkili/yetkili-bolum.tsx` (`YetkiliBolum`) sarmalayicisiyla yapilir: yetkisiz kullaniciya hic render edilmez, yetkiliye "YONET · <baslik>" satiri + acilir panel; `sadeceAdmin` prop'u moderatoru de gizler; panel kapaliyken cocuk mount edilmez.
+- Bilesenler (`components/yetkili/`): `SahaYonetim` (ana sayfa, CanliDurumOzet alti, herkes), `EtkinlikYonetim` (EtkinliklerBandi alti, herkes), `MekanSaatleriYonetim kategori=...` (muzeler sekmesi, aktif kategoriyle senkron; moderator sadece camiler), `SohbetYonetim` (sohbet FlatList ListHeaderComponent, 3 sekme Raporlar/Banlar/Kufur, admin), `UlasimTarifeYonetim tip='bogaz'|'havalimani'` (bogaz/ulasim sekmeleri, admin), `AcilRehberYonetim` (acil sekmesi, admin), `ModeratorYonetim` (profil, admin). Genel duyurular zaten inline (GenelDuyuruPanel).
+- Moderator yetkileri degismedi: saha bildirimi, etkinlik, genel duyuru, cami saatleri (kategori `camiler`e kilitli, silme yok). GOREMEZ: sohbet moderasyonu/ban/kufur, mevsim gecisi, diger mekan kategorileri, ulasim tarifeleri, acil rehber.
+- Kural: yeni bir yonetim ozelligi eklerken ayri ekran ACMA — ilgili bolumun altina `YetkiliBolum` ile ekle. Ic ice scroll yasak (bilesenler zaten ScrollView icinde).
 
 ---
 
@@ -349,8 +290,35 @@ revenuecat_id   TEXT
 - Kendi mesajini raporlayamama korumasi
 - Klavye altinda kalma fix: KeyboardAvoidingView en dis container, Android behavior='height', textAlignVertical='top'
 - Mesaj tarih gosterimi: Bugun=saat, Dun=Dun+saat, Bu hafta=Gun+saat, Eski=GG.AA+saat
+- **Tepkiler (Eyl 2026):** tablo `sohbet_tepkileri` (mesaj_id+kullanici_id PK, tip: begen|begenme|kalp|saskin, realtime). Hook `hooks/use-sohbet-tepkileri.ts` (optimistic upsert/delete, ayni tip=kaldir). UI `components/sohbet-tepkiler.tsx`: `TepkiIkon` (SVG, emoji YOK), `TepkiSatiri` (balon alti pill'ler, benimki dolu), `MesajMenusu` (uzun basma / (...) → alt sayfa: 4 tepki + Yanitla/Raporla/Engelle/Sabitle/Sil), `TepkiVerenlerModal` ("kimler ›" veya pill'e uzun basma). **Cift dokunma = Begen** (300 ms).
+- **Yanit (Eyl 2026):** `sohbet_mesajlari.yanit_id` (self FK, ON DELETE SET NULL). Balonda `YanitAlinti` (isim + ozet, dokununca orijinale scrollToIndex), yazma kutusu ustunde `YanitSeridi` (iptal). Push: `trg_push_sohbet` yanit ise yanitlanana HEDEFLI push ("X mesajina yanit verdi", veri.yanit=true) + genel "Yeni Mesaj" push'u gonderen ve yanitlanani haric tutar (`push_gonder_async` yeni imza: hedef_kullanici_id, haric_liste; eski 5-arg cagrilar uyumlu). push-gonder Edge Function **v5**: premium filtresi KALKTI (ucretsiz model), hedef_kullanici_id + haric_liste destegi. Kaynak repoda `supabase/functions/push-gonder/index.ts`.
+- **Gorsel paylasimi (Eyl 2026):** `sohbet_mesajlari.gorsel_url`; bucket `sohbet-gorseller` (public okuma, giris yapan kullanici kendi `<uid>/` klasorune yukler, 5 MB, sadece resim; silme: sahibi veya admin/mod). `components/sohbet-gorsel.tsx`: `gorselSec()` (Kamera/Galeri Alert, quality 0.7), `sohbetGorselYukle()`, `GorselButon` (yazma kutusu solunda), `GorselOnizleme` (gonderim oncesi serit), `MesajGorseli` (balon ici 62% genislik, dokununca `TamEkranGorsel`). Gorsel-only mesaj (bos metin) gonderilebilir; push metni '[Görsel] ...' / 'Görsel gönderdi'. app.json: expo-image-picker plugin + NSCamera/NSPhotoLibrary aciklamalari (native build gerekir).
 
 ---
+
+## 9a. OZEL MESAJLASMA — DM (Eyl 2026)
+
+- Tablolar `dm_konusmalar` (a<b sirali cift, a_isim/b_isim, son_mesaj/_at/_gonderen, a/b_okundu_at) + `dm_mesajlar` (konusma_id, gonderen, mesaj, gorsel_url). **RLS: yalnizca iki katilimci okur; admin/moderator GOREMEZ** (mahremiyet — Ayse karari). Yazma yalnizca RPC: `dm_konusma_getir(alici_id)` (engel kontrolu, var olani doner/olusturur), `dm_gonder(konusma, mesaj, gorsel_url)` (ban+engel kontrolu, son_mesaj gunceller, aliciya HEDEFLI push 'sohbet' kategorisi, veri.dm=true), `dm_okundu(konusma)`, `dm_okunmamis_sayisi()`.
+- Rapor: `raporlanan_mesajlar` (mesaj_id = dm mesaj id, kaynak='dm', sebep 'uygunsuz') → moderator yalnizca raporlanan metni gorur. Engelleme: `engellenen_kullanicilar` iki yonlu gecerli.
+- UI: `hooks/use-dm.ts`; sohbet ekrani ustunde Segmentler **Genel | Mesajlarim (N)**; konusma listesi → `app/dm/[id].tsx` (balonlar, gorsel — sohbet-gorsel.tsx aynen, Okundu/Iletildi, uzun basma: Raporla / Sil, header "...": Engelle). Giris noktalari: genel sohbette isme dokunma veya MesajMenusu 'Ozel mesaj gonder'; Rehber Araniyor kartinda 'Mesaj' pill'i. Sohbet tab rozeti: genel okunmamis VEYA dm okunmamis.
+
+## 9b. IS ILANLARI (Eyl 2026)
+
+- Tablo `ilanlar` (tur rehber_araniyor|is_ariyorum|diger, baslik, diller[], tarih, saat, sure, grup_buyuklugu, ucret, iletisim, durum aktif|dolduruldu|kaldirildi). RLS: giris yapan okur, ekleme kendi, guncelleme/silme kendi veya admin/mod. Realtime. **Hemen yayinlanir** (Ayse karari), yetkili "Kaldir" ile durum=kaldirildi.
+- Push: INSERT trigger `trg_push_ilan` → kategori **ilanlar** (kanal `ilanlar-v3`, 7. bildirim tercihi). push-gonder **v6**: ilanin `diller` ile kullanicinin `profiles.diller` kesisimi (profil dili bos → herkes alir). Dil listesi `constants/diller.ts` (74 dil: TUREB dilleri + Turk dilleri + Asya/Afrika + Turk Isaret Dili; ekleme tek satir). **Tarih secimi `components/ui/takvim.tsx` (bagimliliksiz aylik takvim, Pzt baslangic, gecmis gunler kapali).** **Ucret: sadece rakam, TUREB taban altina izin yok** — `constants/tureb-taban.ts` (2026: yabanci dil gunluk 5.566 / transfer-gece 2.790 / paket gunluk 6.708; Turkce 3.897 / 1.953 / 4.696; yarim gun = gunluk taban; sadece 'Turkce' secilmisse Turkce tarife). Her yil bu dosya guncellenir (kaynak tureb.org.tr/Sayfa?id=16). **Ilan turleri UI'da yalnizca 'Rehber araniyor' ve 'Transfer / Diger'** — 'is_ariyorum' Ayse istegiyle formdan ve filtreden cikarildi (DB CHECK'te duruyor, eski kayit gelirse rozet yine basilir).
+- UI: `app/(tabs)/ilanlar.tsx` — alt barda Ara'nin yerine (Ana · Acil · Sohbet · Ilanlar · Profil); Segmentler filtre + dil chip'leri; kart: tur rozeti, tarih/saat, dil rozetleri, sure/grup/ucret, Ara (tel:) + WhatsApp (wa.me); kendi ilaninda Dolduruldu/Sil; "+ Ilan Ver" formu (hizli tarih chip'leri, profil dilleri on-secili, telefon profile kaydedilir). Header'da "Bildirim dilleri" modali → profiles.diller. Profil duzenleme modalina Telefon + Dillerim eklendi.
+
+## 9c. AJANDA + MASRAF PUSULASI (Eyl 2026) — rota planlayicinin YERINE
+
+- **Karar (Ayse, 3 Eyl):** rota planlayici "anlamsiz" → tamamen SILINDI (kod + `rotalar` tablosu; git gecmisinde durur). Yerine rehberin kendi tur ajandasi + her tur icin masraf pusulasi.
+- **Tablolar:** `ajanda_turlar` (kullanici_id, tarih, baslik, acente, acente_email, grup, saat HH:MM, bulusma, notlar; RLS yalnizca kendi; trg updated_at) ve `masraflar` (tur_id, kullanici_id, tip masraf|avans, kategori CHECK: muze_giris, ulasim, otoyol_kopru, otopark, kaptan_yemek, rehber_yemek, bahsis, telefon, diger, avans; tutar numeric(12,2); para_birimi TRY|EUR|USD; fis_path; sira). Migration `ajanda_ve_masraf_pusulasi`. Fisler OZEL bucket `masraf-fisler` (<uid>/<tur_id>/<dosya>, 8 MB, jpeg/png/webp; policy: yalnizca sahibi okur/yukler/siler).
+- **Avans + rehberlik ucreti (v2, Ayse):** `masraflar.tip` masraf|avans|**ucret** (kategori 'ucret' = Rehberlik Ucreti, TRY/EUR/USD); ozet para birimi bazinda **`masraf + ucret − avans = kalan`** (>0 "Acenteden alinacak", <0 "Acenteye iade", 0 "Hesap kapandi").
+- **Cok gunlu tur (v2, Ayse: "12 Eylul baslar 30 Eylul biter"):** `ajanda_turlar.bitis_tarih` (NULL = tek gun; CHECK >= tarih), `masraflar.tarih` = satirin gunu (NULL = baslangic). Migration `ajanda_cok_gunlu_tur_ve_rehberlik_ucreti`. Form: "Cok gunlu tur" anahtari + ikinci Takvim (minDate = baslangic). Ajanda/kart: tur aralik boyunca dolu sayilir (`turKapsar`, `turGunleri`, `kacinciGun`, `tarihAraligiKisa` — hooks/use-ajanda.ts). Tur ekraninda masraf formu gun chip'leri (varsayilan: bugun aralikta ise bugun), satirlar gune gore gruplanir; ciktilarda GUN sutunu + "12 – 30 Eylul 2026 (19 gun)" basligi.
+- **UI:** `components/ajanda-karti.tsx` ana sayfada PinliMesajBandi altinda (haftanin 7 gunu: turlu gun dolu kobalt daire, bugun safran halka; bugunku tur yoksa siradaki; "+ Tur ekle"). `app/ajanda.tsx` (Takvim gecmisSecilebilir + isaretler, secili gunun turlari, yaklasan turlar). `app/tur/[id].tsx` (tur bilgisi, masraf/avans satirlari — satira dokun → duzenle/sil, fis kucuk resmi imzali URL —, ozet, "Acenteye gonder" karti). Form: `components/tur-form-modal.tsx`; masraf formu tur ekraninda (kategori chip'leri, tutar `tutarParse` "1.250,50" kabul, para birimi Segmentler, fis kamera/galeri).
+- **Disa aktarma (Edge Function `masraf-disa-aktar`, verify_jwt ACIK, kaynak `supabase/functions/masraf-disa-aktar/`):** POST {tur_id, formatlar[]} → {dosyalar[{ad,mime,base64}], ozet, acente_email, konu}. Veri kullanicinin kendi JWT'siyle okunur (RLS), fisler ozel bucket'tan indirilir. PDF: pdf-lib + Poppins alt kumesi (`docs/varliklar/Poppins-*-tr.ttf`, yedek google/fonts) — kobalt→menekse bant, minik beyaz logo (22pt), lavanta bilgi kartlari, kobalt basli tablo, safran ozet, fis sayfalari 2×2. Word: `docx` (kobalt logo 20pt ustbilgi, tablo, ozet, fis gorselleri). Excel: `exceljs` (kobalt bant + logo, SUMIF formulleri, IF'li kalan etiketi, "Fisler" sayfasi; sutunlar A # · B Gun (tek gunlu turda gizli) · C Kategori · D Aciklama · E Fis · F Tutar · G PB). Her uc ciktida Masraflar / Rehberlik ucreti / Avanslar tablolari + 4 satirli ozet. **Fonksiyon v2 deploy (3 Eyl).** Logo/font `https://pusulaistanbul.app/varliklar/` (docs/varliklar → GitHub Pages; yayina cikana kadar cikti logosuz, font google/fonts'tan). Dosya adi `Masraf-Pusulasi_<tarih>_<slug>.<ext>`.
+- **Gonderim (Ayse karari) — 3 buton:** **Mail Gonder** = telefonun mail uygulamasi ekli acilir (`expo-mail-composer`, alici = acente_email, konu + ozetli govde; imza REHBERIN adi + telefonu, Pusula imzasi YOK); **WhatsApp ile Gonder** = paylasim sayfasi (`expo-sharing`, dosyalar sirayla; WhatsApp yuklu degilse uyari); **Telefona Kaydet** = Android `StorageAccessFramework` (klasor sec → base64 yaz), iOS Dosyalar'a kaydet sayfasi. Web'de (Chrome inceleme) tarayici ek ekleyemez: dosyalar indirilir + `mailto:` / `wa.me`. Dosyalar `cacheDirectory/masraf-pusulasi/`.
+- **Native:** expo-mail-composer + expo-sharing + expo-file-system eklendi (plugin `expo-mail-composer`) → 1.2.0 store build'ine dahil; kamera/galeri izin metinleri fis'i de kapsar.
+- Yeni kodda EMOJI YOK, HEX YOK (Palette/t.*), Poppins; tsconfig `exclude: supabase/functions` (Deno kodu tsc'den cikarildi → tsc 0 hata).
 
 ## 10. ANA SAYFA (`index.tsx`) ICERIKLERI — FREEMIUM GATE'LI
 

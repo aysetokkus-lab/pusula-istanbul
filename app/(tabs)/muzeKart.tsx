@@ -1,10 +1,13 @@
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// GradyanHeader + BolumBaslik (kicker) + Kart/DurumNoktasi diliyle yeniden boyandı.
+// Linking hedefleri, Supabase filtreleri ve metinler aynen korundu.
 import { useMemo } from 'react';
-import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTema } from '../../hooks/use-tema';
 import { useMekanSaatleri } from '../../hooks/use-mekan-saatleri';
-import { Palette, type TemaRenkleri } from '../../constants/theme';
+import { Font, Palette, type TemaRenkleri } from '../../constants/theme';
+import { BolumBaslik, BosDurum, DurumNoktasi, GradyanHeader, HeaderBaslik, Kart, Kicker } from '../../components/ui/pusula-ui';
 
 // Statik satis noktalari — bunlar nadiren degisir, admin panelden mekan_saatleri'ne ek alan eklenebilir
 const SATIS_NOKTALARI = [
@@ -34,98 +37,110 @@ export default function MuzeKart() {
 
   return (
     <ScrollView style={styles.container}>
-      <LinearGradient colors={['#00A8E8','#0077B6','#0096C7','#48CAE4']} start={{x:0,y:0}} end={{x:1,y:1}} style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerBaslik}>MüzeKart</Text>
-      </LinearGradient>
+      <GradyanHeader paddingTop={insets.top + 12}>
+        <HeaderBaslik baslik="MüzeKart" />
+      </GradyanHeader>
 
       {/* RESMI LINK */}
-      <TouchableOpacity style={styles.resmiLink}
-        onPress={() => Linking.openURL('https://muze.gov.tr/MuseumPass')}>
-        <Text style={styles.resmiLinkYazi}>muze.gov.tr/MuseumPass — Resmi Satış Sitesi</Text>
-      </TouchableOpacity>
+      <View style={styles.bolumIlk}>
+        <Kart accent={t.accent} onPress={() => Linking.openURL('https://muze.gov.tr/MuseumPass')}>
+          <Text style={styles.resmiLinkYazi}>muze.gov.tr/MuseumPass — Resmi Satış Sitesi</Text>
+        </Kart>
+      </View>
 
       {/* FATIH SATIS NOKTALARI */}
       <View style={styles.bolum}>
-        <Text style={styles.bolumBaslik}>Fatih'te Satış Noktaları</Text>
+        <BolumBaslik baslik="Fatih'te Satış Noktaları" renk={t.secondary} />
         {SATIS_NOKTALARI.map((s, i) => (
-          <View key={i} style={[styles.satisKart, { borderLeftColor: s.yogunluk === 'dusuk' ? Palette.acik : Palette.uyari }]}>
+          <Kart key={i} accent={s.yogunluk === 'dusuk' ? Palette.acik : Palette.uyari}>
             <Text style={styles.satisIsim}>{s.isim}</Text>
             <Text style={styles.satisAdres}>{s.adres}</Text>
-            <Text style={styles.satisNot}>{s.not}</Text>
-          </View>
+            <View style={styles.satirIc}>
+              <DurumNoktasi renk={s.yogunluk === 'dusuk' ? Palette.acik : Palette.uyari} boyut={8} />
+              <Text style={styles.satisNot}>{s.not}</Text>
+            </View>
+          </Kart>
         ))}
       </View>
 
       {/* KART TIPLERI */}
       <View style={styles.bolum}>
-        <Text style={styles.bolumBaslik}>Kart Tipleri</Text>
+        <BolumBaslik baslik="Kart Tipleri" renk={t.secondary} />
         <View style={styles.kartGrid}>
-          <TouchableOpacity style={[styles.tipKart, { borderColor: t.accent }]}
-            onPress={() => Linking.openURL('https://muze.gov.tr/urun-detay?CatalogNo=KRT-MBL01-99-008')}>
-            <View style={[styles.tipDot, { backgroundColor: t.accent }]} />
-            <Text style={[styles.tipAdi, { color: t.accent }]}>MüzeKart</Text>
-            <Text style={styles.tipAlt}>T.C. Vatandaşı</Text>
-            <Text style={styles.tipAciklama}>Kimlik ile satın alınır. Yıllık geçerli.</Text>
-            <Text style={styles.tipLink}>Satın Al</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tipKart, { borderColor: Palette.acik }]}
-            onPress={() => Linking.openURL('https://muze.gov.tr/urun-detay?CatalogNo=WEB-MSP01-27-009')}>
-            <View style={[styles.tipDot, { backgroundColor: Palette.acik }]} />
-            <Text style={[styles.tipAdi, { color: Palette.acik }]}>Museum Pass</Text>
-            <Text style={styles.tipAlt}>Yabancı Ziyaretçi</Text>
-            <Text style={styles.tipAciklama}>72 saat geçerli. Topkapı Harem dahil.</Text>
-            <Text style={styles.tipLink}>Satın Al</Text>
-          </TouchableOpacity>
+          <Kart style={styles.tipKart} onPress={() => Linking.openURL('https://muze.gov.tr/urun-detay?CatalogNo=KRT-MBL01-99-008')}>
+            <View style={styles.tipIc}>
+              <DurumNoktasi renk={t.accent} boyut={12} />
+              <Text style={[styles.tipAdi, { color: t.accent }]}>MüzeKart</Text>
+              <Text style={styles.tipAlt}>T.C. Vatandaşı</Text>
+              <Text style={styles.tipAciklama}>Kimlik ile satın alınır. Yıllık geçerli.</Text>
+              <Text style={styles.tipLink}>Satın Al</Text>
+            </View>
+          </Kart>
+          <Kart style={styles.tipKart} onPress={() => Linking.openURL('https://muze.gov.tr/urun-detay?CatalogNo=WEB-MSP01-27-009')}>
+            <View style={styles.tipIc}>
+              <DurumNoktasi renk={Palette.acik} boyut={12} />
+              <Text style={[styles.tipAdi, { color: Palette.acik }]}>Museum Pass</Text>
+              <Text style={styles.tipAlt}>Yabancı Ziyaretçi</Text>
+              <Text style={styles.tipAciklama}>72 saat geçerli. Topkapı Harem dahil.</Text>
+              <Text style={styles.tipLink}>Satın Al</Text>
+            </View>
+          </Kart>
         </View>
       </View>
 
       {/* GECEN YERLER */}
       <View style={styles.bolum}>
-        <Text style={styles.bolumBaslik}>MüzeKart Geçen Yerler</Text>
+        <BolumBaslik baslik="MüzeKart Geçen Yerler" renk={Palette.acik} />
         {yukleniyor && gecenYerler.length === 0 ? (
           <ActivityIndicator size="small" color={t.primary} style={{ marginVertical: 20 }} />
         ) : gecenYerler.length === 0 ? (
-          <Text style={[styles.bosYazi, { color: t.textMuted }]}>Henüz veri yok</Text>
+          <BosDurum metin="Henüz veri yok" />
         ) : (
-          gecenYerler.map((y, i) => (
-            <View key={i} style={styles.gecenSatir}>
-              <View style={[styles.durumDot, { backgroundColor: Palette.acik }]} />
-              <Text style={styles.satirIsim}>
-                {y.isim}
-                {y.not ? <Text style={styles.satirNot}> ({y.not})</Text> : null}
-              </Text>
-            </View>
-          ))
+          <Kart>
+            {gecenYerler.map((y, i) => (
+              <View key={i} style={[styles.satir, i > 0 && styles.satirAyirici]}>
+                <DurumNoktasi renk={Palette.acik} />
+                <Text style={styles.satirIsim}>
+                  {y.isim}
+                  {y.not ? <Text style={styles.satirNot}> ({y.not})</Text> : null}
+                </Text>
+              </View>
+            ))}
+          </Kart>
         )}
       </View>
 
       {/* GECMEYEN YERLER */}
       <View style={styles.bolum}>
-        <Text style={styles.bolumBaslik}>MüzeKart Geçmeyen Yerler</Text>
+        <BolumBaslik baslik="MüzeKart Geçmeyen Yerler" renk={Palette.kapali} />
         {yukleniyor && gecmeyenYerler.length === 0 ? (
           <ActivityIndicator size="small" color={t.primary} style={{ marginVertical: 20 }} />
         ) : gecmeyenYerler.length === 0 ? (
-          <Text style={[styles.bosYazi, { color: t.textMuted }]}>Henüz veri yok</Text>
+          <BosDurum metin="Henüz veri yok" />
         ) : (
-          gecmeyenYerler.map((y, i) => (
-            <View key={i} style={styles.gecmeyenSatir}>
-              <View style={[styles.durumDot, { backgroundColor: Palette.kapali }]} />
-              <Text style={styles.satirIsim}>
-                {y.isim}
-                {y.not ? <Text style={styles.satirNot}> ({y.not})</Text> : null}
-              </Text>
-            </View>
-          ))
+          <Kart>
+            {gecmeyenYerler.map((y, i) => (
+              <View key={i} style={[styles.satir, i > 0 && styles.satirAyirici]}>
+                <DurumNoktasi renk={Palette.kapali} />
+                <Text style={styles.satirIsim}>
+                  {y.isim}
+                  {y.not ? <Text style={styles.satirNot}> ({y.not})</Text> : null}
+                </Text>
+              </View>
+            ))}
+          </Kart>
         )}
       </View>
 
       {/* REHBERLIK IPUCU */}
-      <View style={styles.ipucuKutu}>
-        <Text style={styles.ipucuBaslik}>Rehber İpucu</Text>
-        <Text style={styles.ipucuYazi}>
-          Turistleri kalabalık Topkapı gişesi yerine Arkeoloji Müzesi veya
-          Türk ve İslam Eserleri gişesine yönlendir — aynı kart, çok daha az bekleme.
-        </Text>
+      <View style={styles.bolum}>
+        <Kart accent={t.accent}>
+          <Kicker color={t.accent}>Rehber İpucu</Kicker>
+          <Text style={styles.ipucuYazi}>
+            Turistleri kalabalık Topkapı gişesi yerine Arkeoloji Müzesi veya
+            Türk ve İslam Eserleri gişesine yönlendir — aynı kart, çok daha az bekleme.
+          </Text>
+        </Kart>
       </View>
 
       <View style={{ height: 40 }} />
@@ -136,35 +151,24 @@ export default function MuzeKart() {
 function createStyles(t: TemaRenkleri) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: t.bg },
-    header: { paddingBottom: 16, paddingHorizontal: 16 },
-    headerBaslik: { color: '#FFFFFF', fontSize: 22, fontWeight: '700', textAlign: 'center' },
-    headerAlt: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4, textAlign: 'center' },
-    resmiLink: { margin: 16, backgroundColor: t.bgCard, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: t.accent, alignItems: 'center' },
-    resmiLinkYazi: { color: t.accent, fontSize: 13, fontWeight: '700' },
-    bolum: { marginHorizontal: 16, marginTop: 20 },
-    bolumBaslik: { color: t.accent, fontSize: 14, fontWeight: '700', letterSpacing: 1, marginBottom: 12 },
+    bolumIlk: { paddingHorizontal: 16, paddingTop: 16 },
+    bolum: { paddingHorizontal: 16, marginTop: 20, gap: 14 },
+    resmiLinkYazi: { color: t.text, fontFamily: Font.bold, fontSize: 13, letterSpacing: -0.3 },
     kartGrid: { flexDirection: 'row', gap: 10 },
-    tipKart: { flex: 1, backgroundColor: t.bgCard, borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1 },
-    tipDot: { width: 12, height: 12, borderRadius: 6, marginBottom: 8 },
-    tipAdi: { fontSize: 15, fontWeight: '800', marginBottom: 4 },
-    tipAlt: { color: t.textSecondary, fontSize: 11, marginBottom: 8 },
-    tipAciklama: { color: t.textSecondary, fontSize: 11, textAlign: 'center', lineHeight: 16, marginBottom: 8 },
-    tipLink: { color: t.accent, fontSize: 12, fontWeight: '700' },
-    gecenSatir: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Palette.acik + '15', borderRadius: 8, padding: 12, marginBottom: 6 },
-    gecmeyenSatir: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Palette.kapali + '15', borderRadius: 8, padding: 12, marginBottom: 6 },
-    durumDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10, marginTop: 4 },
-    satirIsim: { color: t.text, fontSize: 13, fontWeight: '600', flex: 1 },
-    satirNot: { color: t.textSecondary, fontSize: 12, fontWeight: '400', fontStyle: 'italic' },
-    bosYazi: { textAlign: 'center', fontSize: 13, marginVertical: 16 },
-    satisKart: { backgroundColor: t.bgCard, borderRadius: 12, padding: 14, marginBottom: 10, borderLeftWidth: 4 },
-    satisUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-    satisIsim: { color: t.text, fontSize: 13, fontWeight: '700', flex: 1 },
-    yogunlukBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
-    yogunlukYazi: { fontSize: 11, fontWeight: '700' },
-    satisAdres: { color: t.textSecondary, fontSize: 12, marginBottom: 4 },
-    satisNot: { color: t.textSecondary, fontSize: 11 },
-    ipucuKutu: { margin: 16, marginTop: 20, backgroundColor: t.bgCardAlt, borderRadius: 12, padding: 16, borderLeftWidth: 4, borderLeftColor: t.accent },
-    ipucuBaslik: { color: t.accent, fontSize: 14, fontWeight: '700', marginBottom: 8 },
-    ipucuYazi: { color: t.textSecondary, fontSize: 13, lineHeight: 20 },
+    tipKart: { flex: 1 },
+    tipIc: { alignItems: 'center', gap: 4 },
+    tipAdi: { fontFamily: Font.extrabold, fontSize: 15, letterSpacing: -0.3, marginTop: 4 },
+    tipAlt: { color: t.textSecondary, fontFamily: Font.regular, fontSize: 11 },
+    tipAciklama: { color: t.textSecondary, fontFamily: Font.regular, fontSize: 11, textAlign: 'center', lineHeight: 16, marginTop: 4 },
+    tipLink: { color: t.accent, fontFamily: Font.bold, fontSize: 12, marginTop: 4 },
+    satir: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+    satirAyirici: { borderTopWidth: 1, borderTopColor: t.divider },
+    satirIc: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    satirIsim: { color: t.text, fontFamily: Font.semibold, fontSize: 13, flex: 1 },
+    satirNot: { color: t.textSecondary, fontFamily: Font.regular, fontSize: 12, fontStyle: 'italic' },
+    satisIsim: { color: t.text, fontFamily: Font.bold, fontSize: 14, letterSpacing: -0.3 },
+    satisAdres: { color: t.textSecondary, fontFamily: Font.regular, fontSize: 12 },
+    satisNot: { color: t.textSecondary, fontFamily: Font.regular, fontSize: 11 },
+    ipucuYazi: { color: t.textSecondary, fontFamily: Font.regular, fontSize: 13, lineHeight: 20 },
   });
 }

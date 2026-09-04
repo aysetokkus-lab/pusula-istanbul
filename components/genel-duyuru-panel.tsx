@@ -1,3 +1,6 @@
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// Gradyan bant → Kart + Kicker; duyurular sol accent (safran = sabit, kobalt = normal) + SABİT Rozet.
+// Modallar ModalKapak dilinde; hook'lar, state'ler, Alert akışları ve aksiyon barı birebir korundu.
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,12 +18,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useTema } from '../hooks/use-tema';
 import { useAdmin } from '../hooks/use-admin';
 import { useGenelDuyuru, type Duyuru } from '../hooks/use-genel-duyuru';
-import { Palette, Radius, Space, type TemaRenkleri } from '../constants/theme';
+import { Font, Palette, Radius, type TemaRenkleri } from '../constants/theme';
+import { BirincilButon, BolumBaslik, BosDurum, Kart, Kicker, ModalKapak, Rozet } from './ui/pusula-ui';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -60,139 +63,125 @@ export function GenelDuyuruPanel() {
 
   if (yukleniyor) {
     return (
-      <View>
-        <LinearGradient
-          colors={['#00A8E8', '#0077B6', '#0096C7', '#48CAE4']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.bandHeader}>
-          <Text style={s.bandTitle}>Genel Duyurular</Text>
-        </LinearGradient>
-        <View style={[s.placeholder, { backgroundColor: t.bgSecondary }]}>
-          <ActivityIndicator size="small" color={t.primary} />
-        </View>
+      <View style={s.bolum}>
+        <Kart>
+          <BolumBaslik baslik="Genel Duyurular" renk={t.primary} />
+          <View style={s.placeholder}>
+            <ActivityIndicator size="small" color={t.primary} />
+          </View>
+        </Kart>
       </View>
     );
   }
 
   return (
-    <View>
-      {/* Header */}
-      <LinearGradient
-        colors={['#005A8D', '#0077B6', '#0096C7']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={s.bandHeader}>
-        <Text style={s.bandTitle}>Genel Duyurular</Text>
-        {isYetkili && (
-          <TouchableOpacity onPress={() => setEkleModal(true)}>
-            <Text style={s.bandAction}>+ Yeni</Text>
-          </TouchableOpacity>
-        )}
-      </LinearGradient>
+    <View style={s.bolum}>
+      <Kart>
+        {/* Kicker + yetkiliye "+ Yeni" (safran) */}
+        <BolumBaslik
+          baslik="Genel Duyurular"
+          renk={t.primary}
+          sag={isYetkili ? '+ Yeni' : undefined}
+          onSag={isYetkili ? () => setEkleModal(true) : undefined}
+        />
 
-      {goster.length === 0 ? (
-        <View style={[s.placeholder, { backgroundColor: t.bgSecondary }]}>
-          <Text style={[s.placeholderText, { color: t.textMuted }]}>
-            {isYetkili ? '+ Yeni dokunarak ilk duyuruyu yaz' : 'Henüz duyuru yok'}
-          </Text>
-        </View>
-      ) : (
-        <View>
-          {goster.map(d => (
-            <View
-              key={d.id}
-              style={[
-                s.kart,
-                {
-                  backgroundColor: t.bgCard,
-                  borderLeftColor: d.sabitlendi ? Palette.altin : Palette.istanbulMavi,
-                },
-              ]}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setDetayDuyuru(d)}
-                style={s.kartIcerikSarmal}>
-                <View style={{ flex: 1 }}>
-                  <View style={s.kartUst}>
-                    {d.sabitlendi && (
-                      <View style={[s.sabitBadge, { backgroundColor: Palette.altin }]}>
-                        <Text style={s.sabitBadgeText}>SABİT</Text>
+        {goster.length === 0 ? (
+          <BosDurum metin={isYetkili ? '+ Yeni dokunarak ilk duyuruyu yaz' : 'Henüz duyuru yok'} />
+        ) : (
+          <View style={s.liste}>
+            {goster.map((d, i) => (
+              <View
+                key={d.id}
+                style={[s.duyuru, i > 0 && { borderTopWidth: 1, borderTopColor: t.divider }]}>
+                <View style={s.duyuruSatir}>
+                  {/* Sol accent: sabit = safran, normal = kobalt */}
+                  <View style={[s.duyuruAccent, { backgroundColor: d.sabitlendi ? t.accent : t.primary }]} />
+                  <View style={{ flex: 1 }}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => setDetayDuyuru(d)}
+                      style={s.kartIcerikSarmal}>
+                      <View style={{ flex: 1 }}>
+                        <View style={s.kartUst}>
+                          {d.sabitlendi && (
+                            <Rozet renk={Palette.altin}>SABİT</Rozet>
+                          )}
+                          <Text style={[s.kartBaslik, { color: t.text }]} numberOfLines={2}>
+                            {d.baslik}
+                          </Text>
+                        </View>
+                        {d.icerik && (
+                          <Text style={[s.kartIcerik, { color: t.textSecondary }]} numberOfLines={2}>
+                            {d.icerik}
+                          </Text>
+                        )}
+                        <View style={s.kartAlt}>
+                          <Text style={[s.kartMeta, { color: t.textMuted }]}>
+                            {d.olusturan_isim || 'Yetkili'} · {zamanOnce(d.created_at)}
+                          </Text>
+                          {d.gorsel_url && (
+                            <Text style={[s.kartMetaLink, { color: t.primary }]}>Görsel ›</Text>
+                          )}
+                        </View>
+                      </View>
+                      {d.gorsel_url && (
+                        <TouchableOpacity onPress={() => setTamEkranGorsel(d.gorsel_url)} activeOpacity={0.7}>
+                          <Image source={{ uri: d.gorsel_url }} style={s.kartThumb} resizeMode="cover" />
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* v1.1.0: Yetkili aksiyon butonlari — kart altinda, gorunur */}
+                    {isYetkili && (
+                      <View style={[s.yetkiliAksiyonBar, { borderTopColor: t.divider }]}>
+                        <TouchableOpacity
+                          onPress={() => { setDuzenleDuyuru(d); setEkleModal(true); }}
+                          style={s.yetkiliBtn}
+                          activeOpacity={0.6}>
+                          <Text style={[s.yetkiliBtnText, { color: t.primary }]}>Düzenle</Text>
+                        </TouchableOpacity>
+                        <View style={[s.yetkiliBtnAyrac, { backgroundColor: t.divider }]} />
+                        <TouchableOpacity
+                          onPress={() => duyuruSabitle(d.id, !d.sabitlendi)}
+                          style={s.yetkiliBtn}
+                          activeOpacity={0.6}>
+                          <Text style={[s.yetkiliBtnText, { color: Palette.altin }]}>
+                            {d.sabitlendi ? 'Sabit Kaldır' : 'Sabitle'}
+                          </Text>
+                        </TouchableOpacity>
+                        <View style={[s.yetkiliBtnAyrac, { backgroundColor: t.divider }]} />
+                        <TouchableOpacity
+                          onPress={() => {
+                            Alert.alert('Duyuruyu Sil', `"${d.baslik}" silinecek. Emin misin?`, [
+                              { text: 'Vazgeç', style: 'cancel' },
+                              {
+                                text: 'Sil',
+                                style: 'destructive',
+                                onPress: async () => {
+                                  const basarili = await duyuruSil(d.id);
+                                  if (!basarili) {
+                                    Alert.alert(
+                                      'Silinemedi',
+                                      'Duyuru silinemedi. Yetkin olduğundan ve internet bağlantın olduğundan emin ol.',
+                                    );
+                                  }
+                                },
+                              },
+                            ]);
+                          }}
+                          style={s.yetkiliBtn}
+                          activeOpacity={0.6}>
+                          <Text style={[s.yetkiliBtnText, { color: t.durumKapali }]}>Sil</Text>
+                        </TouchableOpacity>
                       </View>
                     )}
-                    <Text style={[s.kartBaslik, { color: t.text }]} numberOfLines={2}>
-                      {d.baslik}
-                    </Text>
-                  </View>
-                  {d.icerik && (
-                    <Text style={[s.kartIcerik, { color: t.textSecondary }]} numberOfLines={2}>
-                      {d.icerik}
-                    </Text>
-                  )}
-                  <View style={s.kartAlt}>
-                    <Text style={[s.kartMeta, { color: t.textMuted }]}>
-                      {d.olusturan_isim || 'Yetkili'} · {zamanOnce(d.created_at)}
-                    </Text>
-                    {d.gorsel_url && (
-                      <Text style={[s.kartMeta, { color: t.primary }]}>Görsel ›</Text>
-                    )}
                   </View>
                 </View>
-                {d.gorsel_url && (
-                  <TouchableOpacity onPress={() => setTamEkranGorsel(d.gorsel_url)} activeOpacity={0.7}>
-                    <Image source={{ uri: d.gorsel_url }} style={s.kartThumb} resizeMode="cover" />
-                  </TouchableOpacity>
-                )}
-              </TouchableOpacity>
-
-              {/* v1.1.0: Yetkili aksiyon butonlari — kart altinda, gorunur */}
-              {isYetkili && (
-                <View style={[s.yetkiliAksiyonBar, { borderTopColor: t.divider }]}>
-                  <TouchableOpacity
-                    onPress={() => { setDuzenleDuyuru(d); setEkleModal(true); }}
-                    style={s.yetkiliBtn}
-                    activeOpacity={0.6}>
-                    <Text style={[s.yetkiliBtnText, { color: t.primary }]}>Düzenle</Text>
-                  </TouchableOpacity>
-                  <View style={[s.yetkiliBtnAyrac, { backgroundColor: t.divider }]} />
-                  <TouchableOpacity
-                    onPress={() => duyuruSabitle(d.id, !d.sabitlendi)}
-                    style={s.yetkiliBtn}
-                    activeOpacity={0.6}>
-                    <Text style={[s.yetkiliBtnText, { color: Palette.altin }]}>
-                      {d.sabitlendi ? 'Sabit Kaldır' : 'Sabitle'}
-                    </Text>
-                  </TouchableOpacity>
-                  <View style={[s.yetkiliBtnAyrac, { backgroundColor: t.divider }]} />
-                  <TouchableOpacity
-                    onPress={() => {
-                      Alert.alert('Duyuruyu Sil', `"${d.baslik}" silinecek. Emin misin?`, [
-                        { text: 'Vazgeç', style: 'cancel' },
-                        {
-                          text: 'Sil',
-                          style: 'destructive',
-                          onPress: async () => {
-                            const basarili = await duyuruSil(d.id);
-                            if (!basarili) {
-                              Alert.alert(
-                                'Silinemedi',
-                                'Duyuru silinemedi. Yetkin olduğundan ve internet bağlantın olduğundan emin ol.',
-                              );
-                            }
-                          },
-                        },
-                      ]);
-                    }}
-                    style={s.yetkiliBtn}
-                    activeOpacity={0.6}>
-                    <Text style={[s.yetkiliBtnText, { color: Palette.kapali }]}>Sil</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-      )}
+              </View>
+            ))}
+          </View>
+        )}
+      </Kart>
 
       {/* Detay modal (uzun metin + buyuk gorsel) */}
       <DetayModal
@@ -271,7 +260,7 @@ function yetkiliAksiyonlari(
 }
 
 /* ═══════════════════════════════════════════
-   DETAY MODAL (tam metin + thumbnail)
+   DETAY MODAL (tam metin + thumbnail) — ModalKapak dili
    ═══════════════════════════════════════════ */
 function DetayModal({
   duyuru,
@@ -289,36 +278,24 @@ function DetayModal({
 
   return (
     <Modal visible={!!duyuru} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={s.detayOverlay}>
-        <View style={[s.detayBox, { backgroundColor: t.bgCard }]}>
-          <View style={s.detayHeader}>
-            <Text style={[s.detayBaslik, { color: t.text }]} numberOfLines={3}>
-              {duyuru.baslik}
-            </Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}>
-              <Text style={[s.detayKapatX, { color: t.textMuted }]}>×</Text>
+      <ModalKapak
+        baslik={duyuru.baslik}
+        alt={`${duyuru.olusturan_isim || 'Yetkili'} · ${zamanOnce(duyuru.created_at)}`}
+        onKapat={onClose}>
+        <ScrollView style={s.detayScroll} contentContainerStyle={{ paddingBottom: 8 }}>
+          {duyuru.icerik && (
+            <Text style={[s.detayIcerik, { color: t.text }]}>{duyuru.icerik}</Text>
+          )}
+          {duyuru.gorsel_url && (
+            <TouchableOpacity activeOpacity={0.85} onPress={() => onGorselTikla(duyuru.gorsel_url!)}>
+              <Image source={{ uri: duyuru.gorsel_url }} style={s.detayGorsel} resizeMode="cover" />
+              <Text style={[s.detayGorselHint, { color: t.textMuted }]}>
+                Tam ekran için dokun
+              </Text>
             </TouchableOpacity>
-          </View>
-
-          <Text style={[s.detayMeta, { color: t.textMuted }]}>
-            {duyuru.olusturan_isim || 'Yetkili'} · {zamanOnce(duyuru.created_at)}
-          </Text>
-
-          <ScrollView style={s.detayScroll} contentContainerStyle={{ paddingBottom: 20 }}>
-            {duyuru.icerik && (
-              <Text style={[s.detayIcerik, { color: t.text }]}>{duyuru.icerik}</Text>
-            )}
-            {duyuru.gorsel_url && (
-              <TouchableOpacity activeOpacity={0.85} onPress={() => onGorselTikla(duyuru.gorsel_url!)}>
-                <Image source={{ uri: duyuru.gorsel_url }} style={s.detayGorsel} resizeMode="cover" />
-                <Text style={[s.detayGorselHint, { color: t.textMuted }]}>
-                  Tam ekran için dokun
-                </Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-        </View>
-      </View>
+          )}
+        </ScrollView>
+      </ModalKapak>
     </Modal>
   );
 }
@@ -359,7 +336,7 @@ function TamEkranGorselModal({ url, onClose }: { url: string | null; onClose: ()
 }
 
 /* ═══════════════════════════════════════════
-   YENİ DUYURU EKLE MODAL (admin/moderator)
+   YENİ DUYURU EKLE MODAL (admin/moderator) — ModalKapak dili
    ═══════════════════════════════════════════ */
 function EkleModal({
   visible,
@@ -494,21 +471,15 @@ function EkleModal({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={kapat}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={s.ekleOverlay}>
-        <View style={[s.ekleBox, { backgroundColor: t.bgCard }]}>
-          <View style={s.ekleHeader}>
-            <Text style={[s.ekleBaslik, { color: t.text }]}>
-              {editMode ? 'Duyuruyu Düzenle' : 'Yeni Duyuru'}
-            </Text>
-            <TouchableOpacity onPress={kapat} disabled={yuklemede}>
-              <Text style={[s.detayKapatX, { color: t.textMuted }]}>×</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={{ paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
-            <Text style={[s.ekleLabel, { color: t.textSecondary }]}>Başlık</Text>
+        style={{ flex: 1 }}>
+        {/* Yükleme sırasında kapatma kilitli (eski "×" butonunun disabled davranışı) */}
+        <ModalKapak
+          baslik={editMode ? 'Duyuruyu Düzenle' : 'Yeni Duyuru'}
+          onKapat={() => { if (!yuklemede) kapat(); }}>
+          <ScrollView contentContainerStyle={{ paddingBottom: 8 }} keyboardShouldPersistTaps="handled">
+            <Kicker style={s.ekleLabel}>Başlık</Kicker>
             <TextInput
-              style={[s.ekleInput, { color: t.text, borderColor: t.divider, backgroundColor: t.bg }]}
+              style={[s.ekleInput, { color: t.text, borderColor: t.kartBorder, backgroundColor: t.bgInput }]}
               value={baslik}
               onChangeText={setBaslik}
               placeholder="Kısa, dikkat çekici"
@@ -516,9 +487,9 @@ function EkleModal({
               maxLength={120}
             />
 
-            <Text style={[s.ekleLabel, { color: t.textSecondary }]}>İçerik (opsiyonel)</Text>
+            <Kicker style={s.ekleLabel}>İçerik (opsiyonel)</Kicker>
             <TextInput
-              style={[s.ekleInput, s.ekleInputCok, { color: t.text, borderColor: t.divider, backgroundColor: t.bg }]}
+              style={[s.ekleInput, s.ekleInputCok, { color: t.text, borderColor: t.kartBorder, backgroundColor: t.bgInput }]}
               value={icerik}
               onChangeText={setIcerik}
               placeholder="Açıklama, detay, link..."
@@ -527,7 +498,7 @@ function EkleModal({
               textAlignVertical="top"
             />
 
-            <Text style={[s.ekleLabel, { color: t.textSecondary }]}>Görsel (opsiyonel)</Text>
+            <Kicker style={s.ekleLabel}>Görsel (opsiyonel)</Kicker>
             {gorselUri ? (
               <View>
                 <Image source={{ uri: gorselUri }} style={s.ekleGorselOnizle} resizeMode="cover" />
@@ -536,39 +507,32 @@ function EkleModal({
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity onPress={fotoSec} style={[s.ekleGorselSec, { borderColor: t.divider }]}>
+              <TouchableOpacity onPress={fotoSec} style={[s.ekleGorselSec, { borderColor: t.primary, backgroundColor: t.bgCard }]}>
                 <Text style={[s.ekleGorselSecText, { color: t.primary }]}>+ Galeriden Foto Seç</Text>
               </TouchableOpacity>
             )}
 
-            <View style={s.ekleSabit}>
+            <View style={[s.ekleSabit, { borderColor: t.kartBorder, backgroundColor: t.bgCard }]}>
               <View>
-                <Text style={[s.ekleLabel, { color: t.text, marginBottom: 0 }]}>Sabitle</Text>
+                <Text style={[s.ekleSabitBaslik, { color: t.text }]}>Sabitle</Text>
                 <Text style={[s.ekleSabitNot, { color: t.textMuted }]}>Üstte sürekli görünür</Text>
               </View>
               <Switch
                 value={sabitlendi}
                 onValueChange={setSabitlendi}
-                trackColor={{ false: t.divider, true: Palette.istanbulMavi }}
-                thumbColor="#fff"
+                trackColor={{ false: t.divider, true: t.primary }}
+                thumbColor="#FFFFFF"
               />
             </View>
 
-            <TouchableOpacity
+            <BirincilButon
+              baslik={editMode ? 'Güncelle' : 'Yayınla ve Bildirim Gönder'}
               onPress={kaydet}
+              varyant="cta"
+              yukleniyor={yuklemede}
               disabled={yuklemede || !baslik.trim()}
-              style={[
-                s.ekleKaydetBtn,
-                { backgroundColor: yuklemede || !baslik.trim() ? t.divider : Palette.istanbulMavi },
-              ]}>
-              {yuklemede ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={s.ekleKaydetText}>
-                  {editMode ? 'Güncelle' : 'Yayınla ve Bildirim Gönder'}
-                </Text>
-              )}
-            </TouchableOpacity>
+              style={s.ekleKaydetBtn}
+            />
 
             <Text style={[s.ekleBilgi, { color: t.textMuted }]}>
               {editMode
@@ -576,7 +540,7 @@ function EkleModal({
                 : 'Yayınlanır yayınlanmaz tüm rehberlere push bildirim gönderilir.'}
             </Text>
           </ScrollView>
-        </View>
+        </ModalKapak>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -587,79 +551,46 @@ function EkleModal({
    ═══════════════════════════════════════════ */
 const createStyles = (t: TemaRenkleri) =>
   StyleSheet.create({
-    bandHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+    bolum: {
       paddingHorizontal: 16,
-      paddingVertical: 10,
-    },
-    bandTitle: {
-      fontFamily: 'Poppins_700Bold',
-      fontSize: 14,
-      color: '#FFFFFF',
-      letterSpacing: 0.5,
-    },
-    bandAction: {
-      fontFamily: 'Poppins_600SemiBold',
-      fontSize: 13,
-      color: '#FFFFFF',
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.7)',
-      borderRadius: 6,
+      paddingTop: 14,
     },
     placeholder: {
       paddingVertical: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      marginHorizontal: 16,
-      marginTop: 4,
-      borderRadius: 8,
     },
-    placeholderText: {
-      fontFamily: 'Poppins_400Regular',
-      fontSize: 12,
+    liste: {
+      marginTop: 2,
     },
-    kart: {
-      // v1.1.2 fix: 'row' kalmisti — yetkili aksiyon bari (Duzenle/Sabitle/Sil)
-      // icerigin sagina 0 genislikte sikisip gorunmez oluyordu. Kart dikey olmali;
-      // icerik+thumbnail yatay dizilimi zaten kartIcerikSarmal'da.
-      flexDirection: 'column',
+    duyuru: {
+      paddingVertical: 10,
+    },
+    duyuruSatir: {
+      flexDirection: 'row',
       alignItems: 'stretch',
-      marginHorizontal: 16,
-      marginTop: 6,
-      padding: 12,
-      borderRadius: 10,
-      borderLeftWidth: 4,
+    },
+    duyuruAccent: {
+      width: 4,
+      borderRadius: 2,
+      marginRight: 12,
     },
     kartUst: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: 8,
       marginBottom: 4,
     },
     kartBaslik: {
       flex: 1,
-      fontFamily: 'Poppins_600SemiBold',
+      fontFamily: Font.bold,
       fontSize: 14,
-    },
-    sabitBadge: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 4,
-    },
-    sabitBadgeText: {
-      fontFamily: 'Poppins_700Bold',
-      fontSize: 9,
-      color: '#FFFFFF',
-      letterSpacing: 0.5,
+      letterSpacing: -0.3,
     },
     kartIcerik: {
-      fontFamily: 'Poppins_400Regular',
-      fontSize: 12,
-      lineHeight: 17,
+      fontFamily: Font.regular,
+      fontSize: 13,
+      lineHeight: 18,
       marginBottom: 4,
     },
     kartAlt: {
@@ -669,13 +600,17 @@ const createStyles = (t: TemaRenkleri) =>
       marginTop: 2,
     },
     kartMeta: {
-      fontFamily: 'Poppins_400Regular',
-      fontSize: 10,
+      fontFamily: Font.regular,
+      fontSize: 11,
+    },
+    kartMetaLink: {
+      fontFamily: Font.semibold,
+      fontSize: 11,
     },
     kartThumb: {
       width: 56,
       height: 56,
-      borderRadius: 6,
+      borderRadius: Radius.sm,
       backgroundColor: t.bgSecondary,
     },
 
@@ -694,57 +629,24 @@ const createStyles = (t: TemaRenkleri) =>
     yetkiliBtn: {
       flex: 1,
       alignItems: 'center',
-      paddingVertical: 4,
+      justifyContent: 'center',
+      minHeight: 32,
     },
     yetkiliBtnText: {
-      fontFamily: 'Poppins_600SemiBold',
+      fontFamily: Font.semibold,
       fontSize: 12,
     },
     yetkiliBtnAyrac: {
       width: 1,
-      marginVertical: 2,
+      marginVertical: 4,
     },
 
     // Detay modal
-    detayOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.55)',
-      justifyContent: 'flex-end',
-    },
-    detayBox: {
-      maxHeight: '85%',
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-      padding: 20,
-    },
-    detayHeader: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: 12,
-    },
-    detayBaslik: {
-      flex: 1,
-      fontFamily: 'Poppins_700Bold',
-      fontSize: 18,
-      lineHeight: 24,
-    },
-    detayKapatX: {
-      fontSize: 28,
-      lineHeight: 28,
-      fontWeight: '400',
-    },
-    detayMeta: {
-      fontFamily: 'Poppins_400Regular',
-      fontSize: 11,
-      marginTop: 4,
-      marginBottom: 12,
-    },
     detayScroll: {
       maxHeight: 600,
     },
     detayIcerik: {
-      fontFamily: 'Poppins_400Regular',
+      fontFamily: Font.regular,
       fontSize: 14,
       lineHeight: 22,
       marginBottom: 16,
@@ -752,50 +654,27 @@ const createStyles = (t: TemaRenkleri) =>
     detayGorsel: {
       width: '100%',
       aspectRatio: 4 / 3,
-      borderRadius: 8,
+      borderRadius: Radius.md,
       backgroundColor: t.bgSecondary,
     },
     detayGorselHint: {
-      fontFamily: 'Poppins_400Regular',
+      fontFamily: Font.regular,
       fontSize: 11,
       textAlign: 'center',
       marginTop: 6,
     },
 
     // Ekle modal
-    ekleOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.55)',
-      justifyContent: 'flex-end',
-    },
-    ekleBox: {
-      maxHeight: '90%',
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-      padding: 20,
-    },
-    ekleHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 12,
-    },
-    ekleBaslik: {
-      fontFamily: 'Poppins_700Bold',
-      fontSize: 18,
-    },
     ekleLabel: {
-      fontFamily: 'Poppins_600SemiBold',
-      fontSize: 12,
-      marginTop: 12,
+      marginTop: 14,
       marginBottom: 6,
     },
     ekleInput: {
       borderWidth: 1,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      fontFamily: 'Poppins_400Regular',
+      borderRadius: Radius.md,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontFamily: Font.regular,
       fontSize: 14,
     },
     ekleInputCok: {
@@ -803,29 +682,29 @@ const createStyles = (t: TemaRenkleri) =>
     },
     ekleGorselSec: {
       paddingVertical: 18,
-      borderRadius: 8,
-      borderWidth: 1,
+      borderRadius: Radius.md,
+      borderWidth: 1.5,
       borderStyle: 'dashed',
       alignItems: 'center',
     },
     ekleGorselSecText: {
-      fontFamily: 'Poppins_600SemiBold',
+      fontFamily: Font.semibold,
       fontSize: 13,
     },
     ekleGorselOnizle: {
       width: '100%',
       aspectRatio: 4 / 3,
-      borderRadius: 8,
+      borderRadius: Radius.md,
       backgroundColor: t.bgSecondary,
     },
     ekleGorselDegistir: {
       marginTop: 6,
-      paddingVertical: 8,
-      borderRadius: 6,
+      paddingVertical: 10,
+      borderRadius: Radius.sm,
       alignItems: 'center',
     },
     ekleGorselDegistirText: {
-      fontFamily: 'Poppins_600SemiBold',
+      fontFamily: Font.semibold,
       fontSize: 12,
     },
     ekleSabit: {
@@ -833,27 +712,26 @@ const createStyles = (t: TemaRenkleri) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       marginTop: 14,
-      paddingVertical: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+    },
+    ekleSabitBaslik: {
+      fontFamily: Font.semibold,
+      fontSize: 13,
     },
     ekleSabitNot: {
-      fontFamily: 'Poppins_400Regular',
+      fontFamily: Font.regular,
       fontSize: 11,
       marginTop: 2,
     },
     ekleKaydetBtn: {
       marginTop: 18,
-      paddingVertical: 14,
-      borderRadius: 10,
-      alignItems: 'center',
-    },
-    ekleKaydetText: {
-      fontFamily: 'Poppins_700Bold',
-      fontSize: 14,
-      color: '#FFFFFF',
     },
     ekleBilgi: {
-      fontFamily: 'Poppins_400Regular',
-      fontSize: 10,
+      fontFamily: Font.regular,
+      fontSize: 11,
       textAlign: 'center',
       marginTop: 8,
     },
@@ -865,7 +743,7 @@ const createStyles = (t: TemaRenkleri) =>
 const tamEkranStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Palette.siyah,
     justifyContent: 'center',
   },
   scrollView: {
@@ -881,15 +759,15 @@ const tamEkranStyles = StyleSheet.create({
     top: 50,
     right: 16,
     zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: Palette.seffafBeyaz20,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: Radius.full,
   },
   kapatBtnText: {
-    fontFamily: 'Poppins_700Bold',
+    fontFamily: Font.bold,
     fontSize: 13,
-    color: '#fff',
+    color: '#FFFFFF',
   },
   altYazi: {
     position: 'absolute',
@@ -897,9 +775,10 @@ const tamEkranStyles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: 'center',
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: Font.regular,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
+    color: '#FFFFFF',
+    opacity: 0.6,
     paddingHorizontal: 20,
   },
 });

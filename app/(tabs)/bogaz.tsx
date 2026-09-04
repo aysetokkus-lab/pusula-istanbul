@@ -1,25 +1,33 @@
+// Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+// GradyanHeader + Segmentler + Kart/Rozet/DurumNoktasi ile yeniden boyandı. Eyl 2026: hafta içi + hafta sonu tarifeleri aynı anda inline (modal kaldırıldı).
+// TURYOL / Dentur / Şehir Hatları verileri, sonraki sefer hesabı, saat modalı ve YetkiliBolum aynen korundu.
 import { useState } from 'react';
-import { ActivityIndicator, Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { YetkiliBolum } from '../../components/yetkili/yetkili-bolum';
+import { UlasimTarifeYonetim } from '../../components/yetkili/ulasim-tarife-yonetim';
 import { useBogazTurlari, type BogazTuru } from '../../hooks/use-bogaz-turlari';
 import { useTema } from '../../hooks/use-tema';
-import { useAbonelik } from '../../hooks/use-abonelik';
+import { BirincilButon, BolumBaslik, BosDurum, DurumNoktasi, GradyanHeader, HeaderBaslik, Kart, Kicker, Rozet, Segmentler } from '../../components/ui/pusula-ui';
+import { Font, Radius } from '../../constants/theme';
 
 const ADALAR_LINKLERI = [
-  { sirket: 'Şehir Hatları', url: 'https://sehirhatlari.istanbul/tr/seferler/ic-hatlar/adalar-hatlari-176', renk: '#0077B6' },
-  { sirket: 'Dentur Avrasya', url: 'https://denturavrasya.com/tr-TR/hatlarimiz/adalar', renk: '#0096C7' },
-  { sirket: 'Turyol', url: 'https://www.turyol.com/Home/Tarifeler', renk: '#00A8E8' },
-  { sirket: 'Mavi Marmara', url: 'https://mavimarmara.net/wp-content/uploads/mavimarmara-2026-yazagecis-tarife-listesi.pdf?pid=4575', renk: '#005A8D' },
+  { sirket: 'Şehir Hatları', url: 'https://sehirhatlari.istanbul/tr/seferler/ic-hatlar/adalar-hatlari-176' },
+  { sirket: 'Dentur Avrasya', url: 'https://denturavrasya.com/tr-TR/hatlarimiz/adalar' },
+  { sirket: 'Turyol', url: 'https://www.turyol.com/Home/Tarifeler' },
+  { sirket: 'Mavi Marmara', url: 'https://mavimarmara.net/wp-content/uploads/mavimarmara-2026-yazagecis-tarife-listesi.pdf?pid=4575' },
 ];
+
+const SIRKETLER = [
+  { id: 'turyol', baslik: 'Turyol' },
+  { id: 'dentur', baslik: 'Dentur' },
+  { id: 'sehirhatlari', baslik: 'Şehir H.' },
+] as const;
 
 export default function Bogaz() {
   const insets = useSafeAreaInsets();
-  const { t, isDark } = useTema();
-  const { premiumMi } = useAbonelik();
+  const { t } = useTema();
   const { turlar, yukleniyor } = useBogazTurlari();
-  const [saatModal, setSaatModal] = useState<{ baslik: string; saatler: string[] } | null>(null);
 
   const simdi = new Date();
   const simdiDk = simdi.getHours() * 60 + simdi.getMinutes();
@@ -27,54 +35,105 @@ export default function Bogaz() {
   const gunTip = simdi.getDay() === 0 || simdi.getDay() === 6 ? 'haftasonu' : 'hafta';
 
   // Sirkete gore gruplama
-  const turyol = turlar.find(t => t.sirket_id === 'turyol');
-  const dentur = turlar.find(t => t.sirket_id === 'dentur');
-  const shKisa = turlar.find(t => t.sirket_id === 'sehirhatlari_kisa');
-  const shUzun = turlar.find(t => t.sirket_id === 'sehirhatlari_uzun');
+  const turyol = turlar.find(tr => tr.sirket_id === 'turyol');
+  const dentur = turlar.find(tr => tr.sirket_id === 'dentur');
+  const shKisa = turlar.find(tr => tr.sirket_id === 'sehirhatlari_kisa');
+  const shUzun = turlar.find(tr => tr.sirket_id === 'sehirhatlari_uzun');
 
-  const getSaatler = (t: BogazTuru) => {
-    if (gunTip === 'haftasonu' && t.hafta_sonu_saatler?.length > 0) return t.hafta_sonu_saatler;
-    return t.hafta_ici_saatler || [];
+  /* Eyl 2026: Hafta içi + hafta sonu tarifeleri AYNI ANDA görünür (Ayşe: "salı günü hafta sonunu
+     göremiyordu"). Bugünün bloğu "Bugün" rozeti alır ve geçmiş saatleri sönük gösterir;
+     diğer blok tam liste. Hafta sonu listesi boşsa tek blok "Her gün". */
+  const SaatBloklari = ({ tr, renk }: { tr: BogazTuru; renk: string }) => {
+    const ici = tr.hafta_ici_saatler || [];
+    const sonu = tr.hafta_sonu_saatler || [];
+    const bloklar = sonu.length > 0
+      ? [
+          { baslik: 'Hafta içi', alt: 'Pzt – Cum', saatler: ici, bugun: gunTip === 'hafta' },
+          { baslik: 'Hafta sonu', alt: 'Cmt – Paz', saatler: sonu, bugun: gunTip === 'haftasonu' },
+        ]
+      : [{ baslik: 'Her gün', alt: 'Tüm günler aynı', saatler: ici, bugun: true }];
+    return (
+      <>
+        {bloklar.map(b => {
+          const sonraki = b.bugun ? b.saatler.find(sa => saatDk(sa) > simdiDk) : undefined;
+          return (
+            <Kart key={b.baslik} accent={b.bugun ? renk : undefined}>
+              <View style={s.blokBaslikSatir}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.blokBaslik, { color: t.text }]}>{b.baslik} · {b.saatler.length} sefer</Text>
+                  <Text style={[s.blokAlt, { color: t.textSecondary }]}>{b.alt}{sonraki ? ` · Sonraki sefer ${sonraki}` : ''}</Text>
+                </View>
+                {b.bugun && <Rozet renk={renk} dolu>BUGÜN</Rozet>}
+              </View>
+              <View style={s.saatGrid}>
+                {b.saatler.map((saat, i) => {
+                  const gecti = b.bugun && saatDk(saat) <= simdiDk;
+                  const sonrakiMi = b.bugun && saat === sonraki;
+                  return (
+                    <View
+                      key={i}
+                      style={[
+                        s.saatKutu,
+                        { backgroundColor: sonrakiMi ? renk : t.bgCardAlt, borderColor: sonrakiMi ? renk : gecti ? t.kartBorder : `${renk}66` },
+                        gecti && s.saatGecti,
+                      ]}
+                    >
+                      <Text style={[s.saatYazi, { color: sonrakiMi ? '#FFFFFF' : gecti ? t.textMuted : t.text }]}>{saat}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </Kart>
+          );
+        })}
+      </>
+    );
   };
 
   const [aktifSirket, setAktifSirket] = useState<'turyol' | 'dentur' | 'sehirhatlari'>('turyol');
 
   const tarife = turlar.length > 0 ? (turlar[0].tarife_donemi || '') : '';
 
+  // Güzergah satırı (Şehir Hatları kısa/uzun tur) — geçmiş saatler sönük
+  const guzergahSatiri = (d: any, i: number) => {
+    const gecti = saatDk(d.saat) <= simdiDk;
+    return (
+      <View key={i} style={s.guzergahSatir}>
+        <DurumNoktasi renk={gecti ? t.textMuted : t.primary} boyut={8} />
+        <Text style={[s.guzergahDurak, { color: t.text }]}>{d.durak}</Text>
+        <Text style={[s.guzergahSaat, { color: gecti ? t.textMuted : t.primary }]}>{d.saat}</Text>
+      </View>
+    );
+  };
+
   return (
     <ScrollView style={[s.container, { backgroundColor: t.bg }]}>
-      <LinearGradient colors={['#00A8E8','#0077B6','#0096C7','#48CAE4']} start={{x:0,y:0}} end={{x:1,y:1}} style={[s.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={s.headerBaslik}>Boğaz Turları</Text>
-        <Text style={s.headerAlt}>Güncel sefer saatleri{tarife ? ` — ${tarife} tarifesi` : ''}</Text>
-      </LinearGradient>
+      <GradyanHeader paddingTop={insets.top + 12}>
+        <HeaderBaslik baslik="Boğaz Turları" alt={`Güncel sefer saatleri${tarife ? ` — ${tarife} tarifesi` : ''}`} />
+      </GradyanHeader>
 
       {yukleniyor ? (
-        <ActivityIndicator size="large" color="#0077B6" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={t.primary} style={{ marginTop: 40 }} />
       ) : turlar.length === 0 ? (
-        <Text style={[s.bosYazi, { color: t.textMuted }]}>Boğaz turu verisi bulunamadı.</Text>
+        <BosDurum metin="Boğaz turu verisi bulunamadı." />
       ) : (
         <>
           {/* Firma seçici */}
-          <View style={[s.segKutu, { backgroundColor: t.bgCard }]}>
-            {(['turyol', 'dentur', 'sehirhatlari'] as const).map(f => (
-              <TouchableOpacity key={f} style={[s.segBtn, aktifSirket === f && s.segAktif]}
-                onPress={() => setAktifSirket(f)}>
-                <Text style={[s.segYazi, { color: t.textSecondary }, aktifSirket === f && s.segYaziAktif]}>
-                  {f === 'turyol' ? 'Turyol' : f === 'dentur' ? 'Dentur' : 'Şehir H.'}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <View style={s.segKutu}>
+            <Segmentler
+              secenekler={SIRKETLER.map(f => ({ id: f.id, baslik: f.baslik }))}
+              aktif={aktifSirket}
+              onSec={id => setAktifSirket(id)}
+            />
           </View>
 
           {/* TURYOL */}
           {aktifSirket === 'turyol' && turyol && (() => {
-            const saatler = getSaatler(turyol);
-            const sonraki = saatler.find(sa => saatDk(sa) > simdiDk);
             const cokluKalkis = turyol.kalkis_noktalari && turyol.kalkis_noktalari.length > 0;
             return (
               <View style={s.bolum}>
-                <View style={[s.sirketBaslikKutu, { borderLeftColor: turyol.renk }]}>
-                  <Text style={[s.sirketAdi, { color: turyol.renk }]}>TURYOL</Text>
+                <View style={s.sirketBaslik}>
+                  <Kicker color={turyol.renk || t.primary}>TURYOL</Kicker>
                   <Text style={[s.sirketAlt, { color: t.textSecondary }]}>
                     {cokluKalkis
                       ? turyol.kalkis_noktalari.map((d: any) => d.durak).join(' & ') + ' kalkışlı'
@@ -84,178 +143,106 @@ export default function Bogaz() {
                 {cokluKalkis ? (
                   <View style={s.durakSatir}>
                     {turyol.kalkis_noktalari.map((d: any) => (
-                      <View key={d.durak} style={[s.durakKutu, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
+                      <Kart key={d.durak} style={s.durakKart}>
                         <Text style={[s.durakAdi, { color: t.text }]}>{d.durak}</Text>
-                        <Text style={[s.durakFiyat, { color: turyol.renk }]}>{d.fiyat}</Text>
-                      </View>
+                        <Text style={[s.durakFiyat, { color: turyol.renk || t.primary }]}>{d.fiyat}</Text>
+                      </Kart>
                     ))}
                   </View>
                 ) : (
                   <View style={s.durakSatir}>
-                    <View style={[s.durakKutu, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
+                    <Kart style={s.durakKart}>
                       <Text style={[s.durakAdi, { color: t.text }]}>{turyol.kalkis_yeri}</Text>
-                      <Text style={[s.durakFiyat, { color: turyol.renk }]}>{turyol.fiyat}</Text>
-                    </View>
+                      <Text style={[s.durakFiyat, { color: turyol.renk || t.primary }]}>{turyol.fiyat}</Text>
+                    </Kart>
                   </View>
                 )}
-                <View style={[s.infoKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-                  <Text style={[s.infoSatir, { color: t.textSecondary }]}>• Tarife: <Text style={[s.infoVurgu, { color: t.text }]}>
-                    {gunTip === 'haftasonu' ? 'Haftasonu' : 'Hafta içi'} — {saatler.length} sefer
-                  </Text></Text>
-                  {sonraki && (
-                    <View style={[s.sonrakiKutu, { backgroundColor: t.bgSecondary }]}>
-                      <Text style={[s.sonrakiYazi, { color: t.textSecondary }]}>• Sonraki sefer: <Text style={s.sonrakiSaat}>{sonraki}</Text></Text>
-                    </View>
-                  )}
-                </View>
-                <TouchableOpacity style={[s.tumBtn, { borderColor: turyol.renk }]}
-                  onPress={() => {
-                    if (!premiumMi) { router.push('/abone-ol'); return; }
-                    setSaatModal({ baslik: `TURYOL — ${cokluKalkis ? turyol.kalkis_noktalari.map((d: any) => d.durak).join(' / ') : turyol.kalkis_yeri}`, saatler });
-                  }}>
-                  <Text style={[s.tumBtnYazi, { color: turyol.renk }]}>
-                    {premiumMi ? 'Tüm sefer saatleri →' : 'Tüm sefer saatleri (Premium) →'}
-                  </Text>
-                </TouchableOpacity>
+                {/* Eyl 2026: hafta içi + hafta sonu aynı anda */}
+                <SaatBloklari tr={turyol} renk={turyol.renk || t.primary} />
                 {turyol.ozel_not && (
-                  <View style={[s.uyariKutu, { backgroundColor: t.bgSecondary }]}><Text style={s.uyariYazi}>{turyol.ozel_not}</Text></View>
+                  <Kart accent={t.durumUyari}><Text style={[s.uyariYazi, { color: t.text }]}>{turyol.ozel_not}</Text></Kart>
                 )}
                 <Text style={[s.kaynak, { color: t.textMuted }]}>Kaynak: {turyol.kaynak} • {turyol.tarife_donemi}</Text>
               </View>
             );
           })()}
 
-          {/* DENTUR — Premium */}
-          {aktifSirket === 'dentur' && !premiumMi && (
-            <TouchableOpacity onPress={() => router.push('/abone-ol')} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 4 }}>
-              <LinearGradient
-                colors={['#00A8E8','#0077B6','#0096C7','#48CAE4']}
-                start={{x:0,y:0}} end={{x:1,y:1}}
-                style={{ borderRadius: 14, padding: 22 }}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Dentur Avrasya — Premium</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 13, lineHeight: 19, marginBottom: 14 }}>
-                  Kabataş ve Beşiktaş kalkışlı tüm sefer saatleri ve fiyatları için Pusula İstanbul Premium gerekir.
-                </Text>
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Abone Ol →</Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-          {aktifSirket === 'dentur' && premiumMi && dentur && (() => {
-            const saatler = getSaatler(dentur);
-            const sonraki = saatler.find(sa => saatDk(sa) > simdiDk);
+          {/* DENTUR */}
+          {aktifSirket === 'dentur' && dentur && (() => {
             return (
               <View style={s.bolum}>
-                <View style={[s.sirketBaslikKutu, { borderLeftColor: dentur.renk }]}>
-                  <Text style={[s.sirketAdi, { color: dentur.renk }]}>DENTUR AVRASYA</Text>
+                <View style={s.sirketBaslik}>
+                  <Kicker color={dentur.renk || t.primary}>DENTUR AVRASYA</Kicker>
                   <Text style={[s.sirketAlt, { color: t.textSecondary }]}>Kabataş & Beşiktaş kalkışlı</Text>
                 </View>
                 {dentur.kalkis_noktalari?.length > 0 && (
                   <View style={s.durakSatir}>
                     {dentur.kalkis_noktalari.map((d: any) => (
-                      <View key={d.durak} style={[s.durakKutu, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
+                      <Kart key={d.durak} style={s.durakKart}>
                         <Text style={[s.durakAdi, { color: t.text }]}>{d.durak}</Text>
-                        <Text style={[s.durakFiyat, { color: dentur.renk }]}>{d.fiyat}</Text>
-                      </View>
+                        <Text style={[s.durakFiyat, { color: dentur.renk || t.primary }]}>{d.fiyat}</Text>
+                      </Kart>
                     ))}
                   </View>
                 )}
-                <View style={[s.infoKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-                  <Text style={[s.infoSatir, { color: t.textSecondary }]}>• Toplam: <Text style={[s.infoVurgu, { color: t.text }]}>{saatler.length} sefer</Text></Text>
-                  {sonraki && (
-                    <View style={[s.sonrakiKutu, { backgroundColor: t.bgSecondary }]}>
-                      <Text style={[s.sonrakiYazi, { color: t.textSecondary }]}>• Sonraki sefer: <Text style={s.sonrakiSaat}>{sonraki}</Text></Text>
-                    </View>
-                  )}
-                </View>
-                <TouchableOpacity style={[s.tumBtn, { borderColor: dentur.renk }]}
-                  onPress={() => setSaatModal({ baslik: 'DENTUR — Kabataş / Beşiktaş', saatler })}>
-                  <Text style={[s.tumBtnYazi, { color: dentur.renk }]}>Tüm sefer saatleri →</Text>
-                </TouchableOpacity>
+                {/* Eyl 2026: hafta içi + hafta sonu aynı anda */}
+                <SaatBloklari tr={dentur} renk={dentur.renk || t.primary} />
                 {dentur.ozel_not && (
-                  <View style={[s.uyariKutu, { backgroundColor: t.bgSecondary }]}><Text style={s.uyariYazi}>{dentur.ozel_not}</Text></View>
+                  <Kart accent={t.durumUyari}><Text style={[s.uyariYazi, { color: t.text }]}>{dentur.ozel_not}</Text></Kart>
                 )}
                 <Text style={[s.kaynak, { color: t.textMuted }]}>Kaynak: {dentur.kaynak} • {dentur.tarife_donemi}</Text>
               </View>
             );
           })()}
 
-          {/* ŞEHİR HATLARI — Premium */}
-          {aktifSirket === 'sehirhatlari' && !premiumMi && (
-            <TouchableOpacity onPress={() => router.push('/abone-ol')} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 4 }}>
-              <LinearGradient
-                colors={['#00A8E8','#0077B6','#0096C7','#48CAE4']}
-                start={{x:0,y:0}} end={{x:1,y:1}}
-                style={{ borderRadius: 14, padding: 22 }}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Şehir Hatları — Premium</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 13, lineHeight: 19, marginBottom: 14 }}>
-                  Kısa ve Uzun Boğaz turu güzergahları, durak saatleri ve gidiş-dönüş bilgisi için Pusula İstanbul Premium gerekir.
-                </Text>
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>Abone Ol →</Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-          {aktifSirket === 'sehirhatlari' && premiumMi && (
+          {/* ŞEHİR HATLARI */}
+          {aktifSirket === 'sehirhatlari' && (
             <View style={s.bolum}>
-              <View style={[s.sirketBaslikKutu, { borderLeftColor: '#0077B6' }]}>
-                <Text style={[s.sirketAdi, { color: '#0077B6' }]}>ŞEHİR HATLARI</Text>
-                <Text style={[s.sirketAlt, { color: t.textSecondary }]}>Kısa & Uzun Boğaz Turu — Her gün 1 sefer</Text>
+              <View style={s.sirketBaslik}>
+                <Kicker color={t.primary}>ŞEHİR HATLARI</Kicker>
+                <Text style={[s.sirketAlt, { color: t.textSecondary }]}>Kısa & Uzun Boğaz Turu — Her gün 1 sefer, hafta içi ve hafta sonu aynı</Text>
               </View>
 
               {/* Kısa Tur */}
               {shKisa && (
-                <View style={[s.turKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-                  <View style={[s.turBaslikSatir, { borderBottomColor: t.kartBorder }]}>
-                    <Text style={s.turBaslik}>Kısa Boğaz Turu</Text>
-                    <Text style={[s.turSure, { color: t.textSecondary }]}>{shKisa.sure}</Text>
-                  </View>
-                  {(shKisa.gidis_guzergah || []).map((d: any, i: number) => (
-                    <View key={i} style={s.guzergahSatir}>
-                      <View style={[s.nokta, { backgroundColor: saatDk(d.saat) <= simdiDk ? t.textMuted : '#0096C7' }]} />
-                      <Text style={[s.guzergahDurak, { color: t.text }]}>{d.durak}</Text>
-                      <Text style={[s.guzergahSaat, saatDk(d.saat) <= simdiDk && { color: t.textMuted }]}>{d.saat}</Text>
+                <Kart>
+                  <View style={[s.turBaslikSatir, { borderBottomColor: t.divider }]}>
+                    <Text style={[s.turBaslik, { color: t.text }]}>Kısa Boğaz Turu</Text>
+                    <View style={s.rozetSatir}>
+                      {(shKisa.hafta_ici_saatler || []).map((sa, i) => <Rozet key={i} renk={t.primary} dolu>{sa}</Rozet>)}
+                      <Rozet renk={t.primary}>{shKisa.sure}</Rozet>
                     </View>
-                  ))}
-                </View>
+                  </View>
+                  {(shKisa.gidis_guzergah || []).map(guzergahSatiri)}
+                </Kart>
               )}
 
               {/* Uzun Tur */}
               {shUzun && (
-                <View style={[s.turKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-                  <View style={[s.turBaslikSatir, { borderBottomColor: t.kartBorder }]}>
-                    <Text style={s.turBaslik}>Uzun Boğaz Turu</Text>
-                    <Text style={[s.turSure, { color: t.textSecondary }]}>{shUzun.sure}</Text>
-                  </View>
-                  <Text style={s.turYonBaslik}>→ Gidiş</Text>
-                  {(shUzun.gidis_guzergah || []).map((d: any, i: number) => (
-                    <View key={i} style={s.guzergahSatir}>
-                      <View style={[s.nokta, { backgroundColor: saatDk(d.saat) <= simdiDk ? t.textMuted : '#0077B6' }]} />
-                      <Text style={[s.guzergahDurak, { color: t.text }]}>{d.durak}</Text>
-                      <Text style={[s.guzergahSaat, saatDk(d.saat) <= simdiDk && { color: t.textMuted }]}>{d.saat}</Text>
+                <Kart>
+                  <View style={[s.turBaslikSatir, { borderBottomColor: t.divider }]}>
+                    <Text style={[s.turBaslik, { color: t.text }]}>Uzun Boğaz Turu</Text>
+                    <View style={s.rozetSatir}>
+                      {(shUzun.hafta_ici_saatler || []).map((sa, i) => <Rozet key={i} renk={t.primary} dolu>{sa}</Rozet>)}
+                      <Rozet renk={t.primary}>{shUzun.sure}</Rozet>
                     </View>
-                  ))}
-                  <View style={[s.uyariKutu, { backgroundColor: t.bgSecondary, marginTop: 10, marginBottom: 10 }]}>
-                    <Text style={s.uyariYazi}>Anadolu Kavağı'nda mola — 15:00'e kadar</Text>
                   </View>
-                  <Text style={s.turYonBaslik}>← Dönüş</Text>
-                  {(shUzun.donus_guzergah || []).map((d: any, i: number) => (
-                    <View key={i} style={s.guzergahSatir}>
-                      <View style={[s.nokta, { backgroundColor: saatDk(d.saat) <= simdiDk ? t.textMuted : '#0077B6' }]} />
-                      <Text style={[s.guzergahDurak, { color: t.text }]}>{d.durak}</Text>
-                      <Text style={[s.guzergahSaat, saatDk(d.saat) <= simdiDk && { color: t.textMuted }]}>{d.saat}</Text>
-                    </View>
-                  ))}
-                </View>
+                  <Text style={[s.turYonBaslik, { color: t.primary }]}>→ Gidiş</Text>
+                  {(shUzun.gidis_guzergah || []).map(guzergahSatiri)}
+                  <View style={[s.molaKutu, { backgroundColor: t.bgCardAlt, borderColor: t.kartBorder }]}>
+                    <DurumNoktasi renk={t.durumUyari} boyut={8} />
+                    <Text style={[s.molaYazi, { color: t.textSecondary }]}>Anadolu Kavağı'nda mola — 15:00'e kadar</Text>
+                  </View>
+                  <Text style={[s.turYonBaslik, { color: t.primary }]}>← Dönüş</Text>
+                  {(shUzun.donus_guzergah || []).map(guzergahSatiri)}
+                </Kart>
               )}
-              <TouchableOpacity style={[s.tumBtn, { borderColor: '#0077B6' }]}
-                onPress={() => Linking.openURL('https://sehirhatlari.istanbul/tr/seferler/ic-hatlar/adalar-hatlari-176')}>
-                <Text style={[s.tumBtnYazi, { color: '#0077B6' }]}>Resmi sayfada detay →</Text>
-              </TouchableOpacity>
+              <BirincilButon
+                baslik="Resmi sayfada detay →"
+                varyant="hayalet"
+                style={s.tumBtn}
+                onPress={() => Linking.openURL('https://sehirhatlari.istanbul/tr/seferler/ic-hatlar/adalar-hatlari-176')}
+              />
               <Text style={[s.kaynak, { color: t.textMuted }]}>Kaynak: sehirhatlari.istanbul • {shKisa?.tarife_donemi || ''}</Text>
             </View>
           )}
@@ -264,98 +251,64 @@ export default function Bogaz() {
 
       {/* ADA SEFERLERİ */}
       <View style={s.adaBolum}>
-        <Text style={s.adaBaslik}>Ada Seferleri</Text>
+        <BolumBaslik baslik="Ada Seferleri" renk={t.primary} />
         {ADALAR_LINKLERI.map(link => (
-          <TouchableOpacity key={link.sirket} style={[s.adaBtn, { borderColor: link.renk }]}
-            onPress={() => Linking.openURL(link.url)}>
-            <Text style={[s.adaBtnYazi, { color: link.renk }]}>{link.sirket} — Sefer Saatleri →</Text>
-          </TouchableOpacity>
+          <Kart key={link.sirket} onPress={() => Linking.openURL(link.url)}>
+            <View style={s.adaSatir}>
+              <DurumNoktasi renk={t.primary} boyut={8} />
+              <Text style={[s.adaAdi, { color: t.primary }]}>{link.sirket} — Sefer Saatleri →</Text>
+            </View>
+          </Kart>
         ))}
       </View>
 
+      <YetkiliBolum baslik="Boğaz Tarifeleri" aciklama="Sefer saatleri ve fiyatlar" sadeceAdmin>
+        <UlasimTarifeYonetim tip="bogaz" />
+      </YetkiliBolum>
       <View style={{ height: 40 }} />
 
-      {/* Saat Modal */}
-      <Modal visible={!!saatModal} transparent animationType="slide" onRequestClose={() => setSaatModal(null)}>
-        <View style={[s.modalArka, { backgroundColor: t.modalOverlay }]}>
-          <View style={[s.modalKutu, { backgroundColor: t.modalBg }]}>
-            <Text style={s.modalBaslik}>{saatModal?.baslik}</Text>
-            <Text style={[s.modalAlt, { color: t.textSecondary }]}>{gunTip === 'haftasonu' ? 'Haftasonu tarifesi' : 'Hafta içi tarifesi'}</Text>
-            <View style={s.saatGrid}>
-              {saatModal?.saatler.map((saat, i) => {
-                const gecti = saatDk(saat) <= simdiDk;
-                return (
-                  <View key={i} style={[s.saatKutu, { backgroundColor: t.bg }, gecti && [s.saatGecti, { borderColor: t.kartBorder }]]}>
-                    <Text style={[s.saatYazi, { color: t.text }, gecti && { color: t.textMuted }]}>{saat}</Text>
-                  </View>
-                );
-              })}
-            </View>
-            <TouchableOpacity style={s.kapatBtn} onPress={() => setSaatModal(null)}>
-              <Text style={s.kapatYazi}>Kapat</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }
 
+// ═══ Stiller ═══
 const s = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingBottom: 16, paddingHorizontal: 16 },
-  headerBaslik: { color: '#FFFFFF', fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  headerAlt: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4, textAlign: 'center' },
-  bosYazi: { textAlign: 'center', marginTop: 40, fontSize: 14 },
-  segKutu: { flexDirection: 'row', margin: 16, marginBottom: 12, borderRadius: 10, padding: 4 },
-  segBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  segAktif: { backgroundColor: '#0077B6' },
-  segYazi: { fontSize: 12, fontWeight: '600' },
-  segYaziAktif: { color: '#FFFFFF', fontWeight: '700' },
-  bolum: { marginHorizontal: 16 },
-  sirketBaslikKutu: { borderLeftWidth: 4, paddingLeft: 12, marginBottom: 14 },
-  sirketAdi: { fontSize: 18, fontWeight: '800', letterSpacing: 1 },
-  sirketAlt: { fontSize: 12, marginTop: 3 },
-  infoKart: { borderRadius: 10, padding: 14, marginBottom: 10, borderWidth: 1 },
-  infoSatir: { fontSize: 13, marginBottom: 6 },
-  infoVurgu: { fontWeight: '600' },
-  sonrakiKutu: { borderRadius: 8, padding: 10, marginTop: 6, borderLeftWidth: 3, borderLeftColor: '#0096C7' },
-  sonrakiYazi: { fontSize: 13 },
-  sonrakiSaat: { color: '#0077B6', fontWeight: '700', fontSize: 16 },
-  tumBtn: { borderWidth: 1, borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 8 },
-  tumBtnYazi: { fontSize: 14, fontWeight: '700' },
-  uyariKutu: { borderRadius: 8, padding: 10, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: '#0077B6' },
-  uyariYazi: { color: '#0077B6', fontSize: 11 },
-  kaynak: { fontSize: 11, textAlign: 'right', marginBottom: 16 },
-  durakSatir: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  durakKutu: { flex: 1, borderRadius: 10, padding: 14, alignItems: 'center', borderWidth: 1 },
-  durakAdi: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
-  durakFiyat: { fontSize: 13, fontWeight: '600' },
-  turKart: { borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1 },
-  turBaslikSatir: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, borderBottomWidth: 1, paddingBottom: 10 },
-  turBaslik: { color: '#0077B6', fontSize: 15, fontWeight: '700' },
-  turSure: { fontSize: 12 },
-  turYonBaslik: { color: '#0077B6', fontSize: 12, fontWeight: '700', marginBottom: 8, marginTop: 4 },
-  guzergahSatir: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  nokta: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
-  guzergahDurak: { fontSize: 13, flex: 1 },
-  guzergahSaat: { color: '#0077B6', fontSize: 14, fontWeight: '700' },
-  molaBand: { borderRadius: 8, padding: 10, marginVertical: 10, borderLeftWidth: 3, borderLeftColor: '#0077B6' },
-  molaYazi: { color: '#0077B6', fontSize: 12 },
+  segKutu: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
+  bolum: { paddingHorizontal: 16, paddingTop: 8, gap: 14 },
+  sirketBaslik: { gap: 2 },
+  sirketAlt: { fontFamily: Font.regular, fontSize: 12 },
+  infoSatir: { fontFamily: Font.regular, fontSize: 13 },
+  infoVurgu: { fontFamily: Font.semibold },
+  sonrakiSatir: { flexDirection: 'row', alignItems: 'center' },
+  blokBaslikSatir: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  blokBaslik: { fontFamily: Font.bold, fontSize: 14 },
+  blokAlt: { fontFamily: Font.regular, fontSize: 12, marginTop: 1 },
+  rozetSatir: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' },
+  sonrakiYazi: { fontFamily: Font.regular, fontSize: 13 },
+  sonrakiSaat: { fontFamily: Font.bold, fontSize: 16 },
+  tumBtn: { marginTop: 0 },
+  uyariYazi: { fontFamily: Font.regular, fontSize: 12, lineHeight: 18 },
+  kaynak: { fontFamily: Font.regular, fontSize: 11, textAlign: 'right', marginBottom: 4 },
+  durakSatir: { flexDirection: 'row', gap: 10 },
+  durakKart: { flex: 1, padding: 14, alignItems: 'center' },
+  durakAdi: { fontFamily: Font.bold, fontSize: 14, letterSpacing: -0.3, textAlign: 'center' },
+  durakFiyat: { fontFamily: Font.semibold, fontSize: 13, textAlign: 'center' },
+  turBaslikSatir: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, paddingBottom: 10 },
+  turBaslik: { fontFamily: Font.bold, fontSize: 15, letterSpacing: -0.3 },
+  turYonBaslik: { fontFamily: Font.bold, fontSize: 12, marginTop: 4 },
+  guzergahSatir: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 28 },
+  guzergahDurak: { fontFamily: Font.regular, fontSize: 13, flex: 1 },
+  guzergahSaat: { fontFamily: Font.bold, fontSize: 14 },
+  molaKutu: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: Radius.md, borderWidth: 1, padding: 10 },
+  molaYazi: { fontFamily: Font.regular, fontSize: 12, flex: 1 },
   // Modal
-  modalArka: { flex: 1, justifyContent: 'flex-end' },
-  modalKutu: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '80%' },
-  modalBaslik: { color: '#0077B6', fontSize: 18, fontWeight: '700', marginBottom: 4 },
-  modalAlt: { fontSize: 12, marginBottom: 16 },
-  saatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 12 },
-  saatKutu: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#0096C7', alignItems: 'center' },
+  saatGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 4 },
+  saatKutu: { borderRadius: Radius.sm, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, alignItems: 'center' },
   saatGecti: { opacity: 0.45 },
-  saatYazi: { fontSize: 15, fontWeight: '600' },
-  kapatBtn: { backgroundColor: '#0077B6', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 10 },
-  kapatYazi: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  saatYazi: { fontFamily: Font.semibold, fontSize: 15 },
   // Adalar
-  adaBolum: { marginHorizontal: 16, marginTop: 8 },
-  adaBaslik: { color: '#0077B6', fontSize: 15, fontWeight: '700', marginBottom: 12, letterSpacing: 1 },
-  adaBtn: { borderWidth: 1, borderRadius: 10, padding: 16, marginBottom: 10, alignItems: 'center' },
-  adaBtnYazi: { fontSize: 14, fontWeight: '600' },
+  adaBolum: { paddingHorizontal: 16, paddingTop: 8, gap: 14 },
+  adaSatir: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 24 },
+  adaAdi: { fontFamily: Font.semibold, fontSize: 14, flex: 1 },
 });

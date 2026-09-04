@@ -1,21 +1,23 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
-import { Palette, Radius, Space } from '../constants/theme';
+import { Font } from '../constants/theme';
 import { useTema } from '../hooks/use-tema';
+import { BirincilButon, BolumBaslik, GradyanHeader, Kart } from '../components/ui/pusula-ui';
 
 /* ═══════════════════════════════════════════
    EKRAN 1: Onboarding & Değer Önerisi
    ─────────────────────────────────────────
    Yeni kayıt olan kullanıcıya gösterilir.
-   Freemium model: Temel özellikler ücretsiz,
-   premium özellikler abonelikle.
+   Tamamen ücretsiz model (Eyl 2026): tüm özellikler
+   her rehbere açık.
    Sadece tipografi — ikon yok, emoji yok.
+   Eyl 2026 redesign — Kobalt & Menekşe; işlev değişmedi.
+   Gradyan header + kicker + Kart listesi (kobalt / menekşe accent).
    ═══════════════════════════════════════════ */
 
-const UCRETSIZ_OZELLIKLER = [
+const TUR_OZELLIKLERI = [
   {
     baslik: 'Tur Organizasyonu',
     aciklama: 'Saray, müze ve camilerin güncel açılış-kapanış saatlerini takip edin; MüzeKart satış noktalarının konumlarına anında ulaşın.',
@@ -30,7 +32,7 @@ const UCRETSIZ_OZELLIKLER = [
   },
 ];
 
-const PREMIUM_OZELLIKLER = [
+const SAHA_OZELLIKLERI = [
   {
     baslik: 'Anlık İletişim',
     aciklama: 'Özel sohbet bölümü sayesinde sahadaki diğer rehberlerle iletişimde kalın.',
@@ -47,17 +49,12 @@ const PREMIUM_OZELLIKLER = [
 
 export default function HosGeldin() {
   const insets = useSafeAreaInsets();
-  const { t, isDark } = useTema();
+  const { t } = useTema();
 
   return (
     <View style={[styles.container, { backgroundColor: t.bg }]}>
-      {/* ── Gradient Header ── */}
-      <LinearGradient
-        colors={['#005A8D', '#0077B6', '#0096C7']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 28 }]}
-      >
+      {/* ── Gradyan Header ── */}
+      <GradyanHeader paddingTop={insets.top + 28} style={styles.header}>
         <View style={styles.logoRow}>
           <Text style={styles.logoPusula}>PUSULA</Text>
           <Image
@@ -70,11 +67,11 @@ export default function HosGeldin() {
         <Text style={styles.hosgeldinBaslik}>
           Hoş Geldiniz!
         </Text>
-        <Text style={styles.hosgeldinAlt}>
+        <Text style={[styles.hosgeldinAlt, { color: t.headerSubtext }]}>
           Profesyonel turist rehberlerinin dijital asistanı.{'\n'}
           Sahada ihtiyacınız olan her şey tek uygulamada.
         </Text>
-      </LinearGradient>
+      </GradyanHeader>
 
       <ScrollView
         style={styles.scroll}
@@ -82,27 +79,27 @@ export default function HosGeldin() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Ücretsiz Özellikler ── */}
-        <Text style={[styles.bolumBaslik, { color: t.primary }]}>Herkese Açık</Text>
-        {UCRETSIZ_OZELLIKLER.map((oz, i) => (
-          <View key={`u-${i}`} style={[styles.ozellikKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-            <View style={styles.ozellikAccent} />
-            <View style={styles.ozellikMetin}>
+        <BolumBaslik baslik="Tur Organizasyonu" renk={t.primary} />
+        {TUR_OZELLIKLERI.map((oz, i) => (
+          <Kart key={`u-${i}`} accent={t.primary}>
+            <View>
               <Text style={[styles.ozellikBaslik, { color: t.text }]}>{oz.baslik}</Text>
               <Text style={[styles.ozellikAciklama, { color: t.textSecondary }]}>{oz.aciklama}</Text>
             </View>
-          </View>
+          </Kart>
         ))}
 
-        {/* ── Premium Özellikler ── */}
-        <Text style={[styles.bolumBaslik, { marginTop: 20, color: isDark ? '#C78EDB' : '#7B2D8E' }]}>Premium Ayrıcalıklar</Text>
-        {PREMIUM_OZELLIKLER.map((oz, i) => (
-          <View key={`p-${i}`} style={[styles.ozellikKart, { backgroundColor: t.bgCard, borderColor: isDark ? '#3A1E4A' : '#E8D5F0' }]}>
-            <View style={[styles.ozellikAccent, { backgroundColor: isDark ? '#C78EDB' : '#7B2D8E' }]} />
-            <View style={styles.ozellikMetin}>
+        {/* ── Saha & İletişim ── */}
+        <View style={styles.bolumAra}>
+          <BolumBaslik baslik="Saha ve İletişim" renk={t.secondary} />
+        </View>
+        {SAHA_OZELLIKLERI.map((oz, i) => (
+          <Kart key={`p-${i}`} accent={t.secondary}>
+            <View>
               <Text style={[styles.ozellikBaslik, { color: t.text }]}>{oz.baslik}</Text>
               <Text style={[styles.ozellikAciklama, { color: t.textSecondary }]}>{oz.aciklama}</Text>
             </View>
-          </View>
+          </Kart>
         ))}
 
         <View style={{ height: insets.bottom + 90 }} />
@@ -110,28 +107,19 @@ export default function HosGeldin() {
 
       {/* ── Sticky Footer Buton ── */}
       <View style={[styles.footerWrap, { paddingBottom: insets.bottom + 12, backgroundColor: t.bg, borderTopColor: t.divider }]}>
-        <TouchableOpacity
-          style={styles.baslaBtn}
+        <BirincilButon
+          baslik="Keşfetmeye Başla"
           onPress={() => router.replace('/(tabs)')}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={['#0077B6', '#005A8D']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.baslaGradient}
-          >
-            <Text style={styles.baslaYazi}>Keşfetmeye Başla</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+          varyant="cta"
+        />
 
         <Text style={[styles.yasalNot, { color: t.textMuted }]}>
           Devam ederek{' '}
-          <Text style={[styles.yasalLink, { color: t.accent }]} onPress={() => router.push('/kullanim-kosullari' as any)}>
+          <Text style={[styles.yasalLink, { color: t.primary }]} onPress={() => router.push('/kullanim-kosullari' as any)}>
             Kullanım Koşullarını
           </Text>
           {' '}ve{' '}
-          <Text style={[styles.yasalLink, { color: t.accent }]} onPress={() => router.push('/gizlilik-politikasi' as any)}>
+          <Text style={[styles.yasalLink, { color: t.primary }]} onPress={() => router.push('/gizlilik-politikasi' as any)}>
             Gizlilik Politikasını
           </Text>
           {' '}kabul etmiş olursunuz.
@@ -147,13 +135,11 @@ export default function HosGeldin() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
   },
 
   // Header
   header: {
-    paddingHorizontal: Space.lg,
-    paddingBottom: 32,
+    paddingBottom: 30,
     alignItems: 'center',
   },
   logoRow: {
@@ -164,7 +150,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   logoPusula: {
-    fontFamily: 'Poppins_700Bold',
+    fontFamily: Font.bold,
     fontSize: 20,
     color: '#FFFFFF',
     letterSpacing: 4,
@@ -174,22 +160,22 @@ const styles = StyleSheet.create({
     height: 48,
   },
   logoIstanbul: {
-    fontFamily: 'Poppins_700Bold',
+    fontFamily: Font.bold,
     fontSize: 19,
     color: '#FFFFFF',
     letterSpacing: 3,
   },
   hosgeldinBaslik: {
-    fontFamily: 'Poppins_800ExtraBold',
-    fontSize: 25,
+    fontFamily: Font.extrabold,
+    fontSize: 26,
+    letterSpacing: -0.5,
     color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 33,
+    lineHeight: 34,
   },
   hosgeldinAlt: {
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: Font.regular,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.85)',
     textAlign: 'center',
     marginTop: 10,
     lineHeight: 21,
@@ -198,48 +184,22 @@ const styles = StyleSheet.create({
   // Scroll
   scroll: { flex: 1 },
   scrollIcerik: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 24,
+    gap: 14,
   },
-
-  // Bölüm başlığı
-  bolumBaslik: {
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 15,
-    color: Palette.istanbulMavi,
-    marginBottom: 10,
-    paddingLeft: 4,
-  },
+  bolumAra: { marginTop: 10 },
 
   // Özellik kartları — sadece tipografi, ikon yok
-  ozellikKart: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: Radius.md,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  ozellikAccent: {
-    width: 4,
-    borderRadius: 2,
-    backgroundColor: Palette.istanbulMavi,
-    marginRight: 14,
-  },
-  ozellikMetin: {
-    flex: 1,
-  },
   ozellikBaslik: {
-    fontFamily: 'Poppins_600SemiBold',
+    fontFamily: Font.bold,
     fontSize: 15,
-    color: '#1E293B',
-    marginBottom: 3,
+    letterSpacing: -0.3,
+    marginBottom: 4,
   },
   ozellikAciklama: {
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: Font.regular,
     fontSize: 13,
-    color: '#64748B',
     lineHeight: 19,
   },
 
@@ -249,38 +209,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-  },
-  baslaBtn: {
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-  },
-  baslaGradient: {
-    paddingVertical: 18,
-    alignItems: 'center',
-    borderRadius: Radius.lg,
-  },
-  baslaYazi: {
-    fontFamily: 'Poppins_700Bold',
-    color: '#FFFFFF',
-    fontSize: 17,
-    letterSpacing: 0.3,
   },
   yasalNot: {
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: Font.regular,
     fontSize: 11,
-    color: '#94A3B8',
     textAlign: 'center',
     marginTop: 12,
     lineHeight: 16,
   },
   yasalLink: {
-    color: Palette.istanbulMavi,
-    fontFamily: 'Poppins_600SemiBold',
+    fontFamily: Font.semibold,
     textDecorationLine: 'underline',
   },
 });

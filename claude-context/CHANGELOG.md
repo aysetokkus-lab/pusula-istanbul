@@ -4,6 +4,22 @@ Bu dosya **append-only** — eski surum bilgilerini silmeyiz, yeni surumler ust 
 
 ---
 
+## v1.2.0 (HAZIRLIK — 3 Eylul 2026, henuz build yok)
+
+**Ozet:** Tamamen ucretsiz model, inline yonetim, "Kobalt & Menekse" redesign, sohbet tepki/yanit/gorsel, Bogaz hafta ici + hafta sonu, "Rehber Araniyor" ilanlari, DM, **AJANDA + MASRAF PUSULASI** (rota planlayici kaldirildi). Native degisiklikler (react-native-purchases cikti; expo-image-picker, expo-mail-composer, expo-sharing girdi; yeni ikon/splash) → **store build sart, OTA yetmez.**
+
+### Ajanda + Masraf Pusulasi (3 Eyl 2026)
+- Ana sayfada "Ajandam" karti (haftanin dolu gunleri), `app/ajanda.tsx`, `app/tur/[id].tsx`
+- Masraf satirlari: 9 kategori, TRY/EUR/USD, fis fotografi (ozel bucket `masraf-fisler`), ayri avans bolumu, para birimi bazli kalan
+- Rehberlik ucreti satirlari (TRY/EUR/USD) ve cok gunlu turlar (baslangic–bitis, gun bazli masraf, ciktida Gun sutunu) — migration `ajanda_cok_gunlu_tur_ve_rehberlik_ucreti`
+- PDF / Word / Excel (Edge Function `masraf-disa-aktar`, Pusula logolu, palet uyumlu) → mail uygulamasi ekli / Paylas
+- Migration `ajanda_ve_masraf_pusulasi` (rotalar DROP, ajanda_turlar, masraflar, bucket + policy'ler)
+
+### Release Notes taslagi (TR)
+> Pusula Istanbul artik tamamen ucretsiz. Yeni tasarim. Ajanda: tur tarihlerinizi not edin, her tur icin masraf pusulasi tutun, fisleri cekin; PDF/Word/Excel olarak acentenize tek dokunusla gonderin. Rehber Araniyor ilanlari, ozel mesajlasma, sohbette tepki ve gorsel paylasimi, Bogaz tarifelerinde hafta ici/hafta sonu birlikte.
+
+---
+
 ## v1.1.1 (HOTFIX, BUILD HAZIRLIK — 2 Haziran 2026)
 
 **Yayin durumu:** v1.1.0 Android yayinda (2 Haz sabah), iOS hala review'da. v1.1.0'da iki sorun tespit edildi → v1.1.1 hotfix paketi hazirlandi:

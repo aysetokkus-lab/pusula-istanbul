@@ -1795,3 +1795,49 @@ Ayse profil > bildirim ayarlarindan trafik bildirimlerini kapatmasina ragmen S22
 - `app/(tabs)/profil.tsx` (2 cikis noktasi: pushTokenTemizle → signOut sirasi)
 - Migration: `push_token_kaydet_rpc_token_benzersizligi`
 - Edge Function: `push-gonder` v4 (token dedupe)
+
+
+## 52. TAMAMEN UCRETSIZ MODEL + ADMIN PANELI → INLINE YONETIM (3 Eyl 2026)
+
+### Karar
+Ayse: uygulama rehberlere tamamen ucretsiz; RevenueCat/paywall koddan tamamen cikar; mevcut aboneler magazada satistan kaldirilan urunlerle donem sonunda biter (iade yok); kayit serbest, TUREB dogrulamasi yok. Ayni oturumda ayri admin paneli kaldirildi: yonetim, ilgili bolumun hemen altinda (GenelDuyuruPanel pattern'inin genellenmesi: `YetkiliBolum`).
+
+### Neden
+Gelir (~8 abone, ~600 TL/ay net) aylik giderin ~%15'i; premium gate rehber benimsemesini frenliyordu. Admin paneli ise "gordugun yerde duzelt" akisini bozuyordu (ozellikle sahada telefondan).
+
+### Nasil
+- premiumMi tum dallari kaldirildi (index/acil/bogaz/muzeler/sohbet/profil), `_layout` abonelik gating'i gitti, `react-native-purchases` uninstall. **Native modul cikisi → EAS Update OTA YETMEZ, store build (1.2.0) sart.**
+- 8 admin ekrani → `components/yetkili/*` named-export bilesenleri; ekran iskeleti (insets/header/geri/tam ekran yukleniyor/yetkisiz) atildi, Modal'lar ve Supabase sorgulari birebir korundu, ic ice scroll yasak (FlatList → map, RefreshControl → 'Yenile').
+- Sohbet'te panel FlatList `ListHeaderComponent` (inverted=false oldugu icin listenin ustunde).
+- Muzeler'de `MekanSaatleriYonetim kategori={kategoriId}` aktif sekmeyle senkron.
+
+### Tuzaklar
+- `yeni-kayit-hediye` Edge Function'i hala '7 gun premium' maili atiyor; kaynagi repoda yok ve Supabase MCP yalnizca hey-istanbul org'unu goruyor → baglayici yeniden baglanmadan deploy edilemez.
+- Resend/Expo/Supabase planlari Hey Istanbul ile ORTAK — maliyet optimizasyonu diye downgrade ONERME (Ayse'nin kirmizi cizgisi).
+- `profiles.abonelik_*` kolonlari ve RC webhook artiklari DB'de duruyor; ileride temizlenebilir, acil degil.
+
+## 53. ROTA PLANLAYICI YERINE AJANDA + MASRAF PUSULASI; DISA AKTARMA SUNUCUDA (3 Eyl 2026)
+
+### Karar
+Ayse: "rota olustur" anlamsiz → tamamen kaldir. Yerine (a) rehberin kendi tur tarihlerini not ettigi AJANDA (ana sayfa karti: haftanin dolu gunleri renkli + tam ekran takvim), (b) her tur icin MASRAF PUSULASI (kategori/aciklama/tutar, fis fotografi, TRY/EUR/USD, ayri AVANS satirlari — masraflardan dusulur), (c) PDF / Word / Excel disa aktarma (Pusula logolu, minik; Kobalt & Menekse paleti) ve (d) acenteye gonderim: **telefonun mail uygulamasi ekli acilir** (Pusula/Resend uzerinden gonderim ISTENMEDI) + sistem Paylas.
+
+### Neden
+Rehberin gercek is akisi: tur takvimi + gun sonunda acenteye masraf bildirimi. Fis toplama ve Excel'de elle yazma yerine telefondan cek-ekle-gonder.
+
+### Nasil
+- **Uretim istemcide DEGIL, Edge Function'da** (`masraf-disa-aktar`): pdf-lib (+fontkit, Poppins alt kumesi), docx, exceljs Deno'da sorunsuz; RN tarafinda Buffer/stream polyfill riski yok, cikti konteynerde `deno run` ile birebir test edilebiliyor (PDF pdftoppm ile goruntulendi, docx/xlsx LibreOffice ile). Istemci yalnizca base64 alir → cache'e yazar → MailComposer/Sharing.
+- Fonksiyon kullanicinin JWT'siyle calisir (anon key + Authorization header → RLS); fisler ozel bucket'tan yine kullanici oturumuyla iner. Service role gerekmedi.
+- Fontlar/logolar fonksiyon icine gomulmedi (deploy payload'i sisirir): `docs/varliklar/` → `https://pusulaistanbul.app/varliklar/` uzerinden calisma aninda cekilir, izolasyon omrunce onbellekte; font yedegi google/fonts raw TTF; logo yoksa cikti logosuz uretilir (kirilmaz).
+- Excel'de logo: exceljs `addImage` (SheetJS CE resim/stil desteklemez → exceljs secildi). PDF'te gradyan pdf-lib'de yok → 72 dilimli dikdortgen; harf araligi yok → harf harf cizim (kicker'lar).
+- Avans ayri `tip` (ayni tablo), kategori 'avans'; ozet `ozetHesapla` hem istemcide (hooks/use-masraflar.ts) hem fonksiyonda (ortak.ts) — ikisi ayni kurali uygular.
+- Takvim bileseni (`ui/takvim.tsx`) geriye uyumlu genisletildi: `gecmisSecilebilir`, `isaretler`, `onAyDegisti`.
+
+### Tuzaklar
+- expo-mail-composer / expo-sharing native modul → **1.2.0 store build sart** (zaten planli).
+- `expo-file-system` SDK 54'te yeni API; base64 yazmak icin `expo-file-system/legacy` kullanildi.
+- Web'de MailComposer/Sharing yok: dosyalar tarayici indirmesi + `mailto:` (Chrome incelemesi icin).
+- tsc artik `supabase/functions`'i gormuyor (tsconfig exclude) — Deno kodu `deno check` ile denetlenir.
+- Storage policy'leri `storage.foldername(name)[1] = auth.uid()` — fis yolu MUTLAKA `<uid>/...` ile baslamali.
+- Demo hesapla (demo.test@) yapilan E2E testte olusan tur silindi; DB'de test artigi yok.
+- **v2 eki (ayni gun):** rehberlik ucreti = ayni tabloda `tip='ucret'` (ayri tablo degil: ozet/RLS/disa aktarma tek akista kalir); cok gunlu tur = `bitis_tarih` + satir bazinda `masraflar.tarih` ("her gun icin pusula" yerine tek tur pusulasi icinde gun sutunu — acente tek dosya alir, rehber gun gun isler). Tek gunlu turda gun sutunu/chip'leri gorunmez, eski davranis aynen korunur.
+

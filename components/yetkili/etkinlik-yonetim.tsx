@@ -1,16 +1,22 @@
+/*
+  ETKİNLİK YÖNETİMİ — Inline yönetim bileşeni.
+  Ana sayfada EtkinliklerBandi bileşeninin hemen altında,
+  <YetkiliBolum baslik="Etkinlikler"> sarmalayıcısı içinde render edilir.
+  Yetki kontrolü sarmalayıcıda yapılır; burada yalnızca liste + ekle/düzenle/sil akışı vardır.
+  Eyl 2026: admin paneli kaldırıldı, inline yönetim (eski: app/admin-etkinlik.tsx).
+  Eyl 2026 redesign — Kobalt & Menekşe; işlev değişmedi (hex → token, Poppins, BirincilButon/Rozet/BosDurum).
+*/
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert,
-  TextInput, Modal, ActivityIndicator, RefreshControl,
+  TextInput, Modal, ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useAdmin } from '../hooks/use-admin';
-import { supabase } from '../lib/supabase';
-import { TarihSaatSecici } from '../components/tarih-saat-secici';
-import { useTema } from '../hooks/use-tema';
-import type { TemaRenkleri } from '../constants/theme';
+import { useAdmin } from '../../hooks/use-admin';
+import { supabase } from '../../lib/supabase';
+import { TarihSaatSecici } from '../tarih-saat-secici';
+import { useTema } from '../../hooks/use-tema';
+import { Font, Palette, Radius, type TemaRenkleri } from '../../constants/theme';
+import { BirincilButon, BosDurum, Rozet } from '../ui/pusula-ui';
 
 interface Etkinlik {
   id: string;
@@ -49,15 +55,18 @@ const BOS_FORM = {
   etki: 'diger', etkilenen_yollar: '', tip: 'diger', aktif: true,
 };
 
-export default function AdminEtkinlik() {
-  const insets = useSafeAreaInsets();
+/** Kapalı durumda listede gösterilecek en fazla etkinlik sayısı */
+const GORUNUR_LIMIT = 10;
+
+export function EtkinlikYonetim() {
   const { t } = useTema();
   const s = createStyles(t);
-  const { isYetkili, yukleniyor: adminYukleniyor } = useAdmin();
+  const { isYetkili } = useAdmin();
 
   const [etkinlikler, setEtkinlikler] = useState<Etkinlik[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [yenileniyor, setYenileniyor] = useState(false);
+  const [tumunuGoster, setTumunuGoster] = useState(false);
   const [modalAcik, setModalAcik] = useState(false);
   const [duzenlenen, setDuzenlenen] = useState<Etkinlik | null>(null);
   const [form, setForm] = useState(BOS_FORM);
@@ -181,87 +190,84 @@ export default function AdminEtkinlik() {
     }
   };
 
-  if (adminYukleniyor || yukleniyor) {
+  if (yukleniyor) {
     return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color="#0077B6" />
+      <View style={s.yukleniyorSatir}>
+        <ActivityIndicator size="small" color={t.primary} />
       </View>
     );
   }
 
-  if (!isYetkili) {
-    router.back();
-    return null;
-  }
+  const gorunenler = tumunuGoster ? etkinlikler : etkinlikler.slice(0, GORUNUR_LIMIT);
+  const gizliSayi = etkinlikler.length - gorunenler.length;
 
   return (
-    <View style={s.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={['#005A8D', '#0077B6', '#0096C7']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[s.header, { paddingTop: insets.top + 12 }]}
-      >
-        <TouchableOpacity onPress={() => router.back()} style={s.geriTus}>
-          <Text style={s.geriTusYazi}>{'<'} Admin Panel</Text>
-        </TouchableOpacity>
-        <Text style={s.headerBaslik}>Etkinlik Yönetimi</Text>
-        <Text style={s.headerAlt}>{etkinlikler.length} etkinlik</Text>
-      </LinearGradient>
+    <View style={s.alan}>
+      {/* Üst satır: sayaç + Yenile + Yeni Etkinlik */}
+      <View style={s.ustSatir}>
+        <Text style={s.sayac}>{etkinlikler.length} etkinlik</Text>
+        <View style={s.ustSatirSag}>
+          <TouchableOpacity
+            onPress={() => { setYenileniyor(true); cek(); }}
+            disabled={yenileniyor}
+            style={s.yenileBtn}
+          >
+            <Text style={[s.yenileYazi, yenileniyor && { opacity: 0.5 }]}>
+              {yenileniyor ? 'Yenileniyor...' : 'Yenile'}
+            </Text>
+          </TouchableOpacity>
+          <BirincilButon baslik="+ Yeni Etkinlik" onPress={yeniEkle} varyant="cta" style={s.ekleBtn} />
+        </View>
+      </View>
 
       {/* Liste */}
-      <ScrollView
-        style={s.liste}
-        refreshControl={
-          <RefreshControl refreshing={yenileniyor} onRefresh={() => { setYenileniyor(true); cek(); }} />
-        }
-      >
-        {etkinlikler.map(e => (
-          <View key={e.id} style={[s.kart, !e.aktif && s.kartPasif]}>
-            <View style={s.kartUst}>
-              <View style={s.kartBilgi}>
-                <Text style={s.kartBaslik}>{e.baslik}</Text>
-                <Text style={s.kartMeta}>
-                  {e.tip} | {e.konum || 'Konum yok'}
-                </Text>
-                <Text style={s.kartTarih}>
-                  {e.tarih ? new Date(e.tarih).toLocaleDateString('tr-TR') : '-'}
-                </Text>
-              </View>
-              <View style={[s.durumBadge, e.aktif ? s.aktifBadge : s.pasifBadge]}>
-                <Text style={s.durumBadgeYazi}>{e.aktif ? 'Aktif' : 'Pasif'}</Text>
-              </View>
-            </View>
-            <View style={s.kartAlt}>
-              <TouchableOpacity style={s.islemBtn} onPress={() => duzenle(e)}>
-                <Text style={s.islemBtnYazi}>Düzenle</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.islemBtn} onPress={() => aktifToggle(e)}>
-                <Text style={s.islemBtnYazi}>{e.aktif ? 'Pasifleştir' : 'Aktifleştir'}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.islemBtn, s.silBtn]} onPress={() => sil(e)}>
-                <Text style={[s.islemBtnYazi, s.silBtnYazi]}>Sil</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+      {etkinlikler.length === 0 ? (
+        <BosDurum metin="Henüz etkinlik yok." />
+      ) : null}
 
-      {/* Yeni Ekle FAB */}
-      <TouchableOpacity
-        style={[s.fab, { bottom: insets.bottom + 20 }]}
-        onPress={yeniEkle}
-        activeOpacity={0.8}
-      >
-        <Text style={s.fabYazi}>+ Yeni Etkinlik</Text>
-      </TouchableOpacity>
+      {gorunenler.map(e => (
+        <View key={e.id} style={[s.kart, !e.aktif && s.kartPasif]}>
+          <View style={s.kartUst}>
+            <View style={s.kartBilgi}>
+              <Text style={s.kartBaslik}>{e.baslik}</Text>
+              <Text style={s.kartMeta}>
+                {e.tip} | {e.konum || 'Konum yok'}
+              </Text>
+              <Text style={s.kartTarih}>
+                {e.tarih ? new Date(e.tarih).toLocaleDateString('tr-TR') : '-'}
+              </Text>
+            </View>
+            <Rozet renk={e.aktif ? t.primary : t.durumKapali}>{e.aktif ? 'Aktif' : 'Pasif'}</Rozet>
+          </View>
+          <View style={s.kartAlt}>
+            <TouchableOpacity style={s.islemBtn} onPress={() => duzenle(e)}>
+              <Text style={s.islemBtnYazi}>Düzenle</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.islemBtn} onPress={() => aktifToggle(e)}>
+              <Text style={s.islemBtnYazi}>{e.aktif ? 'Pasifleştir' : 'Aktifleştir'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.islemBtn, s.silBtn]} onPress={() => sil(e)}>
+              <Text style={[s.islemBtnYazi, s.silBtnYazi]}>Sil</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+
+      {etkinlikler.length > GORUNUR_LIMIT ? (
+        <TouchableOpacity
+          style={s.tumunuGosterBtn}
+          onPress={() => setTumunuGoster(v => !v)}
+        >
+          <Text style={s.tumunuGosterYazi}>
+            {tumunuGoster ? 'Daha az göster' : `Tümünü göster (${gizliSayi} daha)`}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       {/* Form Modal */}
       <Modal visible={modalAcik} animationType="slide" presentationStyle="pageSheet">
         <ScrollView style={s.modal} contentContainerStyle={{ paddingBottom: 40 }}>
-          <View style={[s.modalHeader, { paddingTop: insets.top + 8 }]}>
+          <View style={s.modalHeader}>
             <TouchableOpacity onPress={() => setModalAcik(false)}>
               <Text style={s.modalIptal}>İptal</Text>
             </TouchableOpacity>
@@ -374,88 +380,85 @@ export default function AdminEtkinlik() {
 }
 
 const createStyles = (t: TemaRenkleri) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.bg },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
+  alan: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12 },
+  yukleniyorSatir: { paddingVertical: 16, alignItems: 'center' },
 
-  header: { paddingBottom: 16, paddingHorizontal: 16 },
-  geriTus: { marginBottom: 8 },
-  geriTusYazi: { color: 'rgba(255,255,255,0.8)', fontSize: 14 },
-  headerBaslik: { color: '#FFF', fontSize: 22, fontWeight: '800', textAlign: 'center' },
-  headerAlt: { color: 'rgba(255,255,255,0.7)', fontSize: 12, textAlign: 'center', marginTop: 4 },
+  ustSatir: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 10,
+  },
+  ustSatirSag: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sayac: { fontFamily: Font.semibold, fontSize: 12, color: t.textSecondary },
+  yenileBtn: { paddingVertical: 6, paddingHorizontal: 4 },
+  yenileYazi: { fontFamily: Font.bold, fontSize: 12, color: t.primary },
+  ekleBtn: { height: 40, paddingHorizontal: 14 },
 
-  liste: { flex: 1, padding: 16 },
   kart: {
-    backgroundColor: t.bgCard, borderRadius: 14, padding: 16,
+    backgroundColor: t.bgCard, borderRadius: Radius.lg, padding: 16,
     marginBottom: 12, borderWidth: 1, borderColor: t.kartBorder,
   },
   kartPasif: { opacity: 0.5 },
   kartUst: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   kartBilgi: { flex: 1, marginRight: 12 },
-  kartBaslik: { fontSize: 15, fontWeight: '700', color: t.text },
-  kartMeta: { fontSize: 12, color: t.textSecondary, marginTop: 3 },
-  kartTarih: { fontSize: 12, color: '#0077B6', marginTop: 2, fontWeight: '600' },
-
-  durumBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  aktifBadge: { backgroundColor: t.bgSecondary },
-  pasifBadge: { backgroundColor: '#FEE2E2' },
-  durumBadgeYazi: { fontSize: 11, fontWeight: '700', color: '#0077B6' },
+  kartBaslik: { fontFamily: Font.bold, fontSize: 15, color: t.text, letterSpacing: -0.3 },
+  kartMeta: { fontFamily: Font.regular, fontSize: 12, color: t.textSecondary, marginTop: 3 },
+  kartTarih: { fontFamily: Font.semibold, fontSize: 12, color: t.primary, marginTop: 2 },
 
   kartAlt: { flexDirection: 'row', marginTop: 12, gap: 8 },
   islemBtn: {
-    backgroundColor: t.bgSecondary, borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: Palette.kobaltTint, borderRadius: Radius.sm,
+    paddingHorizontal: 14, paddingVertical: 8, minHeight: 32, justifyContent: 'center',
   },
-  islemBtnYazi: { fontSize: 12, fontWeight: '600', color: '#0077B6' },
-  silBtn: { backgroundColor: '#FEE2E2' },
-  silBtnYazi: { color: '#D62828' },
+  islemBtnYazi: { fontFamily: Font.bold, fontSize: 12, color: t.primary },
+  silBtn: { backgroundColor: Palette.kapaliTint },
+  silBtnYazi: { color: t.durumKapali },
 
-  fab: {
-    position: 'absolute', right: 16,
-    backgroundColor: '#0077B6', borderRadius: 14,
-    paddingHorizontal: 20, paddingVertical: 14,
-    elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15, shadowRadius: 8,
+  tumunuGosterBtn: {
+    alignItems: 'center', paddingVertical: 10, minHeight: 44, justifyContent: 'center',
+    borderRadius: Radius.md, borderWidth: 1, borderColor: t.kartBorder,
+    backgroundColor: t.bgCard,
   },
-  fabYazi: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  tumunuGosterYazi: { fontFamily: Font.semibold, fontSize: 13, color: t.primary },
 
   // Modal
   modal: { flex: 1, backgroundColor: t.bg },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingBottom: 12,
+    paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12,
     borderBottomWidth: 1, borderBottomColor: t.kartBorder, backgroundColor: t.bgCard,
   },
-  modalIptal: { color: t.textSecondary, fontSize: 15 },
-  modalBaslik: { fontSize: 16, fontWeight: '700', color: t.text },
-  modalKaydet: { color: '#0077B6', fontSize: 15, fontWeight: '700' },
+  modalIptal: { fontFamily: Font.regular, color: t.textSecondary, fontSize: 15 },
+  modalBaslik: { fontFamily: Font.bold, fontSize: 16, color: t.text, letterSpacing: -0.3 },
+  modalKaydet: { fontFamily: Font.bold, color: t.primary, fontSize: 15 },
 
   formAlani: { padding: 16 },
-  label: { fontSize: 12, fontWeight: '600', color: t.textSecondary, marginTop: 16, marginBottom: 6 },
+  label: { fontFamily: Font.semibold, fontSize: 12, color: t.textSecondary, marginTop: 16, marginBottom: 6 },
   input: {
-    backgroundColor: t.bgCard, borderRadius: 10, padding: 14,
-    fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder,
+    minHeight: 48, backgroundColor: t.bgInput, borderRadius: Radius.md,
+    paddingHorizontal: 14, paddingVertical: 10,
+    fontFamily: Font.regular, fontSize: 14, color: t.text, borderWidth: 1, borderColor: t.kartBorder,
   },
   inputCok: { minHeight: 80, textAlignVertical: 'top' },
 
   secimGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   secimBtn: {
-    backgroundColor: t.bgCard, borderRadius: 8,
+    backgroundColor: t.bgCard, borderRadius: Radius.sm,
     paddingHorizontal: 14, paddingVertical: 8,
     borderWidth: 1.5, borderColor: t.kartBorder,
   },
-  secimBtnAktif: { backgroundColor: '#0077B6', borderColor: '#0077B6' },
-  secimBtnYazi: { fontSize: 12, fontWeight: '600', color: t.textSecondary },
-  secimBtnYaziAktif: { color: '#FFF' },
+  secimBtnAktif: { backgroundColor: t.primary, borderColor: t.primary },
+  secimBtnYazi: { fontFamily: Font.semibold, fontSize: 12, color: t.textSecondary },
+  secimBtnYaziAktif: { color: '#FFFFFF' },
 
   aktifToggle: {
-    flexDirection: 'row', alignItems: 'center', marginTop: 20,
-    backgroundColor: t.bgCard, borderRadius: 10, padding: 14,
+    flexDirection: 'row', alignItems: 'center', marginTop: 20, minHeight: 48,
+    backgroundColor: t.bgCard, borderRadius: Radius.md, padding: 14,
     borderWidth: 1, borderColor: t.kartBorder,
   },
   toggleDot: {
     width: 20, height: 20, borderRadius: 10,
     backgroundColor: t.kartBorder, marginRight: 10,
   },
-  toggleDotAktif: { backgroundColor: '#0077B6' },
-  aktifToggleYazi: { fontSize: 14, fontWeight: '600', color: t.text },
+  toggleDotAktif: { backgroundColor: Palette.acik },
+  aktifToggleYazi: { fontFamily: Font.semibold, fontSize: 14, color: t.text },
 });

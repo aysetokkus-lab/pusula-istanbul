@@ -65,3 +65,7 @@ CLAUDE.md.eski
 
 # Scheduled task audit logs
 scripts/data/
+~$*
+
+# Gecici silinecekler (VM rm yasak)
+_to_delete/

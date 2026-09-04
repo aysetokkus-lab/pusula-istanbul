@@ -1,3 +1,6 @@
+/* Eyl 2026 redesign — "Kobalt & Menekşe"; işlev değişmedi.
+   Gradyan header içinde avatar + ad soyad + üye rozeti; Kart tabanlı menü satırları,
+   Segmentler ile tema seçici, ModalKapak ile alttan açılan modallar. Tüm hook/Alert/Linking akışları birebir. */
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import Constants from 'expo-constants';
@@ -16,20 +19,32 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import Purchases from 'react-native-purchases';
+import Svg, { Path } from 'react-native-svg';
 import { useTema, type TemaTercihi } from '../../hooks/use-tema';
-import { Palette, Radius, Space, type TemaRenkleri } from '../../constants/theme';
+import { Font, Palette, Radius, Space, type TemaRenkleri } from '../../constants/theme';
+import {
+  BirincilButon,
+  DurumNoktasi,
+  GradyanHeader,
+  HeaderBaslik,
+  Kart,
+  ModalKapak,
+  Rozet,
+  Segmentler,
+} from '../../components/ui/pusula-ui';
 import { supabase } from '../../lib/supabase';
 import { useAdmin } from '../../hooks/use-admin';
-import { useAbonelik } from '../../hooks/use-abonelik';
+import { YetkiliBolum } from '../../components/yetkili/yetkili-bolum';
+import { ModeratorYonetim } from '../../components/yetkili/moderator-yonetim';
 import { pushTokenTemizle } from '../../hooks/use-push-token';
-import { ENTITLEMENT_ID } from '../../lib/revenuecat';
 import {
   useBildirimTercihleri,
   BILDIRIM_KATEGORI_BILGI,
   type BildirimKategori,
 } from '../../hooks/use-bildirim-tercihleri';
+// Eyl 2026 — İş İlanları: profil telefonu + dillerim (push filtresi) profil düzenleme modalında
+import { useProfilDilleri } from '../../hooks/use-ilanlar';
+import { DILLER } from '../../constants/diller';
 
 /* ═══════════════════════════════════════════
    Surum (app.json'dan dinamik — v1.1.0 fix)
@@ -74,12 +89,42 @@ function tarihFormat(iso: string): string {
   }
 }
 
+/* ─── Sağ ok ikonu (24px stroke SVG — menü satırı ucu) ─── */
+function SagOk({ renk }: { renk: string }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 6l6 6-6 6" stroke={renk} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/* ─── Menü satırı (48px min dokunma yüksekliği) ─── */
+function MenuSatir({ baslik, alt, renk, onPress, son, styles, t }: {
+  baslik: string; alt?: string; renk: string; onPress: () => void; son?: boolean; styles: ReturnType<typeof createStyles>; t: TemaRenkleri;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.menuItem, { borderBottomColor: t.divider, borderBottomWidth: son ? 0 : 1 }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.menuNokta}><DurumNoktasi renk={renk} boyut={8} /></View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.menuText, { color: t.text }]}>{baslik}</Text>
+        {alt ? <Text style={[styles.menuAlt, { color: t.textSecondary }]}>{alt}</Text> : null}
+      </View>
+      <SagOk renk={t.textMuted} />
+    </TouchableOpacity>
+  );
+}
+
 /* ═══════════════════════════════════════════
    Ana Bileşen
    ═══════════════════════════════════════════ */
 export default function ProfilEkrani() {
   const insets = useSafeAreaInsets();
-  const { t, isDark, tercih, setTercih } = useTema();
+  const { t, tercih, setTercih } = useTema();
+  const styles = createStyles(t);
 
   const [kullanici, setKullanici] = useState<KullaniciBilgi | null>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
@@ -89,6 +134,10 @@ export default function ProfilEkrani() {
   const [duzenleAcik, setDuzenleAcik] = useState(false);
   const [editIsim, setEditIsim] = useState('');
   const [editSoyisim, setEditSoyisim] = useState('');
+  // Eyl 2026: telefon + dillerim (profiles.telefon / profiles.diller)
+  const [editTelefon, setEditTelefon] = useState('');
+  const [editDiller, setEditDiller] = useState<string[]>([]);
+  const { diller: profilDilleri, kaydet: dillerKaydet, telefon: profilTelefon, telefonKaydet } = useProfilDilleri();
 
   // Hakkında modal
   const [hakkindaAcik, setHakkindaAcik] = useState(false);
@@ -110,9 +159,6 @@ export default function ProfilEkrani() {
 
   // Admin hook'u
   const { isYetkili } = useAdmin();
-
-  // Abonelik hook'u
-  const abonelik = useAbonelik();
 
   /* ─── Kullanıcı bilgisini çek ─── */
   const kullaniciBilgiCek = useCallback(async () => {
@@ -170,14 +216,36 @@ export default function ProfilEkrani() {
     const yeniIsim = editIsim.trim();
     const yeniSoyisim = editSoyisim.trim();
 
-    // Isim degismemisse direkt kapat
+    // Eyl 2026: telefon ve diller isim sinirina tabi degil — degistiyse once onlari kaydet
+    const yeniTelefon = editTelefon.trim();
+    const telefonDegisti = yeniTelefon !== (profilTelefon || '').trim();
+    const dillerDegisti =
+      editDiller.length !== profilDilleri.length || editDiller.some(d => !profilDilleri.includes(d));
+
+    // Isim degismemisse direkt kapat (telefon/dil varsa kaydedip)
     if (eskiIsim === yeniIsim && eskiSoyisim === yeniSoyisim) {
+      if (telefonDegisti || dillerDegisti) {
+        setKayitYukleniyor(true);
+        const sonuclar = await Promise.all([
+          telefonDegisti ? telefonKaydet(yeniTelefon) : Promise.resolve(true),
+          dillerDegisti ? dillerKaydet(editDiller) : Promise.resolve(true),
+        ]);
+        setKayitYukleniyor(false);
+        if (sonuclar.some(ok => !ok)) {
+          Alert.alert('Hata', 'Telefon veya dil tercihi kaydedilemedi.');
+          return;
+        }
+      }
       setDuzenleAcik(false);
       return;
     }
 
     setKayitYukleniyor(true);
     try {
+      // Telefon / diller (isim siniri uygulanmaz)
+      if (telefonDegisti) await telefonKaydet(yeniTelefon);
+      if (dillerDegisti) await dillerKaydet(editDiller);
+
       // Ayda 1 degisiklik siniri kontrolu
       const birAyOnce = new Date();
       birAyOnce.setMonth(birAyOnce.getMonth() - 1);
@@ -270,29 +338,6 @@ export default function ProfilEkrani() {
     }
   };
 
-  /* ─── Satin almalari geri yukle (Apple 3.1.1 zorunlu) ─── */
-  const satinAlmalariGeriYukle = async () => {
-    try {
-      const customerInfo = await Purchases.restorePurchases();
-      const aktif = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
-      if (aktif) {
-        if (kullanici) {
-          await supabase.from('profiles').update({
-            abonelik_durumu: 'aktif',
-          }).eq('id', kullanici.id);
-        }
-        Alert.alert('Başarılı', 'Aboneliğiniz geri yüklendi. Uygulamayı yeniden başlatmanız gerekebilir.');
-      } else {
-        Alert.alert(
-          'Aktif Abonelik Bulunamadı',
-          'Hesabınız ile ilişkili aktif bir abonelik bulunamadı.'
-        );
-      }
-    } catch (e: any) {
-      Alert.alert('Hata', e?.message || 'Geri yükleme başarısız.');
-    }
-  };
-
   /* ─── Geri bildirim gonder ─── */
   const geriBildirimGonder = () => {
     const konu = encodeURIComponent('Pusula İstanbul - Geri Bildirim');
@@ -366,7 +411,14 @@ export default function ProfilEkrani() {
     if (!kullanici) return;
     setEditIsim(kullanici.profil.isim);
     setEditSoyisim(kullanici.profil.soyisim);
+    setEditTelefon(profilTelefon || '');
+    setEditDiller(profilDilleri);
     setDuzenleAcik(true);
+  };
+
+  /* ─── Dillerim: çip aç/kapat ─── */
+  const editDilToggle = (d: string) => {
+    setEditDiller(prev => (prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]));
   };
 
   /* ═══════════════════════════════════════════
@@ -386,29 +438,24 @@ export default function ProfilEkrani() {
   if (!kullanici) {
     return (
       <View style={[styles.container, { backgroundColor: t.bg }]}>
-        <LinearGradient
-          colors={[t.headerGradientStart, t.headerGradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, { paddingTop: insets.top + 12 }]}
-        >
-          <Text style={styles.headerTitle}>Profil</Text>
-        </LinearGradient>
+        <GradyanHeader paddingTop={insets.top + 12}>
+          <HeaderBaslik baslik="Profil" />
+        </GradyanHeader>
 
         <View style={styles.misafirIcerik}>
-          <View style={[styles.misafirIkon, { backgroundColor: t.bgSecondary }]}>
-            <Text style={{ fontSize: 48, color: '#94A3B8' }}>?</Text>
+          <View style={[styles.misafirIkon, { backgroundColor: t.bgSecondary, borderColor: t.kartBorder }]}>
+            <Text style={[styles.misafirSoru, { color: t.textMuted }]}>?</Text>
           </View>
           <Text style={[styles.misafirBaslik, { color: t.text }]}>Misafir Modu</Text>
           <Text style={[styles.misafirAciklama, { color: t.textSecondary }]}>
             Profilinizi görmek, yoğunluk bildirmek ve uygulamanın tüm özelliklerinden faydalanmak için giriş yapın.
           </Text>
-          <TouchableOpacity
-            style={[styles.girisBtn, { backgroundColor: t.primary }]}
+          <BirincilButon
+            baslik="Giriş Yap / Kayıt Ol"
+            varyant="kobalt"
             onPress={() => router.replace('/giris')}
-          >
-            <Text style={styles.girisBtnYazi}>Giriş Yap / Kayıt Ol</Text>
-          </TouchableOpacity>
+            style={styles.girisBtn}
+          />
         </View>
       </View>
     );
@@ -421,156 +468,96 @@ export default function ProfilEkrani() {
 
   return (
     <View style={[styles.container, { backgroundColor: t.bg }]}>
-      {/* ── Gradient Header ── */}
-      <LinearGradient
-        colors={[t.headerGradientStart, t.headerGradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 12 }]}
-      >
-        <Text style={styles.headerTitle}>Profil</Text>
-      </LinearGradient>
+      {/* ── Gradyan Header: başlık + avatar + ad soyad + üye rozeti ── */}
+      <GradyanHeader paddingTop={insets.top + 12}>
+        <HeaderBaslik baslik="Profil" />
+        <View style={styles.avatarBolum}>
+          <View style={styles.avatarDaire}>
+            <Text style={styles.avatarHarf}>{initialler}</Text>
+          </View>
+          <Text style={styles.adSoyad}>{adSoyad}</Text>
+          <Text style={styles.email}>{email}</Text>
+          <Rozet renk="#FFFFFF" style={styles.uyeRozet}>Üye: {tarihFormat(kayitTarihi)}</Rozet>
+        </View>
+      </GradyanHeader>
 
       <ScrollView contentContainerStyle={styles.scrollIcerik}>
-        {/* ── Avatar + İsim ── */}
-        <View style={styles.avatarBolum}>
-          <LinearGradient
-            colors={[Palette.istanbulMavi, Palette.maviKoyu]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.avatarDaire}
-          >
-            <Text style={styles.avatarHarf}>{initialler}</Text>
-          </LinearGradient>
-          <Text style={[styles.adSoyad, { color: t.text }]}>{adSoyad}</Text>
-          <Text style={[styles.email, { color: t.textSecondary }]}>{email}</Text>
-          <View style={[styles.etiketSatir]}>
-            <View style={[styles.etiket, { backgroundColor: `${Palette.istanbulMavi}20` }]}>
-              <Text style={[styles.etiketYazi, { color: Palette.istanbulMavi }]}>Üye: {tarihFormat(kayitTarihi)}</Text>
-            </View>
-          </View>
-        </View>
-
         {/* ── Mini Istatistik Kartlari ── */}
         <View style={styles.statSatir}>
-          <View style={[styles.statKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
+          <Kart style={styles.statKart}>
             <Text style={[styles.statSayi, { color: t.text }]}>{bildirimSayisi}</Text>
             <Text style={[styles.statAciklama, { color: t.textSecondary }]}>Saha Bildirimi</Text>
-          </View>
-          <View style={[styles.statKart, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-            <Text style={[styles.statSayi, { color: abonelik.premiumMi ? Palette.acik : Palette.kapali }]}>
-              {abonelik.premiumMi ? 'Premium' : 'Ücretsiz'}
+          </Kart>
+          <Kart style={styles.statKart}>
+            <Text style={[styles.statSayi, { color: Palette.acik }]}>
+              {isYetkili ? 'Yetkili' : 'Rehber'}
             </Text>
             <Text style={[styles.statAciklama, { color: t.textSecondary }]}>
               Hesap Durumu
             </Text>
-          </View>
+          </Kart>
         </View>
 
         {/* ── Hesap Ayarlari ── */}
-        <View style={[styles.menuCard, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: t.divider }]} onPress={duzenleAc}>
-            <View style={[styles.menuDot, { backgroundColor: Palette.istanbulMavi }]} />
-            <Text style={[styles.menuText, { color: t.text }]}>Profili Düzenle</Text>
-            <Text style={[styles.menuOk, { color: t.textMuted }]}>{'>'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: t.divider }]} onPress={() => { setYeniSifre(''); setYeniSifreTekrar(''); setSifreAcik(true); }}>
-            <View style={[styles.menuDot, { backgroundColor: Palette.istanbulMavi }]} />
-            <Text style={[styles.menuText, { color: t.text }]}>Şifre Değiştir</Text>
-            <Text style={[styles.menuOk, { color: t.textMuted }]}>{'>'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: t.divider }]} onPress={() => setBildirimAyarAcik(true)}>
-            <View style={[styles.menuDot, { backgroundColor: Palette.istanbulMavi }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.menuText, { color: t.text }]}>Bildirim Ayarları</Text>
-              <Text style={{ fontSize: 11, color: t.textSecondary, marginTop: 2 }}>
-                {Object.values(bildirimTercihleri).filter(Boolean).length} / {Object.keys(bildirimTercihleri).length} kategori açık
-              </Text>
-            </View>
-            <Text style={[styles.menuOk, { color: t.textMuted }]}>{'>'}</Text>
-          </TouchableOpacity>
-          {/* ── Görünüm (Tema) Seçici ── */}
-          <View style={[styles.menuItem, { borderBottomColor: t.divider }]}>
-            <View style={[styles.menuDot, { backgroundColor: '#8B5CF6' }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.menuText, { color: t.text, marginBottom: 8 }]}>Görünüm</Text>
-              <View style={styles.temaBtnSatir}>
-                {([
-                  { key: 'sistem' as TemaTercihi, label: 'Sistem' },
-                  { key: 'acik' as TemaTercihi, label: 'Açık' },
-                  { key: 'koyu' as TemaTercihi, label: 'Koyu' },
-                ]).map((item) => {
-                  const secili = tercih === item.key;
-                  return (
-                    <TouchableOpacity
-                      key={item.key}
-                      style={[
-                        styles.temaBtn,
-                        { borderColor: secili ? Palette.istanbulMavi : t.kartBorder, backgroundColor: secili ? `${Palette.istanbulMavi}15` : t.bgCard },
-                      ]}
-                      onPress={() => setTercih(item.key)}
-                    >
-                      <View style={[styles.temaRadio, { borderColor: secili ? Palette.istanbulMavi : t.textMuted }]}>
-                        {secili && <View style={[styles.temaRadioIc, { backgroundColor: Palette.istanbulMavi }]} />}
-                      </View>
-                      <Text style={[styles.temaBtnYazi, { color: secili ? Palette.istanbulMavi : t.textSecondary }]}>
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+        <Kart style={styles.menuCard}>
+          <View>
+            <MenuSatir baslik="Profili Düzenle" renk={t.primary} onPress={duzenleAc} styles={styles} t={t} />
+            <MenuSatir
+              baslik="Şifre Değiştir"
+              renk={t.primary}
+              onPress={() => { setYeniSifre(''); setYeniSifreTekrar(''); setSifreAcik(true); }}
+              styles={styles}
+              t={t}
+            />
+            <MenuSatir
+              baslik="Bildirim Ayarları"
+              alt={`${Object.values(bildirimTercihleri).filter(Boolean).length} / ${Object.keys(bildirimTercihleri).length} kategori açık`}
+              renk={t.primary}
+              onPress={() => setBildirimAyarAcik(true)}
+              styles={styles}
+              t={t}
+            />
+            {/* ── Görünüm (Tema) Seçici ── */}
+            <View style={[styles.menuItem, { borderBottomColor: t.divider, borderBottomWidth: 1 }]}>
+              <View style={styles.menuNokta}><DurumNoktasi renk={t.secondary} boyut={8} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuText, { color: t.text, marginBottom: 10 }]}>Görünüm</Text>
+                <Segmentler<TemaTercihi>
+                  secenekler={[
+                    { id: 'sistem', baslik: 'Sistem' },
+                    { id: 'acik', baslik: 'Açık' },
+                    { id: 'koyu', baslik: 'Koyu' },
+                  ]}
+                  aktif={tercih}
+                  onSec={(id) => setTercih(id)}
+                />
               </View>
             </View>
+            <MenuSatir baslik="Hakkında" renk={t.primary} onPress={() => setHakkindaAcik(true)} son styles={styles} t={t} />
           </View>
-          <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => setHakkindaAcik(true)}>
-            <View style={[styles.menuDot, { backgroundColor: Palette.istanbulMavi }]} />
-            <Text style={[styles.menuText, { color: t.text }]}>Hakkında</Text>
-            <Text style={[styles.menuOk, { color: t.textMuted }]}>{'>'}</Text>
-          </TouchableOpacity>
-        </View>
+        </Kart>
 
         {/* ── Destek ── */}
-        <View style={[styles.menuCard, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: t.divider }]} onPress={geriBildirimGonder}>
-            <View style={[styles.menuDot, { backgroundColor: '#10B981' }]} />
-            <Text style={[styles.menuText, { color: t.text }]}>Geri Bildirim Gönder</Text>
-            <Text style={[styles.menuOk, { color: t.textMuted }]}>{'>'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: t.divider }]} onPress={satinAlmalariGeriYukle}>
-            <View style={[styles.menuDot, { backgroundColor: '#0077B6' }]} />
-            <Text style={[styles.menuText, { color: t.text }]}>Satın Almaları Geri Yükle</Text>
-            <Text style={[styles.menuOk, { color: t.textMuted }]}>{'>'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: t.divider }]} onPress={() => router.push('/kullanim-kosullari' as any)}>
-            <View style={[styles.menuDot, { backgroundColor: '#64748B' }]} />
-            <Text style={[styles.menuText, { color: t.text }]}>Kullanım Koşulları</Text>
-            <Text style={[styles.menuOk, { color: t.textMuted }]}>{'>'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => router.push('/gizlilik-politikasi' as any)}>
-            <View style={[styles.menuDot, { backgroundColor: '#64748B' }]} />
-            <Text style={[styles.menuText, { color: t.text }]}>Gizlilik Politikası</Text>
-            <Text style={[styles.menuOk, { color: t.textMuted }]}>{'>'}</Text>
-          </TouchableOpacity>
+        <Kart style={styles.menuCard}>
+          <View>
+            <MenuSatir baslik="Geri Bildirim Gönder" renk={Palette.acik} onPress={geriBildirimGonder} styles={styles} t={t} />
+            <MenuSatir baslik="Kullanım Koşulları" renk={Palette.bilgi} onPress={() => router.push('/kullanim-kosullari' as any)} styles={styles} t={t} />
+            <MenuSatir baslik="Gizlilik Politikası" renk={Palette.bilgi} onPress={() => router.push('/gizlilik-politikasi' as any)} son styles={styles} t={t} />
+          </View>
+        </Kart>
+
+        {/* ── Moderatör Yönetimi — yalnızca admin (Eyl 2026: admin paneli kaldırıldı, inline) ── */}
+        <View style={{ marginHorizontal: -16 }}>
+          <YetkiliBolum baslik="Moderatörler" aciklama="Moderatör ata / kaldır" sadeceAdmin>
+            <ModeratorYonetim />
+          </YetkiliBolum>
         </View>
 
-        {/* ── Admin Panel — sadece yetkililere gorunur ── */}
-        {isYetkili && (
-          <View style={[styles.menuCard, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
-            <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => router.push('/admin')}>
-              <View style={[styles.menuDot, { backgroundColor: '#0077B6' }]} />
-              <Text style={[styles.menuText, { color: '#0077B6' }]}>Admin Panel</Text>
-              <Text style={[styles.menuOk, { color: '#0077B6' }]}>{'>'}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* ── Cikis ve Hesap Sil ── */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={cikisYap}>
-          <Text style={styles.logoutText}>Çıkış Yap</Text>
-        </TouchableOpacity>
+        <BirincilButon baslik="Çıkış Yap" varyant="tehlike" onPress={cikisYap} style={styles.logoutBtn} />
 
-        <TouchableOpacity style={styles.hesapSilBtn} onPress={hesabiSil}>
-          <Text style={styles.hesapSilText}>Hesabımı Sil</Text>
+        <TouchableOpacity style={[styles.hesapSilBtn, { borderColor: t.durumKapali }]} onPress={hesabiSil} activeOpacity={0.7}>
+          <Text style={[styles.hesapSilText, { color: t.durumKapali }]}>Hesabımı Sil</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -580,48 +567,60 @@ export default function ProfilEkrani() {
           MODAL — Profili Düzenle
          ════════════════════════════════════════ */}
       <Modal visible={duzenleAcik} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.modalKutu, { backgroundColor: t.modalBg }]}>
-            <Text style={[styles.modalBaslik, { color: t.text }]}>Profili Düzenle</Text>
+        <KeyboardAvoidingView style={styles.modalKav} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ModalKapak baslik="Profili Düzenle" onKapat={() => setDuzenleAcik(false)} altButonBaslik="İptal">
+            {/* Eyl 2026: telefon + dillerim eklendi; içerik uzadığı için ScrollView */}
+            <ScrollView style={{ maxHeight: 460 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Text style={[styles.inputLabel, { color: t.textSecondary }]}>İsim</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
+                value={editIsim}
+                onChangeText={setEditIsim}
+                placeholder="İsim"
+                placeholderTextColor={t.textMuted}
+              />
 
-            <Text style={[styles.inputLabel, { color: t.textSecondary }]}>İsim</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
-              value={editIsim}
-              onChangeText={setEditIsim}
-              placeholder="İsim"
-              placeholderTextColor={t.textMuted}
-            />
+              <Text style={[styles.inputLabel, { color: t.textSecondary }]}>Soyisim</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
+                value={editSoyisim}
+                onChangeText={setEditSoyisim}
+                placeholder="Soyisim"
+                placeholderTextColor={t.textMuted}
+              />
 
-            <Text style={[styles.inputLabel, { color: t.textSecondary }]}>Soyisim</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
-              value={editSoyisim}
-              onChangeText={setEditSoyisim}
-              placeholder="Soyisim"
-              placeholderTextColor={t.textMuted}
-            />
+              <Text style={[styles.inputLabel, { color: t.textSecondary }]}>Telefon</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
+                value={editTelefon}
+                onChangeText={setEditTelefon}
+                placeholder="05xx xxx xx xx (ilanlarda iletişim)"
+                placeholderTextColor={t.textMuted}
+                keyboardType="phone-pad"
+                maxLength={20}
+              />
 
-            <View style={styles.modalBtnSatir}>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: t.bgSecondary }]}
-                onPress={() => setDuzenleAcik(false)}
-              >
-                <Text style={[styles.modalBtnYazi, { color: t.text }]}>İptal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: Palette.istanbulMavi }]}
+              <Text style={[styles.inputLabel, { color: t.textSecondary }]}>Dillerim</Text>
+              <Text style={[styles.dilNot, { color: t.textMuted }]}>
+                İş ilanı bildirimleri bu dillere göre gelir; boşsa tüm ilanlar.
+              </Text>
+              <View style={styles.dilSarmal}>
+                {DILLER.map(d => (
+                  <TouchableOpacity key={d} onPress={() => editDilToggle(d)} activeOpacity={0.7} style={styles.dilChipDokun} hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}>
+                    <Rozet renk={t.secondary} dolu={editDiller.includes(d)} style={styles.dilChip}>{d}</Rozet>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <BirincilButon
+                baslik="Kaydet"
+                varyant="cta"
                 onPress={profilGuncelle}
-                disabled={kayitYukleniyor}
-              >
-                {kayitYukleniyor ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={[styles.modalBtnYazi, { color: '#fff' }]}>Kaydet</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+                yukleniyor={kayitYukleniyor}
+                style={styles.modalKaydetBtn}
+              />
+            </ScrollView>
+          </ModalKapak>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -629,10 +628,8 @@ export default function ProfilEkrani() {
           MODAL — Sifre Degistir
          ════════════════════════════════════════ */}
       <Modal visible={sifreAcik} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.modalKutu, { backgroundColor: t.modalBg }]}>
-            <Text style={[styles.modalBaslik, { color: t.text }]}>Şifre Değiştir</Text>
-
+        <KeyboardAvoidingView style={styles.modalKav} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ModalKapak baslik="Şifre Değiştir" onKapat={() => setSifreAcik(false)} altButonBaslik="İptal">
             <Text style={[styles.inputLabel, { color: t.textSecondary }]}>Yeni Şifre</Text>
             <TextInput
               style={[styles.input, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
@@ -653,26 +650,14 @@ export default function ProfilEkrani() {
               secureTextEntry
             />
 
-            <View style={styles.modalBtnSatir}>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: t.bgSecondary }]}
-                onPress={() => setSifreAcik(false)}
-              >
-                <Text style={[styles.modalBtnYazi, { color: t.text }]}>İptal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: Palette.istanbulMavi }]}
-                onPress={sifreDegistir}
-                disabled={sifreYukleniyor}
-              >
-                {sifreYukleniyor ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={[styles.modalBtnYazi, { color: '#fff' }]}>Değiştir</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+            <BirincilButon
+              baslik="Değiştir"
+              varyant="cta"
+              onPress={sifreDegistir}
+              yukleniyor={sifreYukleniyor}
+              style={styles.modalKaydetBtn}
+            />
+          </ModalKapak>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -680,78 +665,68 @@ export default function ProfilEkrani() {
           MODAL — Hakkında
          ════════════════════════════════════════ */}
       <Modal visible={hakkindaAcik} animationType="fade" transparent>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setHakkindaAcik(false)}>
-          <View style={[styles.modalKutu, { backgroundColor: t.modalBg }]}>
-            <Text style={[styles.modalBaslik, { color: t.text, textAlign: 'center' }]}>Pusula İstanbul</Text>
-            <Text style={[styles.hakkindaAlt, { color: t.textSecondary }]}>Pusula İstanbul v{APP_VERSION}</Text>
-            <Text style={[styles.hakkindaAlt, { color: t.textSecondary, marginTop: 4 }]}>
-              Profesyonel turist rehberleri için güncel saha bilgi uygulaması
-            </Text>
+        <TouchableOpacity style={styles.modalKav} activeOpacity={1} onPress={() => setHakkindaAcik(false)}>
+          <ModalKapak baslik="Pusula İstanbul" alt={`Pusula İstanbul v${APP_VERSION}`} onKapat={() => setHakkindaAcik(false)}>
+            <View onStartShouldSetResponder={() => true}>
+              <Text style={[styles.hakkindaAlt, { color: t.textSecondary }]}>
+                Profesyonel turist rehberleri için güncel saha bilgi uygulaması
+              </Text>
 
-            <View style={[styles.hakkindaDivider, { backgroundColor: t.divider }]} />
+              <View style={[styles.hakkindaDivider, { backgroundColor: t.divider }]} />
 
-            <Text style={[styles.hakkindaDetay, { color: t.textMuted }]}>
-              Geliştirici: Ayşe Tokkuş Bayar{'\n'}
-              © 2026 Tüm hakları saklıdır.
-            </Text>
-
-            <TouchableOpacity
-              style={[styles.modalKapatBtn, { backgroundColor: t.bgSecondary }]}
-              onPress={() => setHakkindaAcik(false)}
-            >
-              <Text style={[styles.modalBtnYazi, { color: t.text }]}>Kapat</Text>
-            </TouchableOpacity>
-          </View>
+              <Text style={[styles.hakkindaDetay, { color: t.textMuted }]}>
+                Geliştirici: Ayşe Tokkuş Bayar{'\n'}
+                © 2026 Tüm hakları saklıdır.
+              </Text>
+            </View>
+          </ModalKapak>
         </TouchableOpacity>
       </Modal>
+
       {/* ════════════════════════════════════════
           MODAL — Bildirim Ayarları
          ════════════════════════════════════════ */}
       <Modal visible={bildirimAyarAcik} animationType="slide" transparent>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setBildirimAyarAcik(false)}>
-          <View style={[styles.modalKutu, { backgroundColor: t.modalBg }]} onStartShouldSetResponder={() => true}>
-            <Text style={[styles.modalBaslik, { color: t.text }]}>Bildirim Ayarları</Text>
-            <Text style={{ fontSize: 12, color: t.textSecondary, marginBottom: 16, marginTop: -12 }}>
-              Hangi bildirim türlerini almak istediğinizi seçin
-            </Text>
-
-            {(Object.keys(BILDIRIM_KATEGORI_BILGI) as BildirimKategori[]).map((kategori, index, arr) => {
-              const bilgi = BILDIRIM_KATEGORI_BILGI[kategori];
-              const aktif = bildirimTercihleri[kategori];
-              return (
-                <View
-                  key={kategori}
-                  style={[
-                    styles.bildirimSatir,
-                    { borderBottomColor: t.divider, borderBottomWidth: index < arr.length - 1 ? 1 : 0 },
-                  ]}
-                >
-                  <View style={styles.bildirimSol}>
-                    <View style={[styles.bildirimDot, { backgroundColor: aktif ? Palette.acik : t.textMuted }]} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.bildirimBaslik, { color: t.text }]}>{bilgi.baslik}</Text>
-                      <Text style={[styles.bildirimAciklama, { color: t.textSecondary }]}>
-                        {aktif ? bilgi.aciklama : bilgi.aciklamaKapali}
-                      </Text>
+        <TouchableOpacity style={styles.modalKav} activeOpacity={1} onPress={() => setBildirimAyarAcik(false)}>
+          <ModalKapak
+            baslik="Bildirim Ayarları"
+            alt="Hangi bildirim türlerini almak istediğinizi seçin"
+            onKapat={() => setBildirimAyarAcik(false)}
+          >
+            <View onStartShouldSetResponder={() => true}>
+              {(Object.keys(BILDIRIM_KATEGORI_BILGI) as BildirimKategori[]).map((kategori, index, arr) => {
+                const bilgi = BILDIRIM_KATEGORI_BILGI[kategori];
+                const aktif = bildirimTercihleri[kategori];
+                return (
+                  <View
+                    key={kategori}
+                    style={[
+                      styles.bildirimSatir,
+                      { borderBottomColor: t.divider, borderBottomWidth: index < arr.length - 1 ? 1 : 0 },
+                    ]}
+                  >
+                    <View style={styles.bildirimSol}>
+                      <View style={styles.bildirimNokta}>
+                        <DurumNoktasi renk={aktif ? Palette.acik : t.textMuted} boyut={8} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.bildirimBaslik, { color: t.text }]}>{bilgi.baslik}</Text>
+                        <Text style={[styles.bildirimAciklama, { color: t.textSecondary }]}>
+                          {aktif ? bilgi.aciklama : bilgi.aciklamaKapali}
+                        </Text>
+                      </View>
                     </View>
+                    <Switch
+                      value={aktif}
+                      onValueChange={() => bildirimToggle(kategori)}
+                      trackColor={{ false: t.divider, true: `${t.primary}80` }}
+                      thumbColor={aktif ? t.primary : t.textMuted}
+                    />
                   </View>
-                  <Switch
-                    value={aktif}
-                    onValueChange={() => bildirimToggle(kategori)}
-                    trackColor={{ false: t.divider, true: `${Palette.istanbulMavi}80` }}
-                    thumbColor={aktif ? Palette.istanbulMavi : t.textMuted}
-                  />
-                </View>
-              );
-            })}
-
-            <TouchableOpacity
-              style={[styles.modalKapatBtn, { backgroundColor: t.bgSecondary }]}
-              onPress={() => setBildirimAyarAcik(false)}
-            >
-              <Text style={[styles.modalBtnYazi, { color: t.text }]}>Kapat</Text>
-            </TouchableOpacity>
-          </View>
+                );
+              })}
+            </View>
+          </ModalKapak>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -761,147 +736,119 @@ export default function ProfilEkrani() {
 /* ═══════════════════════════════════════════
    Stiller
    ═══════════════════════════════════════════ */
-const styles = StyleSheet.create({
+const createStyles = (t: TemaRenkleri) => StyleSheet.create({
   container: { flex: 1 },
-
-  // Header
-  header: {
-    paddingHorizontal: Space.lg,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontFamily: 'Poppins_700Bold',
-    fontSize: 22,
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
 
   // Scroll
   scrollIcerik: {
     paddingHorizontal: Space.lg,
-    paddingTop: 24,
+    paddingTop: 18,
+    gap: 14,
   },
 
-  // Avatar bölümü
+  // Avatar bölümü (header içinde)
   avatarBolum: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginTop: 18,
   },
   avatarDaire: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Space.md,
+    backgroundColor: Palette.seffafBeyaz20,
+    borderWidth: 2,
+    borderColor: Palette.seffafBeyaz20,
   },
   avatarHarf: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontFamily: Font.extrabold,
+    fontSize: 26,
     color: '#FFFFFF',
     letterSpacing: 2,
   },
   adSoyad: {
-    fontFamily: 'Poppins_700Bold',
+    fontFamily: Font.bold,
     fontSize: 20,
+    letterSpacing: -0.3,
+    color: '#FFFFFF',
     marginBottom: 2,
   },
   email: {
+    fontFamily: Font.regular,
     fontSize: 13,
+    color: t.headerSubtext,
     marginBottom: 10,
   },
-
-  // Etiketler
-  etiketSatir: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  etiket: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: Radius.full,
-  },
-  etiketYazi: {
-    fontSize: 12,
-    fontWeight: '600',
+  uyeRozet: {
+    alignSelf: 'center',
   },
 
   // İstatistik kartları
   statSatir: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 20,
   },
   statKart: {
     flex: 1,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
     paddingVertical: 14,
+    paddingHorizontal: 12,
     alignItems: 'center',
   },
   statSayi: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
+    fontFamily: Font.extrabold,
+    fontSize: 22,
+    letterSpacing: -0.5,
+    textAlign: 'center',
   },
   statAciklama: {
+    fontFamily: Font.semibold,
     fontSize: 11,
+    textAlign: 'center',
   },
 
   // Menü kartı
   menuCard: {
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    marginBottom: 20,
-    overflow: 'hidden',
+    paddingVertical: 4,
+    paddingHorizontal: 0,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 48,
     paddingHorizontal: Space.lg,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    paddingVertical: 10,
   },
-  menuDot: {
+  menuNokta: {
     width: 8,
-    height: 8,
-    borderRadius: 4,
     marginRight: 14,
+    alignItems: 'center',
   },
   menuText: {
-    fontSize: 15,
-    fontWeight: '600',
-    flex: 1,
+    fontFamily: Font.semibold,
+    fontSize: 14,
   },
-  menuOk: {
-    fontSize: 22,
-    fontWeight: '300',
+  menuAlt: {
+    fontFamily: Font.regular,
+    fontSize: 11,
+    marginTop: 2,
   },
 
   // Cikis
   logoutBtn: {
-    backgroundColor: '#D62828',
-    borderRadius: Radius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  logoutText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    marginTop: 6,
   },
   hesapSilBtn: {
-    borderRadius: Radius.md,
-    paddingVertical: 14,
+    height: 44,
+    borderRadius: 16,
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#D62828',
   },
   hesapSilText: {
-    color: '#D62828',
+    fontFamily: Font.semibold,
     fontSize: 13,
-    fontWeight: '600',
   },
 
   // Misafir ekranı
@@ -915,87 +862,79 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
   },
+  misafirSoru: {
+    fontFamily: Font.extrabold,
+    fontSize: 44,
+  },
   misafirBaslik: {
-    fontFamily: 'Poppins_700Bold',
+    fontFamily: Font.bold,
     fontSize: 22,
+    letterSpacing: -0.3,
     marginBottom: 8,
   },
   misafirAciklama: {
+    fontFamily: Font.regular,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 28,
   },
   girisBtn: {
-    paddingHorizontal: 40,
-    paddingVertical: 14,
-    borderRadius: Radius.md,
-  },
-  girisBtnYazi: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    alignSelf: 'stretch',
   },
 
   // Modal ortak
-  modalOverlay: {
+  modalKav: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
   },
-  modalKutu: {
-    borderRadius: Radius.lg,
-    padding: 24,
-  },
-  modalBaslik: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 20,
-  },
-  modalBtnSatir: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  modalBtn: {
-    flex: 1,
-    borderRadius: Radius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  modalBtnYazi: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  modalKapatBtn: {
-    borderRadius: Radius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 20,
+  modalKaydetBtn: {
+    marginTop: 4,
   },
 
   // Düzenleme input
   inputLabel: {
+    fontFamily: Font.semibold,
     fontSize: 12,
-    fontWeight: '600',
     marginBottom: 6,
     marginTop: 4,
   },
   input: {
-    borderRadius: 10,
+    fontFamily: Font.regular,
+    borderRadius: Radius.md,
     padding: 14,
     fontSize: 15,
     marginBottom: 12,
     borderWidth: 1,
   },
+  // Eyl 2026: Dillerim çip seçici
+  dilNot: {
+    fontFamily: Font.regular,
+    fontSize: 11,
+    marginBottom: 8,
+  },
+  dilSarmal: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 14,
+  },
+  dilChipDokun: {
+    minHeight: 32,
+    justifyContent: 'center',
+  },
+  dilChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
 
   // Hakkinda modal
   hakkindaAlt: {
+    fontFamily: Font.regular,
     fontSize: 13,
     textAlign: 'center',
   },
@@ -1004,6 +943,7 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   hakkindaDetay: {
+    fontFamily: Font.regular,
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 20,
@@ -1014,7 +954,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    minHeight: 44,
+    paddingVertical: 12,
   },
   bildirimSol: {
     flexDirection: 'row',
@@ -1022,52 +963,18 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
-  bildirimDot: {
+  bildirimNokta: {
     width: 8,
-    height: 8,
-    borderRadius: 4,
     marginRight: 12,
+    alignItems: 'center',
   },
   bildirimBaslik: {
+    fontFamily: Font.semibold,
     fontSize: 14,
-    fontWeight: '600',
     marginBottom: 2,
   },
   bildirimAciklama: {
+    fontFamily: Font.regular,
     fontSize: 11,
-  },
-
-  // Tema secici
-  temaBtnSatir: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  temaBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: Radius.sm,
-    borderWidth: 1.5,
-    gap: 6,
-  },
-  temaBtnYazi: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  temaRadio: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  temaRadioIc: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
 });
