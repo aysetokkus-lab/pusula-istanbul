@@ -309,3 +309,19 @@ Yeni bir bug ile karsilastiginda dene:
 - **Cozum:** (1) Ela'nin satirindaki token NULL'landi (aninda kesildi, trafik hedef 27→26). (2) `push_token_kaydet` SECURITY DEFINER RPC — token kaydinda ayni token'i diger profillerden temizler. (3) `pushTokenTemizle()` signOut ONCESINE alindi (profil.tsx 2 nokta). (4) push-gonder v4: token dedupe sigortasi (en guncel push_token_guncellendi kazanir). Detay: DECISIONS #51.
 - **Dogrulama:** Duplike token sorgusu 0 satir, trafik hedef 26, tsc temiz.
 - **Aciliyet:** Cozuldu + dagitildi (2 Tem 2026 — commit `599d86d`, EAS Update OTA group `32247996`, runtime 1.1.1). Ela app'i actiginda kendi token'i otomatik geri yazilir.
+
+### 88. GitHub Push Protection — STATE.md'de Resend API Key (4 Eylul 2026)
+- **Belirti:** `git push` GH013 "Push cannot contain secrets" — `claude-context/STATE.md:431` (Temmuz commit'i 599d86d + 64d7a5e).
+- **Kok sebep:** Haziran'da .env'e eklenen Resend key'i dokumantasyona dus metin yazilmis; ayni key ORIGIN gecmisinde de vardi (push protection sonradan acilmis).
+- **Cozum:** push edilmemis 4 commit `git filter-branch --tree-filter` ile yeniden yazildi (anahtar `re_***REDACTED***`), reflog/gc; Resend'de "manuel-bilgilendirme" key'i SILINDI, yeni key `.env`'e. Kural: dokumantasyona anahtar YAZMA, "`.env`'de" de. Ayrica Google client secret sohbette gorundu → Google'da Add secret + eski Disable.
+
+### 89. Google OAuth "Unable to exchange external code" = invalid_client (4 Eylul 2026)
+- **Belirti:** Google hesabi secildikten sonra Supabase callback 500 "Unable to exchange external code: 4/0A".
+- **Teshis:** Supabase Auth logs (`query_logs`, source auth_logs): `oauth2: "invalid_client" "The provided client secret is invalid."` → Supabase'e yapistirilan secret Google'daki ile ayni degil (kopyalama hatasi; yeni secret Google'da bir daha gosterilmez).
+- **Cozum:** Google'da Add secret → kopyala ikonu → Supabase'e yapistir → SON 4 KARAKTERI Google listesindekiyle karsilastir → Save → test → eskiyi Disable/Delete. "Yeni istemci 5 dk'da aktif olur" gecikmesi de ilk denemede olabilir.
+
+### 90. Edge Function → TUREB "connection reset by peer"; trigger service_role yazimini geri aliyor; IIS 400 Invalid Header (4 Eylul 2026)
+- **(a)** Deno `fetch` TUREB'e baglanamadi (TLS 1.2 IIS, rustls uyumsuz); ayni URL pg_net (Postgres host) ve Mac/konteyner curl ile 200 → cagri pg_net RPC'lerine tasindi (DECISIONS #56).
+- **(b)** `profiles_tureb_koru` trigger'i `current_setting('request.jwt.claim.role')` okuyordu → PostgREST'te bos → Edge Function'in (service role) yazdigi tureb_* alanlari da OLD'a donuyordu, sadece `diller` yaziliyordu. Fix: `request.jwt.claims`::jsonb->>'role' (migration `profiles_tureb_koru_role_fix`).
+- **(c)** pg_net'e ozel `User-Agent` verilince IIS "Bad Request - Invalid Header" (400) → header kaldirildi (`tureb_http_baslat_header_fix`).
+- **(d)** TUREB Turkce harfleri `&#231;` gibi sayisal HTML varligi ile donuyor → entity cozumu; `dilleriAyir` artik ';' ile bolmuyor (yoksa "Rus&#231;a" → ["Rus&#231","a"] oldu).

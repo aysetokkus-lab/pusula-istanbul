@@ -1841,3 +1841,59 @@ Rehberin gercek is akisi: tur takvimi + gun sonunda acenteye masraf bildirimi. F
 - Demo hesapla (demo.test@) yapilan E2E testte olusan tur silindi; DB'de test artigi yok.
 - **v2 eki (ayni gun):** rehberlik ucreti = ayni tabloda `tip='ucret'` (ayri tablo degil: ozet/RLS/disa aktarma tek akista kalir); cok gunlu tur = `bitis_tarih` + satir bazinda `masraflar.tarih` ("her gun icin pusula" yerine tek tur pusulasi icinde gun sutunu — acente tek dosya alir, rehber gun gun isler). Tek gunlu turda gun sutunu/chip'leri gorunmez, eski davranis aynen korunur.
 
+---
+
+## 54. TELEFON BEYAN USULU — SMS/WHATSAPP DOGRULAMA KODU YOK, KAYITTA ZORUNLU (4 Eyl 2026)
+
+### Karar
+Telefon numarasi kayitta zorunlu, E.164 (+905321234567) saklanir; dogrulama kodu (SMS/WhatsApp) GONDERILMEZ. Kendi kendine saglama: "Numarami WhatsApp'ta ac ve kontrol et". Topluluk denetimi: baskasinin ilaninda "Numaraya ulasilamiyor mu? Bildir" → `raporlanan_mesajlar` (kaynak='telefon').
+
+### Neden
+Maliyet arastirmasi (STATE 4 Eyl): Netgsm OTP 1.000 SMS 316 TL ama sahis basligi icin kimlik+ikametgah; Twilio TR'de evraksiz filtrelenir; Firebase Blaze sart; WhatsApp Cloud API ucuz (~$0,005–0,01) ama WhatsApp'a kayitsiz ayri numara ister. Ayse: sirket evraki yok, yeni kart almak istemiyor → "sistemde telefon olsun ama SMS/WhatsApp zorunlu olmasin".
+
+### Nasil
+`lib/telefon.ts` (normalize/goster/whatsappLink), `components/telefon-modal.tsx` (TelefonAlani, TelefonModal, `useTelefonGerekli(islem)` — DM baslatmadan once telefon yoksa modal), `components/telefon-karti.tsx` (ana sayfa, telefonu bos eski kullanicilara, "Sonra" 3 gun), giris.tsx kayit formu, `handle_new_user` trigger'i metadata `telefon`'u profile yazar. `useProfilDilleri().telefonKaydet` normalize eder; gecersiz numara kaydedilmez.
+
+### Tuzaklar
+- Yalnizca telefonu bos ESKI kullanicilar `profil-tamamla`ya DUSMEZ (yumusak kart); OAuth ile gelenler duser (ruhsat_no/isim bos).
+- Ilan formu `iletisim` artik E.164 saklar; `waNumara/telNumara` eski bicimleri de kabul eder.
+
+---
+
+## 55. GOOGLE (TARAYICI AKISI) + APPLE (YALNIZCA iOS YERLI) ILE GIRIS; /profil-tamamla (4 Eyl 2026)
+
+### Karar
+Google: `signInWithOAuth` + `expo-web-browser.openAuthSessionAsync` (redirect `pusulaistanbul://giris`; web'de sayfa yonlenir, giris.tsx mount'ta isler). Apple: `expo-apple-authentication` → `signInWithIdToken`, yalnizca iOS; Android'de Apple girisi SUNULMAZ. OAuth ile gelen kullanici ruhsat no + telefon girmeden uygulamaya gecemez (`/profil-tamamla`, `_layout` `profilEksik`).
+
+### Neden
+- Google native SDK (google-signin) SHA-1/iOS client ID ugrasi ister; tarayici akisi tek Web istemciyle calisir.
+- Supabase'in Apple browser akisi 6 ayda bir yenilenen client secret ister; iOS yerli akis istemez. Apple kurali (ucuncu taraf giris varsa Apple girisi) iOS icindir.
+- Supabase dogrulanmis e-postayi otomatik baglar → 301 mevcut kullanici Google ile ayni hesaba girer.
+
+### Nasil / Tuzaklar
+- Google Cloud proje `pusula-istanbul` (Firebase'inki). Yeni "Google Auth Platform": External app icin Branding'de ana sayfa + gizlilik + Authorised domain ZORUNLU (yoksa "OAuth configuration is incomplete", Publish gri). Firebase'den gelen form "kaydedilmis" sayilmiyor — bir alani degistirip Save.
+- Consent ekraninda "Pusula Istanbul" yerine `rzlf...supabase.co` gorunur (dogrulanmamis uygulama) → marka dogrulamasi basvuruldu (Search Console domain + yazili logo `assets/images/google-oauth-logo-512.png`; sadece pusula gulu "jenerik" diye reddedildi). Alternatif Supabase custom domain ($10/ay) REDDEDILDI.
+- `handle_new_user` trigger'i given_name/family_name/full_name okur (OAuth metadata).
+- `profilEksikMi` yalnizca ruhsat_no/isim bos ise eksik der. Yonlendirmeden once taze kontrol (dongu sigortasi); profil-tamamla `auth.updateUser` cagirir → USER_UPDATED → _layout yeniden bakar.
+- Google logosu HEX istisnasi (marka rengi).
+
+---
+
+## 56. TUREB DOGRULAMASI = AD-SOYAD ESLESMESI → ROZET; HTTP CAGRISI pg_net ILE (4 Eyl 2026)
+
+### Karar
+TUREB acik rehber veritabani (`POST tureb.org.tr/RehberVeritabani/AraAdiSoyadi`) ad-soyadla sorgulanir; ruhsat numarasi YAYINLANMADIGI icin dogrulama = ad-soyad + oda + dil + eylemli/eylemsiz. Model: rozet ("TUREB · IRO"), kayit ENGELLENMEZ; eylemsiz de ilan verir/basvurur (Ayse: "belki ilandan sonra eylemli olacak"). Coklu eslesmede kullanici kendi satirini secer.
+
+### Neden
+Isim yazim hatalari yuzunden gercek rehberleri disarida birakmamak; TUREB sitesi cokerse kimse kilitlenmesin; sahte kayitlari admin listesinde gormek yeterli.
+
+### Nasil
+- DB: `profiles.tureb_durum/oda/dil/ad/adaylar/kontrol_at`; BEFORE UPDATE trigger `profiles_tureb_koru` — service_role/admin/dogrudan SQL disinda tureb_* OLD'a doner (rol `request.jwt.claims`->>'role' ile okunur; eski `request.jwt.claim.role` GUC bos geliyor → ilk surumde service_role yazimi da geri aliniyordu, ISSUES #90).
+- **Edge runtime (Deno/rustls) TUREB'e baglanamiyor** ("connection reset", TLS 1.2 IIS) ama pg_net baglaniyor → `tureb_http_baslat(qs)` (net.http_post, parametreler QUERY STRING'de — pg_net yalnizca JSON govde kabul eder) + `tureb_http_sonuc(rid)`; yalnizca service_role EXECUTE; Edge Function 400 ms araliklarla yoklar (~1.3 sn). Ozel User-Agent basligi IIS'te 400 "Invalid Header" verdi → kaldirildi.
+- HTML entity cozumu sart (TUREB `&#231;` gibi sayisal varliklarla doner).
+- Eslesme: tam ad → yoksa kullanicinin tum kelimeleri TUREB adinda → yoksa tum satirlar aday; 4 asamali sorgu (cift soyad son/ilk kelime, cift ad ilk kelime).
+- Istemci: `useTurebOtomatik` acilista oturum basina 1 kez (kontrol yok / 180 gun / ad degisti / bilinmiyor); `useTurebRozetleri(ids)` toplu + onbellek; profil TurebKarti (aday secimi, yeniden kontrol); admin `TurebYonetim`.
+
+### Tuzaklar
+- TUREB'e kullanici basina ~1 istek; toplu tarama YAPMA (301 profili tek seferde sorgulama).
+- `profiles.diller` bossa TUREB dili yazilir (virgulle ayrilir) — kullanici sonradan degistirebilir.

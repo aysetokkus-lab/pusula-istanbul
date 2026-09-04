@@ -654,3 +654,19 @@ Iki ayri API key var, **karistirma**:
 - Microsoft Outlook IMAP'i bazi mailleri "Onemsiz e-posta"da gosterip ana inbox'a yansitmiyor (web vs mobile farkli klasor takibi). Resend "Delivered" status'una ragmen kullanici goremeyebilir — ek olarak WhatsApp/Messenger ile manuel iletisim her zaman alternatif.
 - HTML email template'lerinde `text-transform: uppercase` KULLANMA — Turkce karakter bozar. Direkt buyuk harf yaz. Bkz. DECISIONS #38.
 
+## 15. GOOGLE / APPLE GIRIS ALTYAPISI (4 Eyl 2026)
+
+- **Google Cloud** proje `pusula-istanbul` (Firebase'inki, no 56489756536). Google Auth Platform (eski "OAuth consent screen"): Branding (App name Pusula Istanbul, support mail ayse.tokkus@gmail.com, home `https://pusulaistanbul.app`, privacy/terms `https://pusulaistanbul.app/#yasal`, Authorised domains `pusulaistanbul.app` + supabase.co (otomatik), logo `assets/images/google-oauth-logo-512.png`), Audience: In production (External), Clients: Web istemci **"Supabase Auth"** (Client ID `56489756536-leln4qs6aobpheqlaujiavuvbavnidur.apps.googleusercontent.com`, redirect `https://rzlfghjpsximthlolfxo.supabase.co/auth/v1/callback`). Secret yalnizca Supabase'de; Google bir daha gostermez — kaybolursa Add secret. Verification centre: marka dogrulamasi 4 Eyl'de basvuruldu (sonuc e-posta ile).
+- **Search Console:** `pusulaistanbul.app` Domain mulku dogrulandi (GoDaddy TXT `google-site-verification=RpL1…0AQ`).
+- **Supabase Auth → Providers:** Google ENABLED (Client ID + secret). Apple: Client IDs `com.pusulaistanbul.app` (Ayse ekleyecek; secret gerekmez, iOS yerli akis). Redirect URLs: `pusulaistanbul://`, `pusulaistanbul://giris`, `https://pusulaistanbul.app`, `.../dogrulandi.html`, `http://localhost:8081/**` (web test).
+- **Apple Developer:** `com.pusulaistanbul.app` → Sign in with Apple capability (Ayse isaretleyecek; sonraki `eas build` provisioning'i yeniler). app.json `ios.usesAppleSignIn: true`, plugin `expo-apple-authentication`.
+
+## 16. TUREB REHBER VERITABANI ENTEGRASYONU (4 Eyl 2026)
+
+- Kaynak: `https://www.tureb.org.tr/RehberVeritabani` — `POST /RehberVeritabani/AraAdiSoyadi` (adi, soyadi; captcha/oturum yok; parametreler query string'de de calisir). Donen HTML tablo: Adi Soyadi · Bagli Oldugu Oda · Yabanci Dil · Telefon · E-posta · Eylemli/Eylemsiz. **Ruhsat no yok.** Turkce harfler `&#231;` sayisal varlik.
+- Cagri **pg_net** uzerinden (Deno fetch TUREB TLS'ine baglanamiyor): `tureb_http_baslat(qs)` / `tureb_http_sonuc(rid)` (service_role). Edge Function **`tureb-dogrula`** (verify_jwt, v3). Kullanici basina ~1 istek/180 gun; toplu tarama yapma.
+- Bagimlilik riski: TUREB sayfa yapisini degistirirse `parse()` (supabase/functions/tureb-dogrula/index.ts) guncellenir; sonuc 'bilinmiyor' olur, uygulama kilitlenmez.
+
+## 17. EDGE FUNCTION LISTESI (4 Eyl 2026 itibariyla)
+`push-gonder` v6 · `ulasim-senkron` · `yeni-kayit-hediye` v3 · `masraf-disa-aktar` v2 · `tureb-dogrula` v3. Kaynaklar `supabase/functions/<ad>/`; tsc'den haric (tsconfig exclude).
+
