@@ -28,8 +28,17 @@ Bu dosya **append-only** — eski surum bilgilerini silmeyiz, yeni surumler ust 
 - TUREB rehber veritabaniyla ad-soyad eslesmesi → "TUREB · Oda" rozeti (profil, ilan karti); coklu eslesmede kullanici kendi kaydini secer; eylemsiz gri rozet; kayit engellenmez. Edge Function `tureb-dogrula` (pg_net), migration'lar `tureb_dogrulama`, `tureb_http_pg_net_rpc`.
 - Ilan dil listesi: TUREB'in 39 dili + Turkce.
 
+### Profil fotografi + avatar (4 Eyl 2026, ogleden sonra)
+- Istege bagli profil fotografi (kamera/galeri, kare kirp, 512px); bucket `profil-fotolari`, `profiles.avatar_url`. Sohbet/DM balonlari, DM listesi, ilan karti, tepki verenler ve profil header'inda harf avatari yerine resim (foto yoksa harf). `expo-image-manipulator` (native, lazy require).
+
+### Gizlilik (4 Eyl 2026, ogleden sonra)
+- DM gorselleri ozel bucket `dm-gorseller` + imzali URL (admin erisimi yok). DM/ajanda/tur/profil ekranlarinda acik gizlilik cumleleri. Gizlilik politikasi (uygulama + docs/index.html) ve kullanim kosullari guncellendi: guncel veri envanteri, Supabase Frankfurt/AB, Expo/Resend/Google/Apple/TUREB, yeni "Ozel Mesajlar, Ajanda ve Masraf Verileri" maddesi. STORE-LISTING ucretsiz model + yeni ozellikler. DECISIONS #57.
+
+### Acilis ekrani (4 Eyl 2026, ogleden sonra)
+- Android 12+ "yuvarlak icinde logo" sorunu: splash acik/koyu zemin ayni kobalt, native gorsel yazisiz pusula (guvenli bolge). Uygulama ici `AcilisEkrani`: duz kobalt, pusula buyur + "PUSULA ISTANBUL" belirir, hazir olunca solar. Native kisim yeni build ister.
+
 ### Release Notes taslagi (TR)
-> Pusula Istanbul artik tamamen ucretsiz. Yeni tasarim. Ajanda: tur tarihlerinizi not edin, her tur icin masraf pusulasi tutun, fisleri cekin; PDF/Word/Excel olarak acentenize tek dokunusla gonderin. Rehber Araniyor ilanlari, ozel mesajlasma, sohbette tepki ve gorsel paylasimi, Bogaz tarifelerinde hafta ici/hafta sonu birlikte.
+> Pusula Istanbul artik tamamen ucretsiz. Yeni tasarim ve acilis ekrani. Profil fotografi. Google/Apple ile giris, TUREB rozeti. Ajanda: tur tarihlerinizi not edin, her tur icin masraf pusulasi tutun, fisleri cekin; PDF/Word/Excel olarak acentenize tek dokunusla gonderin. Rehber Araniyor ilanlari, ozel mesajlasma (yalnizca ikinize gorunur), sohbette tepki ve gorsel paylasimi, Bogaz tarifelerinde hafta ici/hafta sonu birlikte.
 
 ---
 

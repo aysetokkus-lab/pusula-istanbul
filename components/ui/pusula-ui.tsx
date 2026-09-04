@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle, type TextStyle } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle, type TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTema } from '../../hooks/use-tema';
 import { Font, Gradient, Palette, Radius } from '../../constants/theme';
@@ -129,15 +129,35 @@ export function HeaderBaslik({ baslik, alt, sag }: { baslik: string; alt?: strin
 /** MODAL KAPAK — alttan açılan modal içeriği: tutamaç + başlık + kapat */
 export function ModalKapak({ baslik, alt, onKapat, children, altButonBaslik = 'Kapat' }: { baslik: string; alt?: string; onKapat: () => void; children: ReactNode; altButonBaslik?: string }) {
   const { t } = useTema();
+  /* 4 Eyl 2026 (Ayşe: "klavye metni tamamen kapatıyor"): klavye kaçınma ARTIK BURADA, tek yerde.
+     Android'de (edge-to-edge) dıştaki `behavior: undefined` sarmalayıcılar hiçbir şey yapmıyordu → alttan açılan
+     sayfa klavyenin altında kalıyordu. Her iki platformda 'padding': sayfa klavyenin üstündeki alana SIĞACAK şekilde
+     küçülür (kutu maxHeight kalan alanın %88'i, içerideki ScrollView flexShrink ile daralır), odaklanan alan görünür
+     kalır. ('position' denendi: sayfa yukarı kayınca üstteki alanlar ekran dışına taşıyordu — Başlık görünmüyordu.)
+     Ekranlardaki dış KeyboardAvoidingView'ler nötr (behavior undefined) bırakıldı. */
   return (
-    <View style={[s.modalOverlay, { backgroundColor: t.modalOverlay }]}>
+    <KeyboardAvoidingView
+      behavior="padding"
+      style={[s.modalOverlay, { backgroundColor: t.modalOverlay }]}
+    >
       <View style={[s.modalKutu, { backgroundColor: t.modalBg }]}>
         <View style={[s.modalTutamac, { backgroundColor: t.kartBorder }]} />
         <Text style={[s.modalBaslik, { color: t.text }]}>{baslik}</Text>
         {alt ? <Text style={[s.modalAlt, { color: t.textSecondary }]}>{alt}</Text> : null}
-        <View style={{ flexShrink: 1 }}>{children}</View>
+        <View style={{ flexShrink: 1, minHeight: 0 }}>{children}</View>
         <BirincilButon baslik={altButonBaslik} onPress={onKapat} varyant="kobalt" style={{ marginTop: 16 }} />
       </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+/** Bilgi notu (4 Eyl 2026, Ayşe) — kurum verisi gösteren ekranların altı: sorumluluk sınırı, sabit metin */
+export const BILGI_NOTU_METNI = 'Saat ve ücretler ilgili kurumların resmî kaynaklarından derlenir; kurum tarafından değiştirilmiş olabilir. Ziyaret öncesi teyit ediniz.';
+export function BilgiNotu({ style }: { style?: StyleProp<ViewStyle> }) {
+  const { t } = useTema();
+  return (
+    <View style={[s.bilgiNotu, style]}>
+      <Text style={[s.bilgiNotuYazi, { color: t.textMuted }]}>{BILGI_NOTU_METNI}</Text>
     </View>
   );
 }
@@ -193,6 +213,8 @@ const s = StyleSheet.create({
   headerBaslikSatir: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
   headerBaslik: { fontFamily: Font.extrabold, fontSize: 24, color: '#FFFFFF', letterSpacing: -0.5 },
   headerAlt: { fontFamily: Font.regular, fontSize: 13, color: 'rgba(255,255,255,0.82)', marginTop: 2 },
+  bilgiNotu: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 36 },
+  bilgiNotuYazi: { fontFamily: Font.regular, fontSize: 11, lineHeight: 16, textAlign: 'center' },
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalKutu: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 28, maxHeight: '88%' },
   modalTutamac: { width: 44, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 14 },

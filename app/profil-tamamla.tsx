@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTema } from '../hooks/use-tema';
@@ -88,7 +88,7 @@ export default function ProfilTamamla() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior="padding">
       <GradyanHeader paddingTop={insets.top + 12}>
         <HeaderBaslik baslik="Profilini tamamla" alt={email ? `${email} ile giriş yaptın` : undefined} />
       </GradyanHeader>

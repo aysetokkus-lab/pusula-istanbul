@@ -139,10 +139,9 @@ function MasrafFormModal({ visible, tip, mevcut, sonParaBirimi, tur, onKapat, on
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={kapat}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={undefined} /* klavye kaçınma ModalKapak içinde (4 Eyl 2026) */ style={{ flex: 1 }}>
         <ModalKapak
           baslik={mevcut ? `${BASLIK[tip][0]} Düzenle` : `${BASLIK[tip][0]} Ekle`}
-          alt={BASLIK[tip][1]}
           onKapat={kapat} altButonBaslik="İptal"
         >
           <ScrollView contentContainerStyle={{ paddingBottom: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -198,7 +197,7 @@ function MasrafFormModal({ visible, tip, mevcut, sonParaBirimi, tur, onKapat, on
             <Kicker style={s.etiket}>Açıklama</Kicker>
             <TextInput
               style={inputStil} value={aciklama} onChangeText={setAciklama}
-              placeholder={tip === 'avans' ? 'Örn. Ofisten nakit, tur lideri' : tip === 'ucret' ? 'Örn. 19 gün × 120 € / gece farkı' : 'Örn. Topkapı + Harem, 24 kişi'} placeholderTextColor={t.textMuted} maxLength={200}
+              placeholder="Açıklama" placeholderTextColor={t.textMuted} maxLength={200}
             />
 
             {tip === 'masraf' ? (
@@ -515,6 +514,10 @@ export default function TurEkrani() {
           </Kart>
         </View>
 
+        {/* Eyl 2026 GIZLILIK: açık ifade (RLS yalnızca sahibi; fişler özel bucket; dışa aktarma kullanıcının JWT'siyle) */}
+        <Text style={[s.not, { color: t.textMuted, textAlign: 'center' }]}>
+          Bu tura ait masraf, ücret ve fiş kayıtları yalnızca sizin görebileceğiniz özel alanınızdır; Pusula İstanbul yöneticileri dâhil hiç kimseyle paylaşılmaz. Dosyalarınız yalnızca sizin seçtiğiniz kanaldan, sizin tarafınızdan gönderilir.
+        </Text>
         <BirincilButon baslik="Turu Sil" onPress={turuSil} varyant="hayalet" style={{ borderColor: t.durumKapali }} />
       </ScrollView>
 

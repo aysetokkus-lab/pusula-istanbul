@@ -181,8 +181,10 @@ export function MekanSaatleriYonetim(props: { kategori?: string }) {
     acilis: '', kapanis: '', gise_kapanis: '',
     yaz_acilis: '', yaz_kapanis: '', yaz_gise_kapanis: '', kis_acilis: '', kis_kapanis: '', kis_gise_kapanis: '',
     haftasonu_acilis: '', haftasonu_kapanis: '',
+    gece_acilis: '', gece_kapanis: '', gece_gise: '',   // 4 Eyl 2026: gece müzeciliği (boş = yok)
     fiyat_yerli: '', fiyat_yabanci: '', fiyat_indirimli: '',
     ozel_not: '',
+    ulasim_notu: '', ekstra: '',   // 4 Eyl 2026: uygulamada gösterilen ama formda olmayan alanlar
     muzekart: '' as string,
     muzekart_not: '',
     mevsimsel: false,
@@ -232,8 +234,10 @@ export function MekanSaatleriYonetim(props: { kategori?: string }) {
       acilis: '09:00', kapanis: '17:00', gise_kapanis: '',
       yaz_acilis: '', yaz_kapanis: '', yaz_gise_kapanis: '', kis_acilis: '', kis_kapanis: '', kis_gise_kapanis: '',
       haftasonu_acilis: '', haftasonu_kapanis: '',
+      gece_acilis: '', gece_kapanis: '', gece_gise: '',
       fiyat_yerli: '', fiyat_yabanci: '', fiyat_indirimli: '',
       ozel_not: '',
+      ulasim_notu: '', ekstra: '',
       muzekart: '',
       muzekart_not: '',
       mevsimsel: false,
@@ -252,9 +256,11 @@ export function MekanSaatleriYonetim(props: { kategori?: string }) {
       yaz_acilis: m.yaz_acilis || '', yaz_kapanis: m.yaz_kapanis || '', yaz_gise_kapanis: m.yaz_gise_kapanis || '',
       kis_acilis: m.kis_acilis || '', kis_kapanis: m.kis_kapanis || '', kis_gise_kapanis: m.kis_gise_kapanis || '',
       haftasonu_acilis: m.haftasonu_acilis || '', haftasonu_kapanis: m.haftasonu_kapanis || '',
+      gece_acilis: m.gece_acilis || '', gece_kapanis: m.gece_kapanis || '', gece_gise: m.gece_gise || '',
       fiyat_yerli: m.fiyat_yerli || '', fiyat_yabanci: m.fiyat_yabanci || '',
       fiyat_indirimli: m.fiyat_indirimli || '',
       ozel_not: m.ozel_not || '',
+      ulasim_notu: m.ulasim_notu || '', ekstra: m.ekstra || '',
       muzekart: m.muzekart || '',
       muzekart_not: m.muzekart_not || '',
       mevsimsel: m.mevsimsel,
@@ -278,6 +284,11 @@ export function MekanSaatleriYonetim(props: { kategori?: string }) {
       kis_gise_kapanis: form.kis_gise_kapanis || null,
       haftasonu_acilis: form.haftasonu_acilis || null,
       haftasonu_kapanis: form.haftasonu_kapanis || null,
+      gece_acilis: form.gece_acilis.trim() || null,
+      gece_kapanis: form.gece_kapanis.trim() || null,
+      gece_gise: form.gece_gise.trim() || null,
+      ulasim_notu: form.ulasim_notu.trim() || null,
+      ekstra: form.ekstra.trim() || null,
       fiyat_yerli: form.fiyat_yerli || null,
       fiyat_yabanci: form.fiyat_yabanci || null,
       fiyat_indirimli: form.fiyat_indirimli || null,
@@ -714,6 +725,23 @@ export function MekanSaatleriYonetim(props: { kategori?: string }) {
                 </View>
               </View>
 
+              {/* Gece Müzeciliği (4 Eyl 2026 — Yerebatan gece müzesi kalktı, silinemiyordu) */}
+              <Text style={s.bolumBaslik}>Gece Müzeciliği (yoksa boş bırak)</Text>
+              <View style={s.satirKutu}>
+                <View style={s.inputGrup}>
+                  <Text style={s.inputLabel}>Açılış</Text>
+                  <TextInput style={s.input} value={form.gece_acilis} onChangeText={v => setForm(f => ({...f, gece_acilis: v}))} placeholder="—" />
+                </View>
+                <View style={s.inputGrup}>
+                  <Text style={s.inputLabel}>Kapanış</Text>
+                  <TextInput style={s.input} value={form.gece_kapanis} onChangeText={v => setForm(f => ({...f, gece_kapanis: v}))} placeholder="—" />
+                </View>
+                <View style={s.inputGrup}>
+                  <Text style={s.inputLabel}>Gişe</Text>
+                  <TextInput style={s.input} value={form.gece_gise} onChangeText={v => setForm(f => ({...f, gece_gise: v}))} placeholder="—" />
+                </View>
+              </View>
+
               {/* Fiyatlar */}
               <Text style={s.bolumBaslik}>Fiyatlar</Text>
               <View style={s.satirKutu}>
@@ -776,6 +804,16 @@ export function MekanSaatleriYonetim(props: { kategori?: string }) {
               <TextInput style={[s.input, s.inputGenis]} value={form.ozel_not}
                 onChangeText={v => setForm(f => ({...f, ozel_not: v}))}
                 placeholder="Rehberler için özel bilgi..." multiline />
+
+              {/* Ulaşım notu + Ekstra (uygulamada mekan detayında görünür) */}
+              <Text style={s.bolumBaslik}>Ulaşım Notu</Text>
+              <TextInput style={[s.input, s.inputGenis]} value={form.ulasim_notu}
+                onChangeText={v => setForm(f => ({...f, ulasim_notu: v}))}
+                placeholder="—" multiline />
+              <Text style={s.bolumBaslik}>Ekstra Bilgi</Text>
+              <TextInput style={[s.input, s.inputGenis]} value={form.ekstra}
+                onChangeText={v => setForm(f => ({...f, ekstra: v}))}
+                placeholder="—" multiline />
 
               {/* Butonlar */}
               <BirincilButon baslik="Kaydet" onPress={kaydet} varyant="kobalt" style={s.kaydetBtn} />

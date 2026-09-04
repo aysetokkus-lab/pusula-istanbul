@@ -8,7 +8,7 @@ import { YetkiliBolum } from '../../components/yetkili/yetkili-bolum';
 import { UlasimTarifeYonetim } from '../../components/yetkili/ulasim-tarife-yonetim';
 import { useBogazTurlari, type BogazTuru } from '../../hooks/use-bogaz-turlari';
 import { useTema } from '../../hooks/use-tema';
-import { BirincilButon, BolumBaslik, BosDurum, DurumNoktasi, GradyanHeader, HeaderBaslik, Kart, Kicker, Rozet, Segmentler } from '../../components/ui/pusula-ui';
+import { BilgiNotu, BirincilButon, BolumBaslik, BosDurum, DurumNoktasi, GradyanHeader, HeaderBaslik, Kart, Kicker, Rozet, Segmentler } from '../../components/ui/pusula-ui';
 import { Font, Radius } from '../../constants/theme';
 
 const ADALAR_LINKLERI = [
@@ -265,8 +265,7 @@ export default function Bogaz() {
       <YetkiliBolum baslik="Boğaz Tarifeleri" aciklama="Sefer saatleri ve fiyatlar" sadeceAdmin>
         <UlasimTarifeYonetim tip="bogaz" />
       </YetkiliBolum>
-      <View style={{ height: 40 }} />
-
+      <BilgiNotu />
     </ScrollView>
   );
 }

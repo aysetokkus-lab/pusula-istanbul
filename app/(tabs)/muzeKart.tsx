@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTema } from '../../hooks/use-tema';
 import { useMekanSaatleri } from '../../hooks/use-mekan-saatleri';
 import { Font, Palette, type TemaRenkleri } from '../../constants/theme';
-import { BolumBaslik, BosDurum, DurumNoktasi, GradyanHeader, HeaderBaslik, Kart, Kicker } from '../../components/ui/pusula-ui';
+import { BilgiNotu, BolumBaslik, BosDurum, DurumNoktasi, GradyanHeader, HeaderBaslik, Kart, Kicker } from '../../components/ui/pusula-ui';
 
 // Statik satis noktalari — bunlar nadiren degisir, admin panelden mekan_saatleri'ne ek alan eklenebilir
 const SATIS_NOKTALARI = [
@@ -143,7 +143,7 @@ export default function MuzeKart() {
         </Kart>
       </View>
 
-      <View style={{ height: 40 }} />
+      <BilgiNotu />
     </ScrollView>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -145,6 +145,66 @@ export function MesajGorseli({ url, onPress }: { url: string; onPress: () => voi
       {!yuklendi && <ActivityIndicator style={StyleSheet.absoluteFill} color={t.primary} />}
     </TouchableOpacity>
   );
+}
+
+
+/* ═══ Eyl 2026 GIZLILIK — DM görselleri ÖZEL bucket `dm-gorseller` ═══
+   Yol: <konusma_id>/<uid>/<zaman>-<rnd>.<ext>. Okuma yalnızca iki katılımcıya (RLS), gösterim imzalı URL ile
+   (1 saat, oturum önbelleği). dm_mesajlar.gorsel_url'de YOL saklanır; eski kayıtta tam URL varsa olduğu gibi kullanılır. */
+const DM_BUCKET = 'dm-gorseller';
+const IMZA_SURE_SN = 60 * 60;
+const imzaOnbellek = new Map<string, { url: string; son: number }>();
+
+/** DM görselini özel bucket'a yükle → yol (hata: null) */
+export async function dmGorselYukle(konusmaId: string, uri: string, mime: string): Promise<string | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Giriş gerekli');
+    const res = await fetch(uri);
+    const arrayBuffer = await new Response(await res.blob()).arrayBuffer();
+    if (arrayBuffer.byteLength > 5 * 1024 * 1024) {
+      Alert.alert('Görsel çok büyük', 'En fazla 5 MB. Lütfen daha küçük bir görsel seçin.');
+      return null;
+    }
+    const ext = (mime.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    const path = `${konusmaId}/${user.id}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from(DM_BUCKET).upload(path, arrayBuffer, { contentType: mime, upsert: false });
+    if (error) throw error;
+    return path;
+  } catch (e: any) {
+    console.warn('[DM] görsel yükleme hatası:', e?.message);
+    return null;
+  }
+}
+
+/** Yol → imzalı URL (önbellekli). Tam URL verilirse olduğu gibi döner. */
+export async function dmGorselUrl(yol: string): Promise<string | null> {
+  if (/^https?:\/\//.test(yol)) return yol;
+  const c = imzaOnbellek.get(yol);
+  if (c && c.son > Date.now() + 60_000) return c.url;
+  const { data, error } = await supabase.storage.from(DM_BUCKET).createSignedUrl(yol, IMZA_SURE_SN);
+  if (error || !data?.signedUrl) { console.warn('[DM] imzalı URL hatası:', error?.message); return null; }
+  imzaOnbellek.set(yol, { url: data.signedUrl, son: Date.now() + IMZA_SURE_SN * 1000 });
+  return data.signedUrl;
+}
+
+/** DM balonu içi görsel — yolu imzalı URL'e çevirip MesajGorseli çizer */
+export function DmMesajGorseli({ yol, onPress }: { yol: string; onPress: (url: string) => void }) {
+  const { t } = useTema();
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let iptal = false;
+    dmGorselUrl(yol).then(u => { if (!iptal) setUrl(u); });
+    return () => { iptal = true; };
+  }, [yol]);
+  if (!url) {
+    return (
+      <View style={[s.mesajGorselKutu, { backgroundColor: t.bgSecondary }]}>
+        <ActivityIndicator color={t.primary} />
+      </View>
+    );
+  }
+  return <MesajGorseli url={url} onPress={() => onPress(url)} />;
 }
 
 /** Tam ekran görsel modalı */

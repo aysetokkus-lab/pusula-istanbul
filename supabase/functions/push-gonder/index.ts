@@ -10,6 +10,8 @@
 //   * hedef_kullanici_id: yalnizca tek kullaniciya push (mesaja yanit bildirimi).
 //   * haric_liste: birden fazla kullaniciyi haric tut (yanit akisinda gonderen + yanitlanan).
 // v6 (3 Eyl 2026) - ILANLAR kategorisi: veri.diller ile hedef filtresi (profiles.diller bos → tumu; doluysa kesisim).
+// v7 (4 Eyl 2026) - BILDIRIM GECMISI: her gonderim (test haric) bildirim_gecmisi tablosuna yazilir (uygulama ici Bildirimler ekrani).
+//                   Ozel mesajda (veri.dm) icerik SAKLANMAZ. Hedef token yoksa bile kayit yazilir (kullanici sonradan gorur).
 // Kaynak repoda: supabase/functions/push-gonder/index.ts
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -113,6 +115,26 @@ Deno.serve(async (req: Request) => {
     return json({ ok: true, mode: "test", sonuclar });
   }
 
+  // v7: bildirim gecmisi kaydi (push sonucundan bagimsiz; RLS: hedef ya da haric olmayan herkes okur)
+  try {
+    const dmMi = veri?.dm === true;
+    const haricIdler = [
+      ...(kullanici_id_haric ? [kullanici_id_haric] : []),
+      ...((haric_liste ?? []).filter((x) => typeof x === "string" && x.length > 0)),
+    ];
+    const dillerKaydi = kategori === "ilanlar" && Array.isArray(veri?.diller)
+      ? (veri!.diller as unknown[]).filter((d): d is string => typeof d === "string") : null;
+    const { error: gecmisHata } = await supabase.from("bildirim_gecmisi").insert({
+      kategori, baslik,
+      icerik: dmMi ? "Özel mesaj" : icerik,
+      veri: veri ?? null,
+      hedef_kullanici_id: hedef_kullanici_id ?? null,
+      haric_idler: haricIdler.length ? haricIdler : null,
+      diller: dillerKaydi && dillerKaydi.length ? dillerKaydi : null,
+    });
+    if (gecmisHata) console.warn("bildirim_gecmisi insert hatasi:", gecmisHata.message);
+  } catch (e) { console.warn("bildirim_gecmisi exception:", e); }
+
   // v5: premium filtresi YOK — herkes hedef. Tercih filtresi (bildirim_tercihleri) korunur.
   let query = supabase
     .from("profiles")
@@ -181,7 +203,7 @@ Deno.serve(async (req: Request) => {
 
   const basarili = sonuclar.filter((s) => s.status === "ok").length;
   return json({
-    ok: true, kategori, surum: "v6", hedef: hedefler.length, gonderildi: basarili,
+    ok: true, kategori, surum: "v7", hedef: hedefler.length, gonderildi: basarili,
     hatali: sonuclar.length - basarili, dedupe_elenen, temizlenen_token: temizlenecekTokenlar.length,
     zaman: new Date().toISOString(),
   });

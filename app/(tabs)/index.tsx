@@ -14,7 +14,9 @@ import { YetkiliBolum } from '../../components/yetkili/yetkili-bolum';
 import { SahaYonetim } from '../../components/yetkili/saha-yonetim';
 import { EtkinlikYonetim } from '../../components/yetkili/etkinlik-yonetim';
 import { GuncellemeBandi } from '../../components/guncelleme-bandi';
-import { SearchIcon } from '../../components/tab-icons';
+import { BellIcon, SearchIcon } from '../../components/tab-icons';
+// 4 Eyl 2026: uygulama içi Bildirimler — zil + okunmamış rozeti
+import { useBildirimOkunmamis } from '../../hooks/use-bildirim-gecmisi';
 import { PinliMesajBandi } from '../../components/pinli-mesaj-bandi';
 import { AjandaKarti } from '../../components/ajanda-karti';
 import { TelefonKarti } from '../../components/telefon-karti';
@@ -171,6 +173,7 @@ export default function AnaSayfa() {
   const [dovizHedef, setDovizHedef] = useState('TRY');
   const [simdiDk, setSimdiDk] = useState(0);
   const [kullaniciAdi, setKullaniciAdi] = useState('');
+  const { sayi: okunmamisBildirim } = useBildirimOkunmamis();   // 4 Eyl 2026: zil rozeti
 
   // Kullanıcı adını çek
   useEffect(() => {
@@ -346,17 +349,29 @@ export default function AnaSayfa() {
 
       {/* ═══ 1. GRADYAN HEADER — logo satırı + tarih/saat + selamlama + hava pill'i ═══ */}
       <GradyanHeader paddingTop={insets.top + 10}>
+        {/* 4 Eyl 2026 (Ayşe): splash ile aynı marka bloğu — pusula ortada, dairesiz; "PUSULA" / "İSTANBUL" alt alta, tam ortalı.
+            Arama butonu mutlak konumlu (sağ) → blok header genişliğine göre kusursuz ortada. */}
         <View style={s.logoSatir}>
-          <View style={s.logoKutu}>
+          <View style={s.markaBlok}>
             <Image
-              source={require('../../assets/icons/logo.svg')}
+              source={require('../../assets/images/splash-logo.png')}
               style={s.logoImage}
               contentFit="contain"
+              accessibilityLabel="Pusula İstanbul"
             />
+            <Text style={s.logoPusula}>PUSULA</Text>
+            <Text style={s.logoIstanbul}>İSTANBUL</Text>
           </View>
-          <Text style={s.logoPusula}>PUSULA</Text>
-          <Text style={s.logoIstanbul}>İSTANBUL</Text>
-          <View style={{ flex: 1 }} />
+          {/* 4 Eyl 2026: Bildirimler — sol (aramanın simetriği), okunmamış varsa kırmızı nokta */}
+          <TouchableOpacity
+            onPress={() => router.push('/bildirimler' as never)}
+            activeOpacity={0.7}
+            style={[s.araButon, s.zilButon]}
+            accessibilityLabel="Bildirimler"
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+            <BellIcon size={20} color="#FFFFFF" />
+            {okunmamisBildirim > 0 ? <View style={s.zilNokta} /> : null}
+          </TouchableOpacity>
           {/* Eyl 2026: "Ara" sekmesi alt bardan kalktı — arama buradan açılır */}
           <TouchableOpacity
             onPress={() => router.push('/(tabs)/ara')}
@@ -369,7 +384,8 @@ export default function AnaSayfa() {
         </View>
         <Text style={[s.tarihSaat, { color: t.headerSubtext }]}>{tarih.split(',')[0]} · {saat}</Text>
         <View style={s.selamSatir}>
-          <Text style={s.selamBaslik} numberOfLines={1}>{kullaniciAdi ? `${selamlama}, ${kullaniciAdi}` : selamlama}</Text>
+          {/* 4 Eyl 2026: uzun isimler kesilmesin — 22px + gerekirse %70'e kadar küçülür */}
+          <Text style={s.selamBaslik} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{kullaniciAdi ? `${selamlama}, ${kullaniciAdi}` : selamlama}</Text>
           <TouchableOpacity onPress={() => Linking.openURL('https://www.mgm.gov.tr/tahmin/il-ve-ilceler.aspx?m=ISTANBUL')} activeOpacity={0.7} style={s.havaPill}>
             <Text style={s.havaYazi}>
               {havaDurumu ? `${havaDurumu.ikon} ${havaDurumu.derece}°C` : '...'}
@@ -814,17 +830,20 @@ const s = StyleSheet.create({
   yatay: { paddingHorizontal: 16 },
 
   // HEADER
-  logoSatir: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  logoKutu: { width: 40, height: 40, borderRadius: 20, backgroundColor: Palette.seffafBeyaz20, alignItems: 'center', justifyContent: 'center', marginRight: 4 },
-  logoImage: { width: 26, height: 26 },
-  logoPusula: { fontFamily: Font.extrabold, fontSize: 18, color: '#FFFFFF', letterSpacing: 1 },
-  logoIstanbul: { fontFamily: Font.regular, fontSize: 18, color: '#FFFFFF', letterSpacing: 1 },
-  araButon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  logoSatir: { alignItems: 'center', justifyContent: 'center', marginBottom: 12, minHeight: 44 },
+  markaBlok: { alignItems: 'center' },
+  logoImage: { width: 56, height: 61, marginBottom: 6 },   // splash-logo.png oranı 760/696
+  // paddingLeft = letterSpacing: son harften sonraki boşluğu dengeler → optik olarak tam ortada
+  logoPusula: { fontFamily: Font.extrabold, fontSize: 15, color: '#FFFFFF', letterSpacing: 4, paddingLeft: 4, textAlign: 'center', lineHeight: 19 },
+  logoIstanbul: { fontFamily: Font.extrabold, fontSize: 15, color: '#FFFFFF', letterSpacing: 4, paddingLeft: 4, textAlign: 'center', lineHeight: 19 },
+  araButon: { position: 'absolute', right: 0, top: 0, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  zilButon: { right: undefined, left: 0 },
+  zilNokta: { position: 'absolute', top: 8, right: 9, width: 9, height: 9, borderRadius: 5, backgroundColor: Palette.kapali, borderWidth: 1.5, borderColor: '#FFFFFF' },
   tarihSaat: { fontFamily: Font.regular, fontSize: 13, marginBottom: 4, fontVariant: ['tabular-nums'] },
   selamSatir: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  selamBaslik: { flex: 1, fontFamily: Font.extrabold, fontSize: 26, color: '#FFFFFF', letterSpacing: -0.5 },
-  havaPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: Palette.seffafBeyaz20, borderRadius: Radius.full, paddingHorizontal: 14, paddingVertical: 8 },
-  havaYazi: { fontFamily: Font.bold, fontSize: 15, color: '#FFFFFF' },
+  selamBaslik: { flex: 1, fontFamily: Font.extrabold, fontSize: 22, color: '#FFFFFF', letterSpacing: -0.4 },
+  havaPill: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: Palette.seffafBeyaz20, borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 7 },
+  havaYazi: { fontFamily: Font.bold, fontSize: 14, color: '#FFFFFF' },
 
   // KART İÇİ ORTAK
   satirArasi: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },

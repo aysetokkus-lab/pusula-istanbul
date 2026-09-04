@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { bildirimeGit } from '../lib/bildirim-yonlendir';
 import { Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 
@@ -146,10 +147,11 @@ function tiklamaHandlerKur() {
   if (!Notifications || !bildirimDestekleniyor) return null;
   try {
     return Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data || {};
-      // v1.1.0 ilk turda sadece log
-      // v1.1.1+: kategori bazli deep link (sohbet -> /(tabs)/sohbet, ulasim -> ana sayfa, vb.)
+      const data = (response.notification.request.content.data || {}) as Record<string, unknown>;
+      // 4 Eyl 2026: kategori + veri → ilgili ekran (lib/bildirim-yonlendir.ts). Uygulama açıkken (sıcak).
       console.log('Bildirim tiklandi:', data);
+      islenenBildirimler.add(response.notification.request.identifier);
+      bildirimeGit(typeof data.kategori === 'string' ? data.kategori : undefined, data);
     });
   } catch {
     return null;
@@ -163,8 +165,12 @@ function tiklamaHandlerKur() {
    (eskiden 6 kanal vardi — hepsi server-side
    trigger'a tasindi, bkz. DECISIONS.md #42).
    ═══════════════════════════════════════════ */
-export function useBildirimler() {
+// Ayni bildirim iki kez islenmesin (sicak listener + soguk baslangic)
+const islenenBildirimler = new Set<string>();
+
+export function useBildirimler(hazir = true) {
   const handlerRef = useRef<ReturnType<typeof tiklamaHandlerKur>>(null);
+  const sogukIslendi = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -178,6 +184,28 @@ export function useBildirimler() {
       handlerRef.current = null;
     };
   }, []);
+
+  // 4 Eyl 2026: SOGUK BASLANGIC — uygulama kapaliyken bildirime dokunuldu → Stack hazir olunca yonlendir
+  useEffect(() => {
+    if (!hazir || sogukIslendi.current || !Notifications || !bildirimDestekleniyor) return;
+    sogukIslendi.current = true;
+    (async () => {
+      try {
+        const response = await Notifications.getLastNotificationResponseAsync();
+        if (!response) return;
+        const id = response.notification.request.identifier;
+        if (islenenBildirimler.has(id)) return;
+        // Eski bir yanit tekrar islenmesin: 2 dk'dan eski bildirimi yok say
+        const zaman = response.notification.date ? Number(response.notification.date) * (response.notification.date < 1e12 ? 1000 : 1) : 0;
+        if (zaman && Date.now() - zaman > 2 * 60_000) return;
+        islenenBildirimler.add(id);
+        const data = (response.notification.request.content.data || {}) as Record<string, unknown>;
+        setTimeout(() => bildirimeGit(typeof data.kategori === 'string' ? data.kategori : undefined, data), 400);
+      } catch (e) {
+        console.warn('[Bildirim] soguk baslangic hatasi:', e);
+      }
+    })();
+  }, [hazir]);
 
   return { bildirimDestekleniyor };
 }

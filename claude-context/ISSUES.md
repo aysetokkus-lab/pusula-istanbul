@@ -325,3 +325,14 @@ Yeni bir bug ile karsilastiginda dene:
 - **(b)** `profiles_tureb_koru` trigger'i `current_setting('request.jwt.claim.role')` okuyordu → PostgREST'te bos → Edge Function'in (service role) yazdigi tureb_* alanlari da OLD'a donuyordu, sadece `diller` yaziliyordu. Fix: `request.jwt.claims`::jsonb->>'role' (migration `profiles_tureb_koru_role_fix`).
 - **(c)** pg_net'e ozel `User-Agent` verilince IIS "Bad Request - Invalid Header" (400) → header kaldirildi (`tureb_http_baslat_header_fix`).
 - **(d)** TUREB Turkce harfleri `&#231;` gibi sayisal HTML varligi ile donuyor → entity cozumu; `dilleriAyir` artik ';' ile bolmuyor (yoksa "Rus&#231;a" → ["Rus&#231","a"] oldu).
+
+### 91. Yeni native modul ekran seviyesinde import edilince eski dev build'de 3 sekme KAYBOLDU (4 Eylul 2026)
+- Belirti: alt barda yalnizca Ana Sayfa + Acil; Sohbet / Rehber Araniyor / Profil yok, hata ekrani da yok.
+- Sebep: `lib/avatar.ts` ustunde `expo-image-manipulator` import edildi; telefondaki dev build'de (fee3ce6e) native modul yok → `requireNativeModule` throw → bu dosyayi dolayli import eden 3 route modulu yuklenemedi → expo-router sekmeleri sessizce dusurdu.
+- Fix: modul `manipulatorGetir()` icinde ihtiyac aninda `require` (try/catch), yoksa kucultme atlanir; onbellek `hooks/use-avatarlar.ts`'e tasindi (native bagimliliksiz). Kural: yeni native modulu ekran/hook seviyesinde import ETME, kullanildigi fonksiyonda lazy require et; "sekme kayboldu" gorursen once son eklenen native modulu suphelen.
+
+### 92. Android 12+ acilis ekraninda "yuvarlak (squircle) icinde logo" + kesik yazi (4 Eylul 2026)
+- Belirti (S22, karanlik mod): koyu lacivert zemin ortasinda kobalt squircle, icinde "PUSULA ISTANBU" yazisi alttan kesik.
+- Sebep: Expo (`@expo/prebuild-config` withAndroidSplashImages) logoyu `backgroundColor` dolgulu 288dp kanvasa basar, Android 12+ bunu ikon sekliyle maskeler ve ortadaki 2/3 disini kirpar. Zemin `dark` #0F1530 iken kanvas acik-mod kobaltiydi (dark blogunda image yok) → kare gorundu; yazi guvenli daire disinda → kesildi. v1.1.1'de ayni kare vardi ama iki renk de #005A8D oldugu icin gorunmuyordu.
+- Fix: app.json splash acik/koyu zemin AYNI kobalt; Android gorseli yazisiz pusula (`splash-icon-android.png`, logo kanvasin %51'i, imageWidth 240 → ~100dp); iOS `splash-logo.png` imageWidth 100; yazi uygulama ici `AcilisEkrani`'nda (DECISIONS #57 degil — STATE 4 Eyl "ACILIS EKRANI" blogu). Native → yeni build sart; Metro reload yalnizca JS kismini gosterir.
+

@@ -1,13 +1,14 @@
 // Eyl 2026 — Tur ekle / düzenle formu (Ajanda). ModalKapak + Takvim (geçmiş seçilebilir) + alanlar.
 // Kaydet → onKaydet(payload) (ekleme ajanda.tsx, düzenleme tur/[id].tsx tarafından sağlanır).
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { uyar } from '../lib/uyari';
 import { useTema } from '../hooks/use-tema';
 import { cokGunlu, gunSayisi, isoToDate, type AjandaSonuc, type Tur, type TurPayload } from '../hooks/use-ajanda';
 import { Font, Palette, Radius } from '../constants/theme';
 import { BirincilButon, Kicker, ModalKapak } from './ui/pusula-ui';
 import { Takvim, tarihUzun } from './ui/takvim';
+import { SaatSecici } from './ui/saat-secici';
 
 function saatNormalize(s: string): string | null {
   const m = s.trim().match(/^(\d{1,2})[:.](\d{2})$/);
@@ -76,11 +77,11 @@ export function TurFormModal({ visible, mevcut, varsayilanTarih, onKapat, onKayd
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={kapat}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ModalKapak baslik={mevcut ? 'Turu Düzenle' : 'Tur Ekle'} alt="Ajandanıza kayıtlı turlarınızın masraflarını yazabilir, fiş/fatura görsellerini ekleyerek doğrudan acenteye ya da kendinize gönderebilirsiniz." onKapat={kapat} altButonBaslik="İptal">
+      <KeyboardAvoidingView behavior={undefined} /* klavye kaçınma ModalKapak içinde (4 Eyl 2026) */ style={{ flex: 1 }}>
+        <ModalKapak baslik={mevcut ? 'Turu Düzenle' : 'Tur Ekle'} onKapat={kapat} altButonBaslik="İptal">
           <ScrollView contentContainerStyle={{ paddingBottom: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <Kicker style={s.etiket}>Tur / Müşteri adı</Kicker>
-            <TextInput style={inputStil} value={baslik} onChangeText={setBaslik} placeholder="Örn. Klasik İstanbul — Alman grup / Müller ailesi" placeholderTextColor={t.textMuted} maxLength={120} />
+            <TextInput style={inputStil} value={baslik} onChangeText={setBaslik} placeholder="Tur / müşteri adı" placeholderTextColor={t.textMuted} maxLength={120} />
 
             <Kicker style={s.etiket}>{cokGun ? 'Başlangıç' : 'Tarih'}{tarih ? ` · ${tarihUzun(tarih)}` : ''}</Kicker>
             <Takvim value={tarih} onChange={(iso) => { setTarih(iso); if (bitis && bitis <= iso) setBitis(null); }} renk={Palette.safran} gecmisSecilebilir />
@@ -104,20 +105,16 @@ export function TurFormModal({ visible, mevcut, varsayilanTarih, onKapat, onKayd
             <View style={s.ikiKolon}>
               <View style={{ flex: 1 }}>
                 <Kicker style={s.etiket}>Saat</Kicker>
-                <TextInput
-                  style={[inputStil, saat.trim().length > 0 && !saatNormalize(saat) && { borderColor: t.durumKapali }]}
-                  value={saat} onChangeText={setSaat} placeholder="08:30" placeholderTextColor={t.textMuted}
-                  keyboardType="numbers-and-punctuation" maxLength={5}
-                />
+                <SaatSecici value={saat} onChange={setSaat} />
               </View>
               <View style={{ flex: 1.6 }}>
                 <Kicker style={s.etiket}>Grup</Kicker>
-                <TextInput style={inputStil} value={grup} onChangeText={setGrup} placeholder="24 kişi · Almanca" placeholderTextColor={t.textMuted} maxLength={80} />
+                <TextInput style={inputStil} value={grup} onChangeText={setGrup} placeholder="Grup" placeholderTextColor={t.textMuted} maxLength={80} />
               </View>
             </View>
 
             <Kicker style={s.etiket}>Buluşma yeri</Kicker>
-            <TextInput style={inputStil} value={bulusma} onChangeText={setBulusma} placeholder="Sultanahmet Meydanı / otel adı" placeholderTextColor={t.textMuted} maxLength={120} />
+            <TextInput style={inputStil} value={bulusma} onChangeText={setBulusma} placeholder="Buluşma yeri" placeholderTextColor={t.textMuted} maxLength={120} />
 
             <Kicker style={s.etiket}>Acente</Kicker>
             <TextInput style={inputStil} value={acente} onChangeText={setAcente} placeholder="Acente adı" placeholderTextColor={t.textMuted} maxLength={120} />
@@ -128,14 +125,12 @@ export function TurFormModal({ visible, mevcut, varsayilanTarih, onKapat, onKayd
               value={acenteEmail} onChangeText={setAcenteEmail} placeholder="ornek@acente.com" placeholderTextColor={t.textMuted}
               keyboardType="email-address" autoCapitalize="none" autoCorrect={false} maxLength={120}
             />
-            <Text style={[s.not, { color: t.textMuted }]}>Tur sonunda masraf pusulasını göndermek istediğiniz e-posta adresini giriniz.</Text>
 
             <Kicker style={s.etiket}>Notlar</Kicker>
             <TextInput
               style={[inputStil, s.cokSatir]} value={notlar} onChangeText={setNotlar}
-              placeholder="Şoför, plaka, otel, özel istekler…" placeholderTextColor={t.textMuted} multiline textAlignVertical="top" maxLength={1000}
+              placeholder="Notlar" placeholderTextColor={t.textMuted} multiline textAlignVertical="top" maxLength={1000}
             />
-            <Text style={[s.not, { color: t.textMuted }]}>Notlar masraf pusulası çıktısında da yer alır.</Text>
 
             <BirincilButon baslik={mevcut ? 'Kaydet' : 'Tur Ekle'} onPress={kaydet} yukleniyor={kaydediliyor} style={{ marginTop: 16 }} />
           </ScrollView>

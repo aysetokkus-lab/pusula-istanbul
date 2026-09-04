@@ -9,7 +9,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -470,7 +469,7 @@ function EkleModal({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={kapat}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={undefined} /* klavye kaçınma ModalKapak içinde (4 Eyl 2026) */
         style={{ flex: 1 }}>
         {/* Yükleme sırasında kapatma kilitli (eski "×" butonunun disabled davranışı) */}
         <ModalKapak
@@ -482,7 +481,7 @@ function EkleModal({
               style={[s.ekleInput, { color: t.text, borderColor: t.kartBorder, backgroundColor: t.bgInput }]}
               value={baslik}
               onChangeText={setBaslik}
-              placeholder="Kısa, dikkat çekici"
+              placeholder="Başlık"
               placeholderTextColor={t.textMuted}
               maxLength={120}
             />
@@ -492,7 +491,7 @@ function EkleModal({
               style={[s.ekleInput, s.ekleInputCok, { color: t.text, borderColor: t.kartBorder, backgroundColor: t.bgInput }]}
               value={icerik}
               onChangeText={setIcerik}
-              placeholder="Açıklama, detay, link..."
+              placeholder="Metin"
               placeholderTextColor={t.textMuted}
               multiline
               textAlignVertical="top"
@@ -515,7 +514,6 @@ function EkleModal({
             <View style={[s.ekleSabit, { borderColor: t.kartBorder, backgroundColor: t.bgCard }]}>
               <View>
                 <Text style={[s.ekleSabitBaslik, { color: t.text }]}>Sabitle</Text>
-                <Text style={[s.ekleSabitNot, { color: t.textMuted }]}>Üstte sürekli görünür</Text>
               </View>
               <Switch
                 value={sabitlendi}
@@ -534,11 +532,6 @@ function EkleModal({
               style={s.ekleKaydetBtn}
             />
 
-            <Text style={[s.ekleBilgi, { color: t.textMuted }]}>
-              {editMode
-                ? 'Düzenleme push bildirimi tetiklemez.'
-                : 'Yayınlanır yayınlanmaz tüm rehberlere push bildirim gönderilir.'}
-            </Text>
           </ScrollView>
         </ModalKapak>
       </KeyboardAvoidingView>

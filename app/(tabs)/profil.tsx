@@ -50,6 +50,9 @@ import { useProfilDilleri } from '../../hooks/use-ilanlar';
 import { DILLER } from '../../constants/diller';
 import { TELEFON_HATA, telefonGoster, telefonNormalize } from '../../lib/telefon';
 import { TelefonAlani } from '../../components/telefon-modal';
+// Eyl 2026: profil fotoğrafı (isteğe bağlı) — lib/avatar.ts + components/avatar.tsx
+import { Avatar } from '../../components/avatar';
+import { avatarKaldir, avatarSec, avatarYukle } from '../../lib/avatar';
 
 /* ═══════════════════════════════════════════
    Surum (app.json'dan dinamik — v1.1.0 fix)
@@ -65,6 +68,7 @@ const APP_VERSION = Constants.expoConfig?.version ?? '?';
 interface Profil {
   isim: string;
   soyisim: string;
+  avatarUrl: string | null;   // Eyl 2026
 }
 
 interface KullaniciBilgi {
@@ -144,6 +148,27 @@ export default function ProfilEkrani() {
   const [editDiller, setEditDiller] = useState<string[]>([]);
   const { diller: profilDilleri, kaydet: dillerKaydet, telefon: profilTelefon, telefonKaydet } = useProfilDilleri();
   const { bilgi: turebBilgi } = useTureb();   // Eyl 2026: header rozeti
+  // Eyl 2026: profil fotoğrafı — seçim anında yüklenir (isim sınırından bağımsız)
+  const [fotoYukleniyor, setFotoYukleniyor] = useState(false);
+  const fotoSecVeYukle = async () => {
+    const secim = await avatarSec();
+    if (!secim) return;
+    setFotoYukleniyor(true);
+    const url = await avatarYukle(secim);
+    setFotoYukleniyor(false);
+    if (url) setKullanici(prev => prev ? { ...prev, profil: { ...prev.profil, avatarUrl: url } } : prev);
+  };
+  const fotoKaldir = () => {
+    Alert.alert('Fotoğrafı Kaldır', 'Profil fotoğrafın silinsin mi? Yerine ad-soyad harfleri görünür.', [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Kaldır', style: 'destructive', onPress: async () => {
+        setFotoYukleniyor(true);
+        const ok = await avatarKaldir();
+        setFotoYukleniyor(false);
+        if (ok) setKullanici(prev => prev ? { ...prev, profil: { ...prev.profil, avatarUrl: null } } : prev);
+      } },
+    ]);
+  };
 
   // Hakkında modal
   const [hakkindaAcik, setHakkindaAcik] = useState(false);
@@ -178,7 +203,7 @@ export default function ProfilEkrani() {
 
       const { data: profil } = await supabase
         .from('profiles')
-        .select('isim, soyisim')
+        .select('isim, soyisim, avatar_url')
         .eq('id', user.id)
         .single();
 
@@ -197,6 +222,7 @@ export default function ProfilEkrani() {
         profil: {
           isim: profil?.isim || '',
           soyisim: profil?.soyisim || '',
+          avatarUrl: profil?.avatar_url || null,
         },
         kayitTarihi: user.created_at || '',
       });
@@ -298,7 +324,7 @@ export default function ProfilEkrani() {
 
       setKullanici(prev => prev ? {
         ...prev,
-        profil: { isim: yeniIsim, soyisim: yeniSoyisim },
+        profil: { ...prev.profil, isim: yeniIsim, soyisim: yeniSoyisim },
       } : null);
       setDuzenleAcik(false);
     } catch (e: any) {
@@ -483,9 +509,16 @@ export default function ProfilEkrani() {
       <GradyanHeader paddingTop={insets.top + 12}>
         <HeaderBaslik baslik="Profil" />
         <View style={styles.avatarBolum}>
-          <View style={styles.avatarDaire}>
-            <Text style={styles.avatarHarf}>{initialler}</Text>
-          </View>
+          {/* Eyl 2026: fotoğraf varsa resim, yoksa harfler; dokununca fotoğraf seç */}
+          <TouchableOpacity onPress={fotoSecVeYukle} activeOpacity={0.8} accessibilityLabel="Profil fotoğrafını değiştir" disabled={fotoYukleniyor}>
+            {profil.avatarUrl ? (
+              <Avatar url={profil.avatarUrl} isim={adSoyad} boyut={76} cerceveRenk={Palette.seffafBeyaz20} style={{ marginBottom: Space.md }} />
+            ) : (
+              <View style={styles.avatarDaire}>
+                {fotoYukleniyor ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.avatarHarf}>{initialler}</Text>}
+              </View>
+            )}
+          </TouchableOpacity>
           <Text style={styles.adSoyad}>{adSoyad}</Text>
           <Text style={styles.email}>{email}</Text>
           {/* Eyl 2026: kayıtlı telefon (beyan usulü) — boşsa uyarı, Düzenle ile eklenir */}
@@ -565,7 +598,8 @@ export default function ProfilEkrani() {
           <View>
             <MenuSatir baslik="Geri Bildirim Gönder" renk={Palette.acik} onPress={geriBildirimGonder} styles={styles} t={t} />
             <MenuSatir baslik="Kullanım Koşulları" renk={Palette.bilgi} onPress={() => router.push('/kullanim-kosullari' as any)} styles={styles} t={t} />
-            <MenuSatir baslik="Gizlilik Politikası" renk={Palette.bilgi} onPress={() => router.push('/gizlilik-politikasi' as any)} son styles={styles} t={t} />
+            {/* Eyl 2026 GIZLILIK: alt satırda özet — DM, ajanda ve masraflar yalnızca sahibine görünür */}
+            <MenuSatir baslik="Gizlilik Politikası" alt="Özel mesajlarınız, ajandanız ve masraf kayıtlarınız yalnızca size aittir." renk={Palette.bilgi} onPress={() => router.push('/gizlilik-politikasi' as any)} son styles={styles} t={t} />
           </View>
         </Kart>
 
@@ -593,10 +627,28 @@ export default function ProfilEkrani() {
           MODAL — Profili Düzenle
          ════════════════════════════════════════ */}
       <Modal visible={duzenleAcik} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalKav} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={styles.modalKav} behavior={undefined} /* klavye kaçınma ModalKapak içinde (4 Eyl 2026) */>
           <ModalKapak baslik="Profili Düzenle" onKapat={() => setDuzenleAcik(false)} altButonBaslik="İptal">
             {/* Eyl 2026: telefon + dillerim eklendi; içerik uzadığı için ScrollView */}
             <ScrollView style={{ maxHeight: 460 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              {/* Eyl 2026: profil fotoğrafı — isteğe bağlı, seçince hemen yüklenir */}
+              <Text style={[styles.inputLabel, { color: t.textSecondary }]}>Profil Fotoğrafı</Text>
+              <View style={styles.fotoSatir}>
+                <Avatar url={kullanici.profil.avatarUrl} isim={adSoyad} boyut={56} harf={initialler} renk={t.primary} />
+                <View style={{ flex: 1, gap: 6 }}>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    <TouchableOpacity onPress={fotoSecVeYukle} activeOpacity={0.7} disabled={fotoYukleniyor} style={[styles.fotoBtn, { backgroundColor: t.primary }]}>
+                      {fotoYukleniyor ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.fotoBtnYazi}>{kullanici.profil.avatarUrl ? 'Değiştir' : 'Fotoğraf Seç'}</Text>}
+                    </TouchableOpacity>
+                    {kullanici.profil.avatarUrl ? (
+                      <TouchableOpacity onPress={fotoKaldir} activeOpacity={0.7} disabled={fotoYukleniyor} style={[styles.fotoBtn, { backgroundColor: t.bgSecondary, borderWidth: 1, borderColor: t.divider }]}>
+                        <Text style={[styles.fotoBtnYazi, { color: Palette.kapali }]}>Kaldır</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+
               <Text style={[styles.inputLabel, { color: t.textSecondary }]}>İsim</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: t.bgInput, color: t.text, borderColor: t.divider }]}
@@ -620,9 +672,6 @@ export default function ProfilEkrani() {
               <TelefonAlani deger={editTelefon} onDegis={setEditTelefon} />
 
               <Text style={[styles.inputLabel, { color: t.textSecondary }]}>Dillerim</Text>
-              <Text style={[styles.dilNot, { color: t.textMuted }]}>
-                İş ilanı bildirimleri bu dillere göre gelir; boşsa tüm ilanlar.
-              </Text>
               <View style={styles.dilSarmal}>
                 {DILLER.map(d => (
                   <TouchableOpacity key={d} onPress={() => editDilToggle(d)} activeOpacity={0.7} style={styles.dilChipDokun} hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}>
@@ -647,7 +696,7 @@ export default function ProfilEkrani() {
           MODAL — Sifre Degistir
          ════════════════════════════════════════ */}
       <Modal visible={sifreAcik} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalKav} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={styles.modalKav} behavior={undefined} /* klavye kaçınma ModalKapak içinde (4 Eyl 2026) */>
           <ModalKapak baslik="Şifre Değiştir" onKapat={() => setSifreAcik(false)} altButonBaslik="İptal">
             <Text style={[styles.inputLabel, { color: t.textSecondary }]}>Yeni Şifre</Text>
             <TextInput
@@ -709,7 +758,6 @@ export default function ProfilEkrani() {
         <TouchableOpacity style={styles.modalKav} activeOpacity={1} onPress={() => setBildirimAyarAcik(false)}>
           <ModalKapak
             baslik="Bildirim Ayarları"
-            alt="Hangi bildirim türlerini almak istediğinizi seçin"
             onKapat={() => setBildirimAyarAcik(false)}
           >
             <View onStartShouldSetResponder={() => true}>
@@ -786,6 +834,25 @@ const createStyles = (t: TemaRenkleri) => StyleSheet.create({
     fontSize: 26,
     color: '#FFFFFF',
     letterSpacing: 2,
+  },
+  // Eyl 2026: düzenleme modalı — fotoğraf satırı
+  fotoSatir: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: Space.md,
+  },
+  fotoBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radius.md,
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  fotoBtnYazi: {
+    fontFamily: Font.semibold,
+    fontSize: 13,
+    color: '#FFFFFF',
   },
   adSoyad: {
     fontFamily: Font.bold,

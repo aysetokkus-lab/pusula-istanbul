@@ -77,3 +77,13 @@ export function UserIcon({ size = 24, color = '#000' }: IconProps) {
     </Svg>
   );
 }
+
+/** Zil (4 Eyl 2026) — ana sayfa header'ı, Bildirimler ekranı girişi; 24px stroke */
+export function BellIcon({ size = 24, color = '#000' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16z" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+      <Path d="M10 20a2 2 0 0 0 4 0" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}

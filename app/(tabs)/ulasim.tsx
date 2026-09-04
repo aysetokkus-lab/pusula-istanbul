@@ -8,7 +8,7 @@ import { useUlasimTarife, type HavalimaniSefer } from '../../hooks/use-ulasim-ta
 import { useTema } from '../../hooks/use-tema';
 import { YetkiliBolum } from '../../components/yetkili/yetkili-bolum';
 import { UlasimTarifeYonetim } from '../../components/yetkili/ulasim-tarife-yonetim';
-import { BosDurum, GradyanHeader, HeaderBaslik, Kart, Kicker, ModalKapak, Rozet, Segmentler } from '../../components/ui/pusula-ui';
+import { BilgiNotu, BosDurum, GradyanHeader, HeaderBaslik, Kart, Kicker, ModalKapak, Rozet, Segmentler } from '../../components/ui/pusula-ui';
 import { Font, Palette, Radius } from '../../constants/theme';
 
 type Yon = 'gidis' | 'donus';
@@ -156,6 +156,7 @@ export default function Ulasim() {
           </ScrollView>
         </ModalKapak>
       </Modal>
+      <BilgiNotu />
     </ScrollView>
   );
 }

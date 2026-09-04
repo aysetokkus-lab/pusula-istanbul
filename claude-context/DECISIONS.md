@@ -1897,3 +1897,18 @@ Isim yazim hatalari yuzunden gercek rehberleri disarida birakmamak; TUREB sitesi
 ### Tuzaklar
 - TUREB'e kullanici basina ~1 istek; toplu tarama YAPMA (301 profili tek seferde sorgulama).
 - `profiles.diller` bossa TUREB dili yazilir (virgulle ayrilir) — kullanici sonradan degistirebilir.
+
+## 57. GIZLILIK: DM + AJANDA/MASRAF ADMIN DAHIL KIMSEYE GORUNMEZ — DM GORSELLERI OZEL BUCKET, DURUST POLITIKA METNI (4 Eyl 2026)
+
+### Karar
+Ayse: "insanlar yaptiklari isin gorunecegini, kazandiklarinin bilinmesinden korkabilir." Ozel mesajlar, ajanda, masraf/ucret/avans ve fisler yalnizca sahibine (DM'de iki katilimciya); admin/moderator icin HICBIR policy yok. Metinlerde "kimse goremez" DENMEZ — "uygulama uzerinden hicbir yonetici goremez, RLS ile veritabani seviyesinde kisitli" + "aktarimda ve depoda sifreli". **Ayse "veritabani sahibinin teknik erisimi var, rutin kullanilmaz" cumlesini CIKARTTI (gereksiz)** — politikaya bunu yeniden EKLEME. Uctan uca sifreleme YAPILMADI (disa aktarma sunucuda uretiliyor; istemciye tasimak maliyetli) — ileride Ayse isterse.
+
+### Nasil
+- DM gorselleri: `sohbet-gorseller` (public) yerine **`dm-gorseller` (private, 5 MB)**; yol `<konusma_id>/<gonderen_uid>/<dosya>`. Policy: SELECT/INSERT yalnizca konusmanin katilimcisi (`dm_konusmalar` uzerinden), DELETE yalnizca gonderen; admin yok. Migration `dm_gorselleri_ozel_bucket`. `dm_mesajlar.gorsel_url` artik YOL saklar (http ile baslayan eski deger olursa oldugu gibi kullanilir). Istemci `components/sohbet-gorsel.tsx`: `dmGorselYukle` (yol doner), `dmGorselUrl` (createSignedUrl 1 saat + oturum onbellegi), `DmMesajGorseli` (yol → imzali URL → MesajGorseli). Genel sohbet public bucket'ta kalir (moderasyon icin admin silebilmeli).
+- UI cumleleri (Ayse onayli metinler, 4 Eyl): ajanda dipnotu "Ajandaniz ve masraf kayitlariniz yalnizca sizin gorebileceginiz ozel alaninizdir; Pusula Istanbul yoneticileri dahil hic kimseyle paylasilmaz."; tur ekrani alt notu; DM basligi "Ozel mesaj · yalnizca ikinize acik" + bos ekran "Bu yazisma yalnizca ikinize aciktir; ..."; profil Gizlilik Politikasi alt satiri "Ozel mesajlariniz, ajandaniz ve masraf kayitlariniz yalnizca size aittir." DM listesi bos durumunda gizlilik cumlesi YOK. **USLUP KURALI (Ayse):** sohbet/aksiyon metinleri "sen", gizlilik/politika/yasal cumleler "siz" (dahil → dâhil). **FORM ICI ACIKLAMA YOK (Ayse):** ModalKapak alt yazilari, formlardaki gri not satirlari ve "Orn. ..." ornek placeholder'lari kaldirildi; yalnizca hata uyarilari, sayaclar, durum satirlari kalir.
+- Politika: `app/gizlilik-politikasi.tsx` + `docs/index.html` (magaza Privacy Policy URL) ayni icerik — Madde 2/3/4 guncel veri envanteri (telefon, foto, diller, TUREB, Google/Apple, push token; Supabase **Frankfurt/AB** — eski metin ABD diyordu, RevenueCat/odeme cikti; Expo push, Resend, TUREB sorgusu eklendi), yeni **Madde 5 "Ozel Mesajlar, Ajanda ve Masraf Verileri"**. `kullanim-kosullari.tsx` 6 (DM moderasyonu) + yeni 6a (ajanda/masraf: muhasebe belgesi degildir). `STORE-LISTING-BILGILERI.md` abonelik paragrafi → ucretsiz + yeni ozellikler (3041 karakter, anahtar kelimeler 96).
+
+### Tuzaklar
+- Imzali URL 1 saat; uzun acik kalan DM ekraninda suresi dolarsa gorsel kirilir → `dmGorselUrl` onbellegi son 60 sn'de yeniler, balon yeniden mount'ta yeni URL alir.
+- DM push'u (`dm_gonder`) mesaj onizlemesini Expo push servisinden gecirir — politika Madde 4'te acikca yazildi.
+- `kullanim-kosullari.tsx`'te 7 eski `react/no-unescaped-entities` eslint hatasi var (bana ait degil, tirnak isaretleri); tsc temiz.

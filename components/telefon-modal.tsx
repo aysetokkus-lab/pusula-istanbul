@@ -5,7 +5,7 @@ import { Font } from '../constants/theme';
 import { BirincilButon, ModalKapak } from './ui/pusula-ui';
 import { useProfilDilleri } from '../hooks/use-ilanlar';
 import { supabase } from '../lib/supabase';
-import { TELEFON_HATA, TELEFON_YARDIM, telefonGoster, telefonNormalize, whatsappLink } from '../lib/telefon';
+import { TELEFON_HATA, telefonGoster, telefonNormalize, whatsappLink } from '../lib/telefon';
 
 /* ═══════════════════════════════════════════
    TelefonModal + useTelefonGerekli (Eyl 2026)
@@ -38,9 +38,12 @@ export function TelefonAlani({ deger, onDegis, otoOdak }: { deger: string; onDeg
         maxLength={20}
         accessibilityLabel="Telefon numarası"
       />
-      <Text style={[s.yardim, { color: deger && !gecerli ? t.durumKapali : t.textMuted }]}>
-        {deger && !gecerli ? TELEFON_HATA : gecerli ? `Kaydedilecek: ${telefonGoster(gecerli)}` : TELEFON_YARDIM}
-      </Text>
+      {/* 4 Eyl 2026 (Ayşe): form içi açıklama yok — yalnızca hata ya da kaydedilecek biçim gösterilir */}
+      {deger ? (
+        <Text style={[s.yardim, { color: !gecerli ? t.durumKapali : t.textMuted }]}>
+          {!gecerli ? TELEFON_HATA : `Kaydedilecek: ${telefonGoster(gecerli)}`}
+        </Text>
+      ) : null}
       <TouchableOpacity onPress={waAc} activeOpacity={0.7} style={s.waSatir} accessibilityLabel="Numaramı WhatsApp'ta aç">
         <Text style={[s.waYazi, { color: t.primary }]}>{"Numaramı WhatsApp'ta aç ve kontrol et"}</Text>
       </TouchableOpacity>
@@ -74,13 +77,12 @@ export function TelefonModal({ visible, mevcut, aciklama, onKapat, onKaydet }: {
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onKapat}>
       <ModalKapak
         baslik="Telefon numaran"
-        alt={aciklama ?? 'Rehber Aranıyor ilanları ve özel mesajlar için profilinde telefon numarası olmalı. Numaran yalnızca giriş yapmış rehberlere, ilanlarında görünür.'}
+        alt={aciklama}
         onKapat={onKapat}
         altButonBaslik="Vazgeç"
       >
         <TelefonAlani deger={deger} onDegis={setDeger} otoOdak />
         <BirincilButon baslik="Kaydet" onPress={kaydet} varyant="cta" yukleniyor={kaydediliyor} style={{ marginTop: 12 }} />
-        <Text style={[s.not, { color: t.textMuted }]}>Doğrulama kodu gönderilmez; numaranı doğru yazdığından emin ol.</Text>
       </ModalKapak>
     </Modal>
   );

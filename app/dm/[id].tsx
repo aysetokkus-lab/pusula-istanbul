@@ -23,7 +23,11 @@ import { useKufurFiltre } from '../../hooks/use-kufur-filtre';
 import { supabase } from '../../lib/supabase';
 import { Font, Palette, Radius, Space, type TemaRenkleri } from '../../constants/theme';
 import { GradyanHeader } from '../../components/ui/pusula-ui';
-import { GorselButon, GorselOnizleme, MesajGorseli, TamEkranGorsel, gorselSec, sohbetGorselYukle, type SecilenGorsel } from '../../components/sohbet-gorsel';
+// Eyl 2026: karşı tarafın profil fotoğrafı (yoksa harf)
+import { Avatar } from '../../components/avatar';
+import { useAvatar } from '../../hooks/use-avatarlar';
+// Eyl 2026 GIZLILIK: DM görselleri özel bucket (dm-gorseller) + imzalı URL — sohbetGorselYukle (public) DM'de KULLANILMAZ
+import { DmMesajGorseli, GorselButon, GorselOnizleme, TamEkranGorsel, dmGorselYukle, gorselSec, type SecilenGorsel } from '../../components/sohbet-gorsel';
 
 /* ═══════════════════════════════════════════
    Yardımcılar (sohbet.tsx ile aynı)
@@ -116,6 +120,9 @@ export default function DmEkrani() {
     mesajlar.find(m => m.gonderen_id !== benimId)?.gonderen_isim ||
     'Rehber';
   const avatarRenk = renkUret(digerAd);
+  // Eyl 2026: karşı tarafın id'si konuşma satırından, yoksa mesajlardan
+  const digerId = karsiId || mesajlar.find(m => m.gonderen_id !== benimId)?.gonderen_id || null;
+  const digerAvatar = useAvatar(digerId);
 
   // Kendi son mesajım (Okundu / İletildi etiketi için)
   const sonKendiId = (() => {
@@ -151,7 +158,7 @@ export default function DmEkrani() {
       let gorselUrl: string | null = null;
       if (secilenGorsel) {
         setGorselYukleniyor(true);
-        gorselUrl = await sohbetGorselYukle(secilenGorsel.uri, secilenGorsel.mime);
+        gorselUrl = await dmGorselYukle(konusmaId, secilenGorsel.uri, secilenGorsel.mime);   // özel bucket yolu
         setGorselYukleniyor(false);
         if (!gorselUrl) {
           Alert.alert('Görsel yüklenemedi', 'İnternet bağlantınızı kontrol edip tekrar deneyin.');
@@ -303,12 +310,11 @@ export default function DmEkrani() {
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.headerBtn} accessibilityLabel="Geri" hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
           <GeriIkon />
         </TouchableOpacity>
-        <View style={[styles.headerAvatar, { backgroundColor: avatarRenk }]}>
-          <Text style={styles.headerAvatarHarf}>{basHarfler(digerAd)}</Text>
-        </View>
+        <Avatar url={digerAvatar} isim={digerAd} boyut={40} renk={avatarRenk} harf={basHarfler(digerAd)} cerceveRenk={Palette.seffafBeyaz20} />
         <View style={{ flex: 1 }}>
           <Text style={styles.headerIsim} numberOfLines={1}>{digerAd}</Text>
-          <Text style={styles.headerAlt} numberOfLines={1}>Özel mesaj</Text>
+          {/* Eyl 2026 GIZLILIK: açık ifade — DM yalnızca iki katılımcıya görünür (RLS), yönetici okuyamaz */}
+          <Text style={styles.headerAlt} numberOfLines={1}>Özel mesaj · yalnızca ikinize açık</Text>
         </View>
         <TouchableOpacity onPress={headerMenu} activeOpacity={0.7} style={styles.headerBtn} accessibilityLabel="Konuşma menüsü" hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
           <MenuIkon />
@@ -359,7 +365,7 @@ export default function DmEkrani() {
                 ]}
               >
                 {item.gorsel_url && (
-                  <MesajGorseli url={item.gorsel_url} onPress={() => setTamEkranUrl(item.gorsel_url!)} />
+                  <DmMesajGorseli yol={item.gorsel_url} onPress={(url) => setTamEkranUrl(url)} />
                 )}
                 {!!item.mesaj && (
                   <Text style={[styles.mesajMetin, { color: kendi ? t.textOnPrimary : t.text }]}>
@@ -380,11 +386,12 @@ export default function DmEkrani() {
         }}
         ListEmptyComponent={
           <View style={styles.bosMesaj}>
-            <View style={[styles.bosAvatar, { backgroundColor: avatarRenk }]}>
-              <Text style={styles.bosAvatarHarf}>{basHarfler(digerAd)}</Text>
-            </View>
+            <Avatar url={digerAvatar} isim={digerAd} boyut={64} renk={avatarRenk} harf={basHarfler(digerAd)} style={{ marginBottom: 14 }} />
             <Text style={[styles.bosBaslik, { color: t.text }]}>{digerAd}</Text>
             <Text style={[styles.bosAlt, { color: t.textSecondary }]}>İlk mesajı sen yaz</Text>
+            <Text style={[styles.bosAlt, { color: t.textMuted, marginTop: 10, fontSize: 12, paddingHorizontal: 24 }]}>
+              Bu yazışma yalnızca ikinize açıktır; Pusula İstanbul yöneticileri dâhil hiç kimse tarafından okunamaz.
+            </Text>
           </View>
         }
         inverted={false}

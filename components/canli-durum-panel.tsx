@@ -424,7 +424,7 @@ function DurumBildirModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={kapat}>
       {/* ADIM 1: Nokta Sec */}
       {adim === 'nokta' && (
-        <ModalKapak baslik="Mekan Seç" alt="Hangi mekan için bildirim yapacaksın?" onKapat={kapat} altButonBaslik="İptal">
+        <ModalKapak baslik="Mekan Seç" onKapat={kapat} altButonBaslik="İptal">
           <TextInput
             style={inputStil}
             placeholder="Mekan ara..."
@@ -465,7 +465,7 @@ function DurumBildirModal({
 
       {/* ADIM 2: Durum Seç */}
       {adim === 'durum' && secilenNokta && (
-        <ModalKapak baslik={secilenNokta.isim} alt="Mevcut durumu seç" onKapat={kapat} altButonBaslik="İptal">
+        <ModalKapak baslik={secilenNokta.isim} onKapat={kapat} altButonBaslik="İptal">
           <TouchableOpacity onPress={() => setAdim('nokta')} style={s.geriBtn} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <OkSolIkon color={t.primary} />
             <Text style={[s.geriYazi, { color: t.primary }]}>Geri</Text>
@@ -506,7 +506,7 @@ function DurumBildirModal({
                     <Text style={[s.detayLabel, { color: t.textSecondary }]}>Bekleme (dk)</Text>
                     <TextInput
                       style={[s.detayInput, { backgroundColor: t.bgInput, borderColor: t.kartBorder, color: t.text }]}
-                      placeholder="örn: 30"
+                      placeholder="30"
                       placeholderTextColor={t.textMuted}
                       keyboardType="numeric"
                       value={bekleme}
@@ -519,7 +519,7 @@ function DurumBildirModal({
                     <Text style={[s.detayLabel, { color: t.textSecondary }]}>Kapalı bölüm</Text>
                     <TextInput
                       style={[s.detayInput, { backgroundColor: t.bgInput, borderColor: t.kartBorder, color: t.text }]}
-                      placeholder="örn: Harem bölümü"
+                      placeholder="Bölüm"
                       placeholderTextColor={t.textMuted}
                       value={kapaliBolum}
                       onChangeText={setKapaliBolum}
@@ -536,10 +536,9 @@ function DurumBildirModal({
                   <TextInput
                     style={[s.detayInput, { height: secilenDurum === 'serbest_not' ? 80 : 50, backgroundColor: t.bgInput, borderColor: t.kartBorder, color: t.text }]}
                     placeholder={
-                      secilenDurum === 'erken_kapanis' ? 'örn: Bugün 15:00\'te kapanacak'
-                      : secilenDurum === 'gec_acilis' ? 'örn: Bugün 11:00\'de açılacak'
-                      : secilenDurum === 'serbest_not' ? 'Mekanla ilgili bilgi, uyarı veya not yazın...'
-                      : 'Kısa açıklama...'
+                      secilenDurum === 'erken_kapanis' ? 'Kapanış saati'
+                      : secilenDurum === 'gec_acilis' ? 'Açılış saati'
+                      : 'Not'
                     }
                     placeholderTextColor={t.textMuted}
                     multiline

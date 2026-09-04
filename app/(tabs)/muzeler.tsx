@@ -9,7 +9,7 @@ import { YetkiliBolum } from '../../components/yetkili/yetkili-bolum';
 import { MekanSaatleriYonetim } from '../../components/yetkili/mekan-saatleri-yonetim';
 import { useMekanSaatleri, type MekanSaat } from '../../hooks/use-mekan-saatleri';
 import { useTema } from '../../hooks/use-tema';
-import { BirincilButon, BosDurum, DurumNoktasi, GradyanHeader, HeaderBaslik, Kart, Kicker, ModalKapak, Rozet, Segmentler } from '../../components/ui/pusula-ui';
+import { BilgiNotu, BirincilButon, BosDurum, DurumNoktasi, GradyanHeader, HeaderBaslik, Kart, Kicker, ModalKapak, Rozet, Segmentler } from '../../components/ui/pusula-ui';
 import { Font, Palette, Radius } from '../../constants/theme';
 
 const GUNLER = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
@@ -304,6 +304,7 @@ export default function Muzeler() {
           );
         })()}
       </Modal>
+      <BilgiNotu />
     </ScrollView>
   );
 }

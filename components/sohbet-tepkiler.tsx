@@ -4,6 +4,10 @@ import { useTema } from '../hooks/use-tema';
 import { Font, Palette, Radius } from '../constants/theme';
 import { BirincilButon } from './ui/pusula-ui';
 import { TEPKI_ETIKET, TEPKI_TIPLERI, type TepkiOzeti, type TepkiTipi } from '../hooks/use-sohbet-tepkileri';
+// Eyl 2026: tepki verenler listesinde profil fotoğrafı (yoksa harf)
+import { useMemo } from 'react';
+import { Avatar } from './avatar';
+import { useAvatarlar } from '../hooks/use-avatarlar';
 
 /* ═══════════════════════════════════════════
    Sohbet Tepkileri — UI parçaları (Eyl 2026)
@@ -156,6 +160,7 @@ export function MesajMenusu({ acik, baslik, ozetMetin, benimTepkim, aksiyonlar, 
 export function TepkiVerenlerModal({ acik, ozet, onKapat }: { acik: boolean; ozet: TepkiOzeti[]; onKapat: () => void }) {
   const { t } = useTema();
   const toplam = ozet.reduce((a, o) => a + o.sayi, 0);
+  const avatarlar = useAvatarlar(useMemo(() => Array.from(new Set(ozet.flatMap(o => o.idler ?? []))), [ozet]));
   return (
     <Modal visible={acik} transparent animationType="slide" onRequestClose={onKapat}>
       <View style={[s.overlay, { backgroundColor: t.modalOverlay }]}>
@@ -170,7 +175,10 @@ export function TepkiVerenlerModal({ acik, ozet, onKapat }: { acik: boolean; oze
                   <Text style={[s.grupBaslik, { color: TEPKI_RENK[o.tip] }]}>{TEPKI_ETIKET[o.tip]} · {o.sayi}</Text>
                 </View>
                 {o.isimler.map((isim, i) => (
-                  <Text key={`${o.tip}-${i}`} style={[s.isim, { color: t.text }]}>{isim}</Text>
+                  <View key={`${o.tip}-${i}`} style={s.verenSatir}>
+                    <Avatar url={o.idler?.[i] ? avatarlar[o.idler[i]] : null} isim={isim} boyut={24} />
+                    <Text style={[s.isim, { color: t.text }]}>{isim}</Text>
+                  </View>
                 ))}
               </View>
             ))}
@@ -233,7 +241,8 @@ const s = StyleSheet.create({
   aksiyon: { height: 48, justifyContent: 'center', paddingHorizontal: 16 },
   aksiyonYazi: { fontFamily: Font.semibold, fontSize: 14 },
   grupBaslik: { fontFamily: Font.bold, fontSize: 12, letterSpacing: 0.5, textTransform: 'uppercase' },
-  isim: { fontFamily: Font.regular, fontSize: 14, paddingLeft: 26 },
+  verenSatir: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 26 },
+  isim: { fontFamily: Font.regular, fontSize: 14 },
 
   alinti: { borderLeftWidth: 3, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 6 },
   alintiIsim: { fontFamily: Font.bold, fontSize: 11 },

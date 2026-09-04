@@ -155,7 +155,7 @@ export default function AjandaEkrani() {
         </View>
 
         {hata ? <Text style={[s.hata, { color: t.durumKapali }]}>{hata}</Text> : null}
-        <Text style={[s.dipnot, { color: t.textMuted }]}>Ajanda yalnızca sana görünür. Her turun içinde masraf pusulası, fiş fotoğrafı ve acenteye gönderim var.</Text>
+        <Text style={[s.dipnot, { color: t.textMuted }]}>Ajandanız ve masraf kayıtlarınız yalnızca sizin görebileceğiniz özel alanınızdır; Pusula İstanbul yöneticileri dâhil hiç kimseyle paylaşılmaz.</Text>
       </ScrollView>
 
       <TurFormModal visible={form} varsayilanTarih={secili} onKapat={() => setForm(false)} onKaydet={kaydet} />

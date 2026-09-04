@@ -20,7 +20,7 @@ export default function KullanimKosullari() {
       contentContainerStyle={[styles.icerik, { paddingBottom: insets.bottom + 40 }]}
     >
       <Text style={[styles.baslik, { color: t.text }]}>Kullanım Koşulları</Text>
-      <Text style={[styles.tarih, { color: t.textMuted }]}>Son güncelleme: 16 Nisan 2026</Text>
+      <Text style={[styles.tarih, { color: t.textMuted }]}>Son güncelleme: 4 Eylül 2026</Text>
 
       <Text style={[styles.altBaslik, { color: t.text }]}>1. Kabul</Text>
       <Text style={[styles.paragraf, { color: t.textSecondary }]}>
@@ -100,11 +100,32 @@ export default function KullanimKosullari() {
         yazabilirsiniz. Tüm bildirimler 24 saat içinde ele alınır.
       </Text>
 
-      <Text style={[styles.altBaslik, { color: t.text }]}>7. Bilgi Doğruluğu</Text>
       <Text style={[styles.paragraf, { color: t.textSecondary }]}>
-        Uygulamadaki müze saatleri, ulaşım bilgileri, ezan vakitleri ve diğer veriler bilgilendirme
-        amaçlıdır. Bu bilgilerin anlık doğruluğunu garanti etmiyoruz. Resmi kaynaklardan
-        teyit etmenizi öneriyoruz.
+        Özel mesajlar (DM): Moderasyon araçları özel mesajlarda da geçerlidir (raporla, engelle). Özel mesajlar
+        yöneticiler tarafından okunamaz; bir özel mesajı raporladığınızda yalnızca raporladığınız mesajın metni
+        moderatöre iletilir. Ayrıntı için Gizlilik Politikası Madde 5.
+      </Text>
+
+      <Text style={[styles.altBaslik, { color: t.text }]}>6a. Özel Veriler: Ajanda, Masraf Pusulası ve Fişler</Text>
+      <Text style={[styles.paragraf, { color: t.textSecondary }]}>
+        Tur ajandanız, masraf pusulanız, rehberlik ücretleriniz, avanslarınız ve fiş fotoğraflarınız yalnızca
+        size görünür; Pusula İstanbul yöneticileri dahil hiç kimse uygulama üzerinden bu verilere erişemez.
+        Masraf dosyalarını yalnızca siz, seçtiğiniz kanaldan (e-posta uygulamanız, WhatsApp, cihaza kaydetme)
+        gönderirsiniz; gönderdiğiniz dosyanın içeriğinden ve alıcısından siz sorumlusunuz. Bu veriler muhasebe
+        veya vergi belgesi niteliği taşımaz; resmi kayıtlarınızı ayrıca tutmanız gerekir.
+      </Text>
+
+      <Text style={[styles.altBaslik, { color: t.text }]}>7. Bilgilerin Kaynağı ve Doğruluğu</Text>
+      <Text style={[styles.paragraf, { color: t.textSecondary }]}>
+        Uygulamada yer alan müze, saray ve cami ziyaret saatleri, giriş ücretleri, MuzeKart geçerliliği,
+        Boğaz turu ve havalimanı ulaşım tarifeleri, gemi takvimi, ulaşım uyarıları ve benzeri veriler;
+        ilgili kurum ve işletmelerin kamuya açık resmî kaynaklarından derlenir ve rehberlerin saha
+        bildirimleriyle desteklenir. Bu bilgiler yalnızca bilgilendirme amaçlıdır; kurumlar saat, ücret ve
+        tarifeleri önceden duyurmaksızın değiştirebilir. Pusula İstanbul bilgilerin güncelliğini,
+        eksiksizliğini veya doğruluğunu taahhüt etmez. Tur planlaması, rezervasyon ve müşterilere verilen
+        taahhütler öncesinde bilgilerin ilgili kurumun resmî kaynağından teyit edilmesi kullanıcının
+        sorumluluğundadır; yanlış, eksik veya güncelliğini yitirmiş bilgiye dayanılarak alınan kararlardan
+        doğabilecek zararlardan Pusula İstanbul ve geliştiricisi sorumlu tutulamaz.
       </Text>
 
       <Text style={[styles.altBaslik, { color: t.text }]}>8. Fikri Mülkiyet</Text>
@@ -117,6 +138,8 @@ export default function KullanimKosullari() {
       <Text style={[styles.paragraf, { color: t.textSecondary }]}>
         Uygulama "olduğu gibi" sunulmaktadır. Teknik sorunlar, kesintiler veya veri kaybından
         doğabilecek zararlardan sorumlu değiliz. Uygulamadaki bilgilerin resmi niteliği yoktur.
+        Üçüncü taraf kurumlara ait bilgilerdeki hata veya değişikliklerden kaynaklanan gecikme, ek ücret,
+        rezervasyon kaybı ve benzeri doğrudan veya dolaylı zararlar bu kapsamdadır.
       </Text>
 
       <Text style={[styles.altBaslik, { color: t.text }]}>10. Fesih</Text>

@@ -363,7 +363,7 @@
   <!-- GİZLİLİK POLİTİKASI -->
   <div id="gizlilik" class="legal-section active">
     <h2>Gizlilik Politikası ve KVKK Aydınlatma Metni</h2>
-    <p class="tarih">Son güncelleme: 23 Nisan 2026</p>
+    <p class="tarih">Son güncelleme: 4 Eylül 2026</p>
 
     <h3>1. Veri Sorumlusu</h3>
     <p>
@@ -373,43 +373,57 @@
     </p>
 
     <h3>2. Toplanan Veriler</h3>
-    <p>Uygulamamız aşağıdaki kişisel verileri toplamaktadır:</p>
+    <p>Uygulama, yalnızca hizmetin çalışması için gereken verileri toplar:</p>
     <ul>
-      <li>Kimlik bilgileri: Ad, soyad</li>
-      <li>İletişim bilgileri: E-posta adresi</li>
-      <li>Mesleki bilgi: TUREB ruhsat numarası</li>
-      <li>Konum bilgisi: Şehir (kullanıcı tarafından girilen)</li>
-      <li>Kullanım verileri: Uygulama içi etkileşimler, sohbet mesajları</li>
-      <li>Abonelik bilgileri: Abonelik durumu, plan türü</li>
+      <li>Kimlik bilgileri: Ad, soyad, isteğe bağlı profil fotoğrafı</li>
+      <li>İletişim bilgileri: E-posta adresi, cep telefonu numarası (beyan usulü, doğrulama kodu gönderilmez)</li>
+      <li>Mesleki bilgiler: TUREB ruhsat numarası, ruhsatnamenizde ekli olan diller, TUREB rehber veritabanındaki kayıt durumu (ad-soyad eşleşmesiyle)</li>
+      <li>Giriş bilgileri: Google veya Apple ile giriş yapıldıysa bu hesaplardan gelen ad, soyad ve e-posta</li>
+      <li>Kullanım verileri: Genel sohbet mesajları ve görselleri, saha bildirimleri, iş ilanları, tepkiler</li>
+      <li>Özel veriler: Özel mesajlar (DM) ve görselleri, tur ajandası, masraf pusulası, rehberlik ücreti, avans ve fiş fotoğrafları (bkz. Madde 5)</li>
+      <li>Cihaz verileri: Anlık bildirim (push) belirteci, işletim sistemi ve uygulama sürümü</li>
     </ul>
 
     <h3>3. Verilerin İşlenme Amacı</h3>
     <p>Kişisel verileriniz aşağıdaki amaçlarla işlenmektedir:</p>
     <ul>
-      <li>Kullanıcı hesabı oluşturma ve yönetimi</li>
-      <li>Uygulama hizmetlerinin sunulması</li>
-      <li>Sohbet ve iletişim özelliklerinin sağlanması</li>
-      <li>Abonelik yönetimi ve ödeme işlemleri</li>
-      <li>İçerik moderasyonu ve güvenlik</li>
-      <li>Uygulama iyileştirme ve analiz</li>
+      <li>Kullanıcı hesabı oluşturma, giriş ve hesap yönetimi</li>
+      <li>Rehberler arası iletişim (genel sohbet, özel mesaj), iş ilanları ve saha bilgisi paylaşımı</li>
+      <li>Tur ajandası ve masraf pusulası tutma; masraf dosyalarının kullanıcının seçtiği alıcıya gönderilmesi</li>
+      <li>Anlık bildirimler (yalnızca kullanıcının açık bıraktığı kategoriler)</li>
+      <li>Genel sohbet ve ilanlarda içerik moderasyonu, kötüye kullanımın önlenmesi</li>
+      <li>Uygulama iyileştirme; kişisel veriler reklam amacıyla kullanılmaz, üçüncü kişilere satılmaz</li>
     </ul>
 
-    <h3>4. Verilerin Aktarımı</h3>
-    <p>Kişisel verileriniz aşağıdaki üçüncü taraflarla paylaşılabilir:</p>
+    <h3>4. Verilerin Aktarımı ve Hizmet Sağlayıcılar</h3>
+    <p>Verileriniz yalnızca hizmetin çalışması için gereken altyapı sağlayıcılarına aktarılır:</p>
     <ul>
-      <li>Supabase Inc. — Veritabanı altyapı hizmeti (ABD)</li>
-      <li>RevenueCat Inc. — Abonelik yönetim hizmeti (ABD)</li>
-      <li>Apple Inc. / Google LLC — Uygulama mağazası ve ödeme işlemleri</li>
+      <li>Supabase Inc. — Veritabanı, kimlik doğrulama ve dosya depolama; sunucular Almanya (Frankfurt, AB)</li>
+      <li>Expo (650 Industries, Inc.) — Anlık bildirim iletimi (ABD); bildirim başlığı ve kısa önizleme metni bu servis üzerinden geçer</li>
+      <li>Resend, Inc. — Hesap ve bilgilendirme e-postaları (ABD / AB sunucuları)</li>
+      <li>Google LLC / Apple Inc. — Yalnızca bu hesaplarla giriş yapmayı seçtiyseniz, kimlik doğrulama</li>
+      <li>TUREB (Turist Rehberleri Birliği) — Rozet için ad-soyadınız TUREB’in herkese açık rehber veritabanında sorgulanır; başka veri gönderilmez</li>
     </ul>
     <p>
-      Bu aktarımlar, KVKK'nin 9. maddesi kapsamında yeterli koruma bulunan ülkelere
-      veya yeterli korumayı taahhüt eden veri sorumluları ile gerçekleştirilmektedir.
+      Uygulama içinde ücretli özellik veya abonelik yoktur; ödeme verisi toplanmaz. Aktarımlar KVKK'nin 9. maddesi
+      kapsamında, yeterli korumayı taahhüt eden veri sorumluları ile gerçekleştirilmektedir.
     </p>
 
-    <h3>5. Verilerin Saklanma Süresi</h3>
+    <h3>5. Özel Mesajlar, Ajanda ve Masraf Verileri</h3>
+    <p>Özel mesajlarınız (DM), tur ajandanız, masraf pusulanız, rehberlik ücretleriniz, avanslarınız ve fiş fotoğraflarınız size özeldir:</p>
+    <ul>
+      <li>Bu veriler uygulama üzerinden Pusula İstanbul yöneticileri ve moderatörleri dahil hiç kimse tarafından görüntülenemez. Erişim, veritabanı seviyesinde satır bazlı güvenlik kurallarıyla (RLS) yalnızca veri sahibine (özel mesajlarda yalnızca iki katılımcıya) kısıtlanmıştır.</li>
+      <li>Özel mesaj görselleri ve fiş fotoğrafları herkese açık olmayan özel depolama alanlarında tutulur; yalnızca yetkili kişiye süreli imzalı bağlantıyla gösterilir.</li>
+      <li>Masraf pusulası dosyaları (PDF/Word/Excel) kullanıcının kendi oturumuyla üretilir ve yalnızca kullanıcının seçtiği kanaldan (telefonun e-posta uygulaması, WhatsApp, cihaza kaydetme) gönderilir; Pusula İstanbul bu dosyaları kimseye göndermez ve saklamaz.</li>
+      <li>Bir özel mesaj raporlandığında yalnızca raporlanan mesajın metni moderatöre iletilir.</li>
+      <li>Veriler aktarım sırasında (TLS) ve depoda şifreli tutulur.</li>
+    </ul>
+
+    <h3>5a. Verilerin Saklanma Süresi</h3>
     <p>
       Kişisel verileriniz, hesabınız aktif olduğu sürece saklanır. Hesap silme talebinde
-      bulunmanız halinde verileriniz 30 gün içinde silinir. Yasal zorunluluklar saklıdır.
+      bulunmanız halinde hesabınız ve size ait tüm veriler (özel mesajlar, ajanda, masraflar ve fişler dahil)
+      30 gün içinde silinir. Yasal zorunluluklar saklıdır.
     </p>
 
     <h3>6. Haklarınız (KVKK Madde 11)</h3>
@@ -433,9 +447,9 @@
 
     <h3>8. Güvenlik</h3>
     <p>
-      Kişisel verilerinizin güvenliği için endüstri standardı şifreleme, güvenli bağlantılar (SSL/TLS)
-      ve erişim kontrolü mekanizmaları kullanılmaktadır. Supabase altyapısı, SOC 2 Type II
-      sertifikalıdır.
+      Kişisel verilerinizin güvenliği için güvenli bağlantılar (TLS), depoda şifreleme, satır bazlı
+      erişim kuralları (RLS) ve erişim kontrolü mekanizmaları kullanılmaktadır. Supabase altyapısı
+      SOC 2 Type II sertifikalıdır.
     </p>
 
     <h3>9. Hesap Silme</h3>
@@ -530,11 +544,17 @@
       Moderatör kararlarına itiraz için info@pusulaistanbul.app adresine başvurabilirsiniz.
     </p>
 
-    <h3>7. Bilgi Doğruluğu</h3>
+    <h3>7. Bilgilerin Kaynağı ve Doğruluğu</h3>
     <p>
-      Uygulamadaki müze saatleri, ulaşım bilgileri, ezan vakitleri ve diğer veriler bilgilendirme
-      amaçlıdır. Bu bilgilerin anlık doğruluğunu garanti etmiyoruz. Resmi kaynaklardan
-      teyit etmenizi öneriyoruz.
+      Uygulamada yer alan müze, saray ve cami ziyaret saatleri, giriş ücretleri, MuzeKart geçerliliği,
+      Boğaz turu ve havalimanı ulaşım tarifeleri, gemi takvimi, ulaşım uyarıları ve benzeri veriler;
+      ilgili kurum ve işletmelerin kamuya açık resmî kaynaklarından derlenir ve rehberlerin saha
+      bildirimleriyle desteklenir. Bu bilgiler yalnızca bilgilendirme amaçlıdır; kurumlar saat, ücret ve
+      tarifeleri önceden duyurmaksızın değiştirebilir. Pusula İstanbul bilgilerin güncelliğini,
+      eksiksizliğini veya doğruluğunu taahhüt etmez. Tur planlaması, rezervasyon ve müşterilere verilen
+      taahhütler öncesinde bilgilerin ilgili kurumun resmî kaynağından teyit edilmesi kullanıcının
+      sorumluluğundadır; yanlış, eksik veya güncelliğini yitirmiş bilgiye dayanılarak alınan kararlardan
+      doğabilecek zararlardan Pusula İstanbul ve geliştiricisi sorumlu tutulamaz.
     </p>
 
     <h3>8. Fikri Mülkiyet</h3>
@@ -547,6 +567,8 @@
     <p>
       Uygulama "olduğu gibi" sunulmaktadır. Teknik sorunlar, kesintiler veya veri kaybından
       doğabilecek zararlardan sorumlu değiliz. Uygulamadaki bilgilerin resmi niteliği yoktur.
+      Üçüncü taraf kurumlara ait bilgilerdeki hata veya değişikliklerden kaynaklanan gecikme, ek ücret,
+      rezervasyon kaybı ve benzeri doğrudan veya dolaylı zararlar bu kapsamdadır.
     </p>
 
     <h3>10. Fesih</h3>

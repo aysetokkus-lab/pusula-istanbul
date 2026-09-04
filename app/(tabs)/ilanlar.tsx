@@ -29,11 +29,15 @@ import { telefonNumaraRaporla } from '../../hooks/use-ilanlar';
 import { TELEFON_HATA, telefonNormalize } from '../../lib/telefon';
 import { TurebRozet } from '../../components/tureb-rozet';
 import { useTurebRozetleri, type TurebDurum } from '../../hooks/use-tureb';
+// Eyl 2026: ilan sahibinin profil fotoğrafı (yoksa harf)
+import { Avatar } from '../../components/avatar';
+import { useAvatarlar } from '../../hooks/use-avatarlar';
 import { useIlanlar, useProfilDilleri, gunStr, type Ilan, type IlanPayload, type IlanSonuc, type IlanSure, type IlanTur } from '../../hooks/use-ilanlar';
 import { DILLER, dilKisa } from '../../constants/diller';
 import { Font, Palette, Radius, type TemaRenkleri } from '../../constants/theme';
 import { BirincilButon, BosDurum, GradyanHeader, HeaderBaslik, Kart, Kicker, ModalKapak, Rozet, Segmentler } from '../../components/ui/pusula-ui';
 import { Takvim, tarihUzun } from '../../components/ui/takvim';
+import { SaatSecici } from '../../components/ui/saat-secici';
 import { tabanUcret, tlFormat, ucretSayi, TUREB_TABAN_YILI } from '../../constants/tureb-taban';
 
 /* ═══════════════════════════════════════════
@@ -156,7 +160,7 @@ function DilChip({ dil, secili, onPress, kisa, renk }: { dil: string; secili: bo
 /* ═══════════════════════════════════════════
    İLAN KARTI
    ═══════════════════════════════════════════ */
-function IlanKarti({ ilan, benim, isYetkili, onDurum, onSil, onKaldir, onMesaj, onNumaraRaporla, tureb, t }: {
+function IlanKarti({ ilan, benim, isYetkili, onDurum, onSil, onKaldir, onMesaj, onNumaraRaporla, tureb, avatarUrl, t }: {
   ilan: Ilan;
   benim: boolean;
   isYetkili: boolean;
@@ -166,6 +170,7 @@ function IlanKarti({ ilan, benim, isYetkili, onDurum, onSil, onKaldir, onMesaj, 
   onMesaj: (ilan: Ilan) => void;   // Eyl 2026: özel mesaj
   onNumaraRaporla: (ilan: Ilan) => void;   // Eyl 2026: numara yanlış/sahte bildirimi
   tureb?: { durum: TurebDurum | null; oda: string | null };   // Eyl 2026: ilan sahibinin TUREB rozeti
+  avatarUrl?: string | null;   // Eyl 2026: ilan sahibinin profil fotoğrafı
   t: TemaRenkleri;
 }) {
   const tur = turBilgi(ilan.tur, t);
@@ -211,6 +216,7 @@ function IlanKarti({ ilan, benim, isYetkili, onDurum, onSil, onKaldir, onMesaj, 
       {/* Alt bar: isim + zaman · Ara / WhatsApp / Mesaj (kendi ilanı değilse) */}
       <View style={s.kartAlt}>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <Avatar url={avatarUrl} isim={ilan.kullanici_isim || 'Rehber'} boyut={22} />
           <Text style={[s.kartSahip, { color: t.textMuted, flex: 0 }]} numberOfLines={1}>
             {ilan.kullanici_isim || 'Rehber'} · {zamanOnce(ilan.created_at)}
           </Text>
@@ -292,7 +298,7 @@ function BildirimDilleriModal({ visible, mevcut, onKapat, onKaydet, t }: {
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onKapat}>
-      <ModalKapak baslik="Bildirim dillerim" alt="Seçtiğim dillerdeki ilanlar için bildirim al; boş bırakırsan tüm ilanlar gelir" onKapat={onKapat}>
+      <ModalKapak baslik="Bildirim dillerim" onKapat={onKapat}>
         <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={s.chipSarmal} keyboardShouldPersistTaps="handled">
           {DILLER.map(d => (
             <DilChip key={d} dil={d} secili={secili.some(x => dilEsit(x, d))} onPress={() => toggle(d)} />
@@ -415,8 +421,8 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={() => { if (!kaydediliyor) onKapat(); }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ModalKapak baslik="İlan Ver" alt="Yedek rehber ara ya da transfer duyur" onKapat={() => { if (!kaydediliyor) onKapat(); }} altButonBaslik="İptal">
+      <KeyboardAvoidingView behavior={undefined} /* klavye kaçınma ModalKapak içinde (4 Eyl 2026) */ style={{ flex: 1 }}>
+        <ModalKapak baslik="İlan Ver" onKapat={() => { if (!kaydediliyor) onKapat(); }} altButonBaslik="İptal">
           <ScrollView contentContainerStyle={{ paddingBottom: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <Kicker style={s.formEtiket}>Tür</Kicker>
             <Segmentler<IlanTur> secenekler={TUR_SECENEK} aktif={tur} onSec={setTur} renk={tur === 'rehber_araniyor' ? Palette.safran : t.primary} />
@@ -426,7 +432,7 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
               style={inputStil}
               value={baslik}
               onChangeText={setBaslik}
-              placeholder="Örn. Yarın Ayasofya-Topkapı için İngilizce rehber"
+              placeholder="Başlık"
               placeholderTextColor={t.textMuted}
               maxLength={120}
             />
@@ -434,15 +440,8 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
             <Kicker style={s.formEtiket}>Tarih{tarihISO ? ` · ${tarihUzun(tarihISO)}` : ''}</Kicker>
             <Takvim value={tarihISO} onChange={setTarihISO} renk={Palette.safran} />
             <Kicker style={s.formEtiket}>Saat</Kicker>
-            <TextInput
-              style={[inputStil, saat.trim().length > 0 && !saatNormalize(saat) && { borderColor: t.durumKapali }]}
-              value={saat}
-              onChangeText={setSaat}
-              placeholder="Buluşma saati, örn. 09:00"
-              placeholderTextColor={t.textMuted}
-              keyboardType="numbers-and-punctuation"
-              maxLength={5}
-            />
+            {/* 4 Eyl 2026: klavyesiz saat seçimi (iki nokta yazmak zordu) */}
+            <SaatSecici value={saat} onChange={setSaat} renk={Palette.safran} />
 
             <Kicker style={s.formEtiket}>Süre</Kicker>
             <Segmentler<IlanSure> secenekler={SURE_SECENEK} aktif={sure} onSec={setSure} />
@@ -497,7 +496,6 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
             <View style={[s.switchSatir, { borderColor: t.kartBorder, backgroundColor: t.bgCard }]}>
               <View style={{ flex: 1 }}>
                 <Text style={[s.switchBaslik, { color: t.text }]}>Profilime kaydet</Text>
-                <Text style={[s.switchNot, { color: t.textMuted }]}>Sonraki ilanlarda otomatik dolar</Text>
               </View>
               <Switch
                 value={profileKaydet}
@@ -512,7 +510,7 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
               style={[...inputStil, s.inputCok]}
               value={aciklama}
               onChangeText={setAciklama}
-              placeholder="Rota, buluşma noktası, beklentiler..."
+              placeholder="Açıklama"
               placeholderTextColor={t.textMuted}
               multiline
               textAlignVertical="top"
@@ -521,7 +519,6 @@ function IlanFormModal({ visible, profilDilleri, profilTelefon, onKapat, onKayde
             <Text style={[s.sayac, { color: t.textMuted }]}>{aciklama.length} / 500</Text>
 
             <BirincilButon baslik="İlanı Yayınla" onPress={kaydet} varyant="cta" yukleniyor={kaydediliyor} disabled={kaydediliyor} style={{ marginTop: 14 }} />
-            <Text style={[s.modalNot, { color: t.textMuted }]}>İlan yayınlanınca ilgili dillerdeki rehberlere bildirim gider.</Text>
           </ScrollView>
         </ModalKapak>
       </KeyboardAvoidingView>
@@ -539,7 +536,9 @@ export default function IlanlarEkrani() {
   const { ilanlar, yukleniyor, hata, benimId, yenile, ilanEkle, ilanSil, durumDegistir } = useIlanlar();
   const { diller: profilDilleri, kaydet: profilDilleriKaydet, telefon: profilTelefon, telefonKaydet } = useProfilDilleri();
   const { telefonGerekli, telefonModal } = useTelefonGerekli();  // Eyl 2026: DM için profilde telefon şart
-  const turebRozetleri = useTurebRozetleri(useMemo(() => Array.from(new Set(ilanlar.map(i => i.kullanici_id))), [ilanlar]));
+  const sahipIdleri = useMemo(() => Array.from(new Set(ilanlar.map(i => i.kullanici_id))), [ilanlar]);
+  const turebRozetleri = useTurebRozetleri(sahipIdleri);
+  const avatarlar = useAvatarlar(sahipIdleri);   // Eyl 2026: profil fotoğrafları
 
   const [filtre, setFiltre] = useState<Filtre>('tumu');
   const [dilFiltre, setDilFiltre] = useState<string | null>(null);
@@ -648,7 +647,6 @@ export default function IlanlarEkrani() {
       <GradyanHeader paddingTop={insets.top + 12}>
         <HeaderBaslik
           baslik="Rehber Aranıyor"
-          alt="Yedek rehber ve transfer ilanları"
           sag={
             <TouchableOpacity onPress={() => setDilModal(true)} activeOpacity={0.7} style={s.headerRozet} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={s.headerRozetYazi}>
@@ -685,6 +683,7 @@ export default function IlanlarEkrani() {
               isYetkili={isYetkili}
               onNumaraRaporla={onNumaraRaporla}
               tureb={turebRozetleri[item.kullanici_id]}
+              avatarUrl={avatarlar[item.kullanici_id]}
               onDurum={onDurum}
               onSil={onSil}
               onKaldir={onKaldir}

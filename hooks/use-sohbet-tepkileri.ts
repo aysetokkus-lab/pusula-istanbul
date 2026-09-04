@@ -33,6 +33,7 @@ export interface TepkiOzeti {
   sayi: number;
   benim: boolean;
   isimler: string[];
+  idler: string[];   // Eyl 2026: avatar için kullanıcı id'leri (isimler ile aynı sıra)
 }
 
 type TepkiHaritasi = Record<string, Tepki[]>;
@@ -153,6 +154,7 @@ export function useSohbetTepkileri(mesajIdleri: string[], kullaniciId: string | 
           sayi: olanlar.length,
           benim: olanlar.some(x => x.kullanici_id === kullaniciId),
           isimler: olanlar.map(x => x.kullanici_isim || 'Rehber'),
+          idler: olanlar.map(x => x.kullanici_id),
         };
       })
       .filter(o => o.sayi > 0);

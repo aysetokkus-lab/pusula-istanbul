@@ -12,6 +12,8 @@ import { usePushToken } from '../hooks/use-push-token';
 import { TemaProvider } from '../hooks/use-tema';
 import { profilEksikMi } from '../lib/oauth';
 import { useTurebOtomatik } from '../hooks/use-tureb';
+// Eyl 2026: uygulama içi gradyanlı açılış ekranı (native splash düz kobalt → bu ekran → uygulama)
+import { AcilisEkrani } from '../components/acilis-ekrani';
 // v1.1.0: X API senkronu Edge Function'a (ulasim-senkron) tasindi, client-side artiklari kaldirildi.
 // Bkz. DECISIONS #36, INFRASTRUCTURE.md Bolum 13.
 
@@ -170,9 +172,6 @@ export default function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  // Tüm bildirim kategorilerini uygulama seviyesinde başlat
-  useBildirimler();
-
   // Push token al + Supabase'e kaydet (server-side push gonderim icin — v1.1.0)
   usePushToken();
 
@@ -185,6 +184,10 @@ export default function RootLayout() {
     Poppins_700Bold,
     Poppins_800ExtraBold,
   });
+
+  // Tüm bildirim kategorilerini uygulama seviyesinde başlat
+  // 4 Eyl 2026: hazır (font + oturum) olunca bildirime dokunma yönlendirmesi (soğuk başlangıç dahil) — fontsLoaded'dan SONRA çağrılmalı
+  useBildirimler(fontsLoaded && oturum !== null);
 
   // Eyl 2026: OAuth (Google/Apple) ile gelen kullanıcıda ruhsat no / isim boş olabilir →
   // /profil-tamamla'ya yönlendirilir. null = henüz bakılmadı, false = tam, true = eksik.
@@ -291,17 +294,18 @@ export default function RootLayout() {
     }
   }, [oturum, segments, fontsLoaded, sifreSifirlamaModu, profilEksik]);
 
+  // Eyl 2026: native splash İLK karede kapanır — yerine AcilisEkrani (gradyan + tam logo) çizilir,
+  // fontlar + oturum hazır olunca solarak kaybolur. Önceden `return null` + hazır olunca hideAsync idi.
   useEffect(() => {
-    if (fontsLoaded && oturum !== null) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, oturum]);
+    SplashScreen.hideAsync();
+  }, []);
 
-  if (!fontsLoaded || oturum === null) return null;
+  const hazir = fontsLoaded && oturum !== null;
 
   return (
     <TemaProvider>
       <StatusBar style="light" />
+      {hazir && (
       <Stack screenOptions={{ headerShown: false }}
         initialRouteName={oturum ? "(tabs)" : "giris"}>
         <Stack.Screen name="giris" />
@@ -314,7 +318,10 @@ export default function RootLayout() {
         <Stack.Screen name="ajanda" />{/* Eyl 2026: ajanda (tur takvimi) — rota planlayıcının yerine */}
         <Stack.Screen name="tur/[id]" />{/* Eyl 2026: tur + masraf pusulası + acenteye gönderim */}
         <Stack.Screen name="dm/[id]" />{/* Eyl 2026: özel mesaj (DM) ekranı */}
+        <Stack.Screen name="bildirimler" />{/* 4 Eyl 2026: uygulama içi bildirimler */}
       </Stack>
+      )}
+      <AcilisEkrani gorunur={!hazir} />
     </TemaProvider>
   );
 }

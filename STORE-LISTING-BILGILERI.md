@@ -19,7 +19,7 @@ Kapsamlı Ulaşım Verileri ve Arıza Bildirimleri: İstanbul genelindeki vapur,
 
 Galataport Kruvaziyer Takvimi: Şehre yanaşacak olan yolcu gemilerinin yanaşma ve ayrılış saatlerini, gemi kapasitelerini önceden görerek tarihi yarımada ve çevresindeki yoğunluğu öngörün.
 
-Rehberler Arası İletişim Ağı: Sadece meslektaşların yer aldığı kapalı anlık sohbet odası üzerinden sahadaki son dakika gelişmelerini paylaşın ve mesleki koordinasyonu artırın.
+Rehberler Arası İletişim Ağı: Sadece meslektaşların yer aldığı kapalı anlık sohbet odası üzerinden sahadaki son dakika gelişmelerini paylaşın; mesajlara tepki verin, yanıtlayın, sahadan fotoğraf gönderin.
 
 Kent Etkinlikleri ve Güncel Uyarılar: Kapanan yollar, mitingler, maratonlar veya güzergah değişiklikleri gibi tur akışını doğrudan etkileyebilecek şehir içi güncel etkinliklerden anında haberdar olun.
 
@@ -27,14 +27,20 @@ Ziyaret Saatleri ve MüzeKart Bilgileri: İstanbul'daki tüm müzelerin, sarayla
 
 Pratik ve Acil Durum Bilgileri: Sahada ihtiyaç duyulabilecek kurum telefon numaraları, namaz vakitleri, acil durum numaraları ve müze yönetimlerinin direkt iletişim hatları her an elinizin altında.
 
-Abonelik Bilgileri: Pusula İstanbul, profesyonel kullanım için tasarlanmış ücretli bir uygulamadır. Tüm özellikleri test edebilmeniz için 7 günlük ücretsiz deneme süresi sunulmaktadır. Deneme süresinin ardından uygulamanın tüm işlevlerine erişmeye devam etmek için aylık 99 TL veya yıllık 699 TL avantajlı fiyatıyla abone olabilirsiniz.
+Rehber Aranıyor İlanları: Yedek rehber, transfer veya günlük tur için ilan verin; ilanlar konuştuğunuz dillere göre bildirimle ulaşır. TUREB rehber veritabanıyla eşleşen rehberler profilinde ve ilanlarında TUREB rozeti taşır.
+
+Özel Mesajlaşma: Meslektaşlarınızla bire bir yazışın. Özel mesajlar yalnızca iki tarafa görünür; yöneticiler dahil kimse uygulama üzerinden okuyamaz.
+
+Ajanda ve Masraf Pusulası: Turlarınızı takvime işleyin, her tur için masraf, avans ve rehberlik ücreti girin, fiş fotoğraflarını ekleyin; PDF, Word veya Excel olarak tek dokunuşla acenteye veya kendinize gönderin. Ajandanız, masraflarınız ve ücretleriniz yalnızca size görünür, hiçbir yerde paylaşılmaz.
+
+Tamamen Ücretsiz: Pusula İstanbul'da abonelik, uygulama içi satın alma veya reklam yoktur; tüm özellikler tüm rehberlere açıktır.
 
 Geliştirici Hakkında: Ayşe Tokkuş Bayar tarafından geliştirilen Pusula İstanbul, sahada aktif çalışan turist rehberlerinin operasyonel ihtiyaçları analiz edilerek, yüksek kaliteli ve teyitli bilgi sunma amacıyla tasarlanmıştır.
 
 Saha operasyonlarında zaman kazanmak ve profesyonel rehberlik hizmetini bir üst seviyeye taşımak için Pusula İstanbul'u hemen indirin.
 
 ### Keywords (100 karakter)
-turist rehberi,müze yoğunluk,İstanbul turizm,TUREB,Galataport,kruvaziyer,rehber,müzekart,saha
+turist rehberi,müze yoğunluk,TUREB,Galataport,rehber,müzekart,masraf,ajanda,rehber aranıyor,saha
 
 ### Support URL
 https://aysetokkus-lab.github.io/pusula-istanbul/
@@ -66,12 +72,9 @@ Seyahat (Travel)
 ## Genel Bilgiler
 
 - **Bundle ID:** com.pusulaistanbul.app
-- **Version:** 1.0.0
+- **Version:** 1.2.0
 - **Geliştirici:** Ayşe Tokkuş Bayar
 - **İletişim:** info@pusulaistanbul.app
-- **Fiyat:** Ücretsiz (In-App Purchase ile abonelik)
-- **Aylık Plan:** 99 TL
-- **Yıllık Plan:** 699 TL (%41 tasarruf)
-- **Deneme Süresi:** 7 gün (kredi kartı gerekmez)
+- **Fiyat:** Tamamen ücretsiz (Eyl 2026: abonelik/IAP kaldırıldı, mağaza ürünleri satıştan çekildi)
 - **Yaş Derecelendirmesi:** 12+
 - **Dil:** Türkçe

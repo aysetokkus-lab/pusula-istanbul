@@ -85,6 +85,7 @@ Altin:   #C77A15 (saraylar / uyari vurgusu)
 ```
 app/
   ajanda.tsx           -- Eyl 2026: AJANDA (Stack) — tur takvimi, ?yeni=1 form, ?tarih=YYYY-MM-DD
+  bildirimler.tsx      -- 4 Eyl 2026: BILDIRIMLER (Stack) — push gecmisi, dokununca ilgili ekran
   tur/[id].tsx         -- Eyl 2026: TUR + MASRAF PUSULASI + acenteye gonder (PDF/Word/Excel)
   _layout.tsx          -- Root layout: auth + abonelik gating + routing + deep link handler
   giris.tsx            -- Login/Register ekrani
@@ -127,6 +128,8 @@ use-x-ulasim.ts          -- X (Twitter) API'den ulasim uyarisi
 use-bildirimler.ts       -- Birlesik bildirim sistemi (6 kategori)
 use-ajanda.ts            -- Eyl 2026: ajanda_turlar CRUD (useAjanda / useTur)
 use-masraflar.ts         -- Eyl 2026: masraflar (masraf+avans) CRUD, fis yukleme (masraf-fisler), ozet
+use-avatarlar.ts         -- Eyl 2026: profil fotograflari toplu okuma + onbellek (useAvatarlar / useAvatar)
+use-bildirim-gecmisi.ts  -- 4 Eyl 2026: uygulama ici bildirim listesi + okunmamis sayaci (bildirim_gecmisi)
 ```
 
 ### Bilesenler (`components/`)
@@ -140,6 +143,8 @@ tarih-saat-secici.tsx  -- Turkce tarih-saat picker
 ajanda-karti.tsx       -- Eyl 2026: ana sayfa Ajandam karti (hafta seridi, bugun/siradaki tur)
 tur-form-modal.tsx     -- Eyl 2026: tur ekle/duzenle formu
 ui/takvim.tsx          -- aylik takvim (gecmisSecilebilir + isaretler destegi)
+avatar.tsx             -- Eyl 2026: Avatar (foto varsa resim, yoksa harf)
+acilis-ekrani.tsx      -- Eyl 2026: uygulama ici splash (duz kobalt, buyuyen pusula + yazi; native splash'in devami)
 ```
 
 ### Kutuphane & Sabitler
@@ -150,6 +155,7 @@ constants/theme.ts     -- Tema sistemi (light+dark, Palette, Typo, Space, Radius
 constants/masraf.ts    -- Eyl 2026: masraf kategorileri, para birimleri, TR para bicimi (DB CHECK + Edge Function ile ayni)
 lib/masraf-disa-aktar.ts -- Eyl 2026: Edge Function cagrisi + dosya yazma + MailComposer/Sharing (web: indirme + mailto)
 lib/uyari.ts           -- Eyl 2026: uyar()/onayla() — web'de Alert.alert no-op oldugu icin window.alert/confirm yedegi
+lib/bildirim-yonlendir.ts -- 4 Eyl 2026: push kategori+veri → rota (bildirimHedefi / bildirimeGit); Bildirimler ekrani ve dokunma ayni harita
 ```
 
 ### Asset'ler
@@ -308,7 +314,8 @@ google-service-account.json          -- Google Play eas submit icin
 ## 9a. OZEL MESAJLASMA — DM (Eyl 2026)
 
 - Tablolar `dm_konusmalar` (a<b sirali cift, a_isim/b_isim, son_mesaj/_at/_gonderen, a/b_okundu_at) + `dm_mesajlar` (konusma_id, gonderen, mesaj, gorsel_url). **RLS: yalnizca iki katilimci okur; admin/moderator GOREMEZ** (mahremiyet — Ayse karari). Yazma yalnizca RPC: `dm_konusma_getir(alici_id)` (engel kontrolu, var olani doner/olusturur), `dm_gonder(konusma, mesaj, gorsel_url)` (ban+engel kontrolu, son_mesaj gunceller, aliciya HEDEFLI push 'sohbet' kategorisi, veri.dm=true), `dm_okundu(konusma)`, `dm_okunmamis_sayisi()`.
-- Rapor: `raporlanan_mesajlar` (mesaj_id = dm mesaj id, kaynak='dm', sebep 'uygunsuz') → moderator yalnizca raporlanan metni gorur. Engelleme: `engellenen_kullanicilar` iki yonlu gecerli.
+- Rapor: `raporlanan_mesajlar` (mesaj_id = dm mesaj id, kaynak='dm', sebep 'uygunsuz') → moderator yalnizca raporlanan metni gorur.
+- **Gorseller (Eyl 2026 gizlilik):** OZEL bucket `dm-gorseller` (`<konusma_id>/<uid>/<dosya>`, 5 MB); `gorsel_url` = YOL, gosterim imzali URL (1 saat, onbellek) — `dmGorselYukle` / `dmGorselUrl` / `DmMesajGorseli` (`components/sohbet-gorsel.tsx`). Public `sohbet-gorseller` DM'de KULLANILMAZ. Gizlilik ilkesi ve metinleri: DECISIONS #57. Engelleme: `engellenen_kullanicilar` iki yonlu gecerli.
 - UI: `hooks/use-dm.ts`; sohbet ekrani ustunde Segmentler **Genel | Mesajlarim (N)**; konusma listesi → `app/dm/[id].tsx` (balonlar, gorsel — sohbet-gorsel.tsx aynen, Okundu/Iletildi, uzun basma: Raporla / Sil, header "...": Engelle). Giris noktalari: genel sohbette isme dokunma veya MesajMenusu 'Ozel mesaj gonder'; Rehber Araniyor kartinda 'Mesaj' pill'i. Sohbet tab rozeti: genel okunmamis VEYA dm okunmamis.
 
 ## 9b. IS ILANLARI (Eyl 2026)
@@ -332,6 +339,13 @@ google-service-account.json          -- Google Play eas submit icin
 - Edge Function `tureb-dogrula` (kaynak `supabase/functions/tureb-dogrula/`): `{}` → sorgu; `{secim:n}` → coklu eslesmede secim. Eslesme: tam ad → tek/coklu; 4 asamali soyad/ad denemesi; profiles.diller bossa TUREB dili yazilir.
 - Istemci: `hooks/use-tureb.ts` (useTureb, useTurebOtomatik acilista 1 kez, useTurebRozetleri toplu), `components/tureb-rozet.tsx` (TurebRozet, TurebKarti), `components/yetkili/tureb-yonetim.tsx` (admin listesi). Rozet: profil header, ilan karti. Yeni yerde rozet gostermek = `useTurebRozetleri([id])` + `<TurebRozet>`.
 
+## 9b-3. PROFIL FOTOGRAFI — AVATAR (Eyl 2026)
+
+- Istege bagli. `profiles.avatar_url` (public URL + `?v=zaman`), bucket `profil-fotolari` (public okuma, sahibi `<uid>/avatar.jpg` yazar/siler, admin/moderator silebilir; 2 MB). Migration `profil_fotografi_avatar`.
+- `lib/avatar.ts`: `avatarSec()` (Kamera/Galeri, allowsEditing kare), `avatarIsle()` (ortadan kare kirp + 512px + JPEG 0.85, **expo-image-manipulator** — native modul), `avatarYukle()` (upsert + profil guncelle + onbellek), `avatarKaldir()`. `hooks/use-avatarlar.ts`: `useAvatarlar(ids)` toplu + oturum onbellegi (useTurebRozetleri deseni), `useAvatar(id)`. `components/avatar.tsx`: `<Avatar url isim boyut renk harf cerceveRenk />` — url varsa resim, yoksa harf avatari (eski renk/harf mantigi korunur).
+- Gosterildigi yerler: profil header + Profili Duzenle modali (Fotograf Sec / Degistir / Kaldir — secince hemen yuklenir), genel sohbet balonu, DM listesi, DM basligi/bos ekran, ilan karti sahip satiri, tepki verenler listesi (`TepkiOzeti.idler`).
+- Kural: yeni bir yerde kullanici gostermek = `useAvatarlar([...ids])` + `<Avatar>`; harf avatari elle cizme. Yeni kayitlarda foto yok, kullanici profilden ekler.
+
 ## 9c. AJANDA + MASRAF PUSULASI (Eyl 2026) — rota planlayicinin YERINE
 
 - **Karar (Ayse, 3 Eyl):** rota planlayici "anlamsiz" → tamamen SILINDI (kod + `rotalar` tablosu; git gecmisinde durur). Yerine rehberin kendi tur ajandasi + her tur icin masraf pusulasi.
@@ -343,6 +357,13 @@ google-service-account.json          -- Google Play eas submit icin
 - **Gonderim (Ayse karari) — 3 buton:** **Mail Gonder** = telefonun mail uygulamasi ekli acilir (`expo-mail-composer`, alici = acente_email, konu + ozetli govde; imza REHBERIN adi + telefonu, Pusula imzasi YOK); **WhatsApp ile Gonder** = paylasim sayfasi (`expo-sharing`, dosyalar sirayla; WhatsApp yuklu degilse uyari); **Telefona Kaydet** = Android `StorageAccessFramework` (klasor sec → base64 yaz), iOS Dosyalar'a kaydet sayfasi. Web'de (Chrome inceleme) tarayici ek ekleyemez: dosyalar indirilir + `mailto:` / `wa.me`. Dosyalar `cacheDirectory/masraf-pusulasi/`.
 - **Native:** expo-mail-composer + expo-sharing + expo-file-system eklendi (plugin `expo-mail-composer`) → 1.2.0 store build'ine dahil; kamera/galeri izin metinleri fis'i de kapsar.
 - Yeni kodda EMOJI YOK, HEX YOK (Palette/t.*), Poppins; tsconfig `exclude: supabase/functions` (Deno kodu tsc'den cikarildi → tsc 0 hata).
+
+## 9d. UYGULAMA ICI BILDIRIMLER (4 Eyl 2026)
+
+- Tablo `bildirim_gecmisi` (kategori, baslik, icerik, veri, hedef_kullanici_id, haric_idler, diller, created_at). push-gonder **v7** her gonderimde (test haric) 1 satir yazar; DM'de icerik "Özel mesaj". RLS SELECT: `hedef = auth.uid()` VEYA (`hedef IS NULL` ve ben haric_idler'de degilim). Yazma yalnizca service_role. 30 gun (pg_cron `bildirim-gecmisi-temizlik`).
+- Istemci: `useBildirimGecmisi()` (son 100; kapali kategori ve dil kesismeyen ilan satirlari istemcide de gizlenir — push ile birebir), `useBildirimOkunmamis()` (AsyncStorage `bildirim-son-goruldu`; one gelince + 90 sn), `app/bildirimler.tsx` (acilinca son goruldu = simdi), ana sayfa header solda `BellIcon` + `Palette.kapali` nokta.
+- Yonlendirme `lib/bildirim-yonlendir.ts`: dm+konusmaId → /dm/[id]; sohbet → /(tabs)/sohbet; ilanlar/ilanId → /(tabs)/ilanlar; mekanId → muzeler; turId → bogaz; durakId → ulasim; diger → ana sayfa. Push'a dokunma: `hooks/use-bildirimler.ts` (sicak listener + soguk baslangic; `useBildirimler(hazir)`).
+- Yeni bir push kategorisi/veri anahtari eklerken: push-gonder KANAL_MAP + `bildirimHedefi` + `app/bildirimler.tsx` KATEGORI_ETIKET guncellenir.
 
 ## 10. ANA SAYFA (`index.tsx`) ICERIKLERI — FREEMIUM GATE'LI
 

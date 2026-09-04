@@ -20,6 +20,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 import * as ScreenCapture from 'expo-screen-capture';
 import { useTema } from '../../hooks/use-tema';
+// Eyl 2026: profil fotoğrafları (harf avatarı yerine resim; foto yoksa harf kalır)
+import { Avatar } from '../../components/avatar';
+import { useAvatarlar } from '../../hooks/use-avatarlar';
 import { Font, Palette, Space, Radius, type TemaRenkleri } from '../../constants/theme';
 import { BirincilButon, BosDurum, GradyanHeader, HeaderBaslik, Kart, Segmentler } from '../../components/ui/pusula-ui';
 import { ChatIcon } from '../../components/tab-icons';
@@ -178,6 +181,11 @@ export default function SohbetEkrani() {
   const [sekme, setSekme] = useState<SohbetSekme>('genel');
   const { konusmalar, yukleniyor: dmYukleniyor, okunmamisSayisi: dmOkunmamis } = useDmKonusmalar();
   const mesajIdleri = useMemo(() => mesajlar.map(m => m.id), [mesajlar]);
+  // Eyl 2026: mesaj sahipleri + DM karşı tarafları için profil fotoğrafları (toplu, önbellekli)
+  const avatarlar = useAvatarlar(useMemo(
+    () => Array.from(new Set([...mesajlar.map(m => m.kullanici_id), ...konusmalar.map(k => k.karsi_id)])),
+    [mesajlar, konusmalar],
+  ));
   const { ozet: tepkiOzet, benimTepkim, tepkiVer } = useSohbetTepkileri(mesajIdleri, kullanici?.id ?? null);
 
   /* ─── Kullanıcı bilgisi çek ─── */
@@ -711,9 +719,7 @@ export default function SohbetEkrani() {
           renderItem={({ item }) => (
             <Kart onPress={() => dmKonusmaAc(item)} style={styles.dmKart}>
               <View style={styles.dmSatir}>
-                <View style={[styles.mesajAvatar, { backgroundColor: renkUret(item.karsi_isim) }]}>
-                  <Text style={styles.mesajAvatarHarf}>{basHarfler(item.karsi_isim)}</Text>
-                </View>
+                <Avatar url={avatarlar[item.karsi_id]} isim={item.karsi_isim} boyut={36} renk={renkUret(item.karsi_isim)} harf={basHarfler(item.karsi_isim)} />
                 <View style={{ flex: 1 }}>
                   <Text style={[item.okunmamis ? styles.dmIsimKalin : styles.dmIsim, { color: t.text }]} numberOfLines={1}>
                     {item.karsi_isim}
@@ -770,10 +776,8 @@ export default function SohbetEkrani() {
               onLongPress={() => mesajAksiyonlari(item)}
               delayLongPress={600}
             >
-              {/* Avatar harfi — renk isimden üretilir */}
-              <View style={[styles.mesajAvatar, { backgroundColor: avatarRenk }]}>
-                <Text style={styles.mesajAvatarHarf}>{isimHarf}</Text>
-              </View>
+              {/* Avatar: profil fotoğrafı varsa resim, yoksa harf — renk isimden üretilir */}
+              <Avatar url={avatarlar[item.kullanici_id]} isim={item.kullanici_isim} boyut={36} renk={avatarRenk} harf={isimHarf} />
 
               <View
                 style={[
