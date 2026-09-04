@@ -95,7 +95,7 @@ Asagidaki sorulari kullaniciya **sorma** — cevaplar bu dosyada veya okuman ger
 - "Domain ne?" — **pusulaistanbul.app**
 - "Hangi Node surumu?" — **Node 20 zorunlu (v24 uyumsuz)**
 - "Expo Go calisir mi?" — **HAYIR**, native modules var (RC, expo-notifications, screen-capture). Custom dev client gerekir: `npx expo start --dev-client`
-- "Apple/Google hesap aktif mi?" — **Ikisi de aktif**, Paid Apps Agreement Active (5 Nis 2026 - 31 Mar 2027)
+- "Apple/Google hesap aktif mi?" — **Ikisi de aktif**, Paid Apps Agreement Active (5 Nis 2026 - 31 Mar 2027). **Apple Developer / App Store Connect Apple ID = aysetokkus@hotmail.com** (gmail DEGIL; 4 Eyl 2026 teyit)
 - "Su an hangi surum yayinda?" — **STATE.md'ye bak, sorma. v1.1.1 HER IKI PLATFORMDA YAYINDA (Android 2 Haz, iOS 4 Haz 2026). `app_versions` her iki platform icin 1.1.1. Yayindaki cihazlara ek olarak EAS Update OTA (4 Haz, duyuru buton gorunurluk fix'i) dagitildi.**
 - "Proje dizini nerede?" — **/Users/aysetokkus/istanbul-rehber** (her zaman bu, sorma)
 

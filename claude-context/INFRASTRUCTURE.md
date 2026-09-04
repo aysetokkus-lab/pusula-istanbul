@@ -69,7 +69,7 @@ Yeni: `height: 48px; width: auto;` — dogal 1.4:1 oran, kusursuz yuvarlak compa
 ## 2. EAS BUILD & SUBMIT YAPILANDIRMASI
 
 ### `eas.json`
-- **Submit iOS:** appleId: ayse.tokkus@gmail.com, ascAppId: 6761419678, appleTeamId: 7UJVL94SMJ
+- **Submit iOS:** appleId: **aysetokkus@hotmail.com** (4 Eyl 2026 duzeltme — Apple Developer / App Store Connect hesabi HOTMAIL'dir; gmail DEGIL. Eski kayit yanlisti), ascAppId: 6761419678, appleTeamId: 7UJVL94SMJ. EAS Apple girisinde -20209 "locked" hatasi: Mac Keychain'deki eski `deliver.aysetokkus@hotmail.com` sifresi → Keychain Access'ten sil, yeniden gir.
 - **Submit Android:** serviceAccountKeyPath: `./google-service-account.json`, track: internal
 - **Profiller:** development, preview, production
 
