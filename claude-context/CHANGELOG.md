@@ -4,7 +4,10 @@ Bu dosya **append-only** — eski surum bilgilerini silmeyiz, yeni surumler ust 
 
 ---
 
-## v1.2.0 (HAZIRLIK — surum bump 4 Eylul 2026, store build ERTELENDI; liste bitince tek build)
+## v1.2.0 (YAYINDA — iOS 5 Eylul 2026, Google Play 8 Eylul 2026; build 46 / versionCode 46)
+
+**Yayin sonrasi (8-9 Eyl 2026):** 8 Eyl 09:00 "tamamen ucretsiz" maili 286 dogrulanmis kullaniciya + 09:30 abonelik iptal hatirlatmasi 34 gercek aboneye (Resend). Google Play temel planlar 0 etkin, etkin yillik siparisler iptal (iade yok). 9 Eyl: `app_versions` android+ios → 1.2.0 (GuncellemeBandi aktif); docs/index.html premium/fiyat blogu kaldirildi, Kullanim Kosullari madde 4 "Ucret" (ucretsiz, satin alma yok); Instagram duyuru carousel'i hazirlandi (`sosyal-medya/duyuru-ucretsiz-2026-09/`).
+
 
 **Ozet:** Tamamen ucretsiz model, inline yonetim, "Kobalt & Menekse" redesign, sohbet tepki/yanit/gorsel, Bogaz hafta ici + hafta sonu, "Rehber Araniyor" ilanlari, DM, **AJANDA + MASRAF PUSULASI** (rota planlayici kaldirildi). Native degisiklikler (react-native-purchases cikti; expo-image-picker, expo-mail-composer, expo-sharing girdi; yeni ikon/splash) → **store build sart, OTA yetmez.**
 

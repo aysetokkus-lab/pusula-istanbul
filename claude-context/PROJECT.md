@@ -252,6 +252,7 @@ google-service-account.json          -- Google Play eas submit icin
 ### EKRAN 1: `hos-geldin.tsx` (Onboarding)
 - Gradient header + windrose logo + "Pusula Istanbul'a Hos Geldiniz!"
 - Alt metin: "Profesyonel turist rehberlerinin dijital asistani."
+- _(Eyl 2026: uygulama tamamen ucretsiz, ucretsiz/premium ayrimi kalkti — asagidaki kart yapisi tarihsel referans)_
 - **UCRETSIZ OZELLIKLER** (sol mavi accent — 3 kart):
   1. Tur Organizasyonu — Muze/saray/cami ziyaret saatleri, gise kapanislari, giris ucretleri
   2. Kapsamli Ulasim Rehberi — Havalimani transferleri, Bogaz turlari, MuzeKart bilgileri
@@ -365,7 +366,7 @@ google-service-account.json          -- Google Play eas submit icin
 - Yonlendirme `lib/bildirim-yonlendir.ts`: dm+konusmaId → /dm/[id]; sohbet → /(tabs)/sohbet; ilanlar/ilanId → /(tabs)/ilanlar; mekanId → muzeler; turId → bogaz; durakId → ulasim; diger → ana sayfa. Push'a dokunma: `hooks/use-bildirimler.ts` (sicak listener + soguk baslangic; `useBildirimler(hazir)`).
 - Yeni bir push kategorisi/veri anahtari eklerken: push-gonder KANAL_MAP + `bildirimHedefi` + `app/bildirimler.tsx` KATEGORI_ETIKET guncellenir.
 
-## 10. ANA SAYFA (`index.tsx`) ICERIKLERI — FREEMIUM GATE'LI
+## 10. ANA SAYFA (`index.tsx`) ICERIKLERI — ~~FREEMIUM GATE'LI~~ (Eyl 2026: tum gate'ler kalkti, `premiumMi` yok; PREMIUM etiketleri tarihsel)
 
 - Hava durumu (wttr.in API) — UCRETSIZ
 - Namaz vakitleri (Aladhan API) — UCRETSIZ (rehberin musterilerine bilgi)

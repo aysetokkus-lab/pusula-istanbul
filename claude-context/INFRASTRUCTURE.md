@@ -115,7 +115,8 @@ eas submit --platform android --latest
 - SKU: `pusulaistanbul001`
 - App ID: `com.pusulaistanbul.app`
 
-### Subscriptions
+### Subscriptions — SATISTAN KALDIRILDI (Eyl 2026, tarihsel)
+> Uygulama tamamen ucretsiz. App Store abonelikleri satistan cekildi; mevcut iOS aboneleri gelistirici iptal EDEMEZ → uygulama ici duyuru + mail ile "kendiniz iptal edin" (bkz. STATE.md "ABONELIK KAPANISI"). Asagisi eski konfigurasyon.
 - **Subscription Group:** "Pusula Istanbul Premium" — 2 abonelik (Aylik + Yillik), 175 ulke fiyat ayarli, **Turkish lokalizasyon eklendi (Missing Metadata cozumu — bkz. DECISIONS.md)**
 - Aylik Plan: ₺99,99/ay
 - Yillik Plan: ₺699 (=58,25 TL/ay, %41 tasarruf)
@@ -126,9 +127,8 @@ eas submit --platform android --latest
 - Custom License Agreement (Turkce + Ingilizce) eklendi (App Information > License Agreement)
 - Apple Guideline 3.1.2c gerekligi
 
-### Demo Hesaplar (Supabase'de ayarli)
-- `demo.test@pusulaistanbul.app` / `123456` — suresi dolmus abonelik (ucretsiz katman test)
-- `aysetokkus@hotmail.com` / `123456` — aktif premium (2027'ye kadar SQL ile ayarli)
+### Demo / Test Hesaplar (Supabase'de ayarli)
+- `aysetokkus@hotmail.com` / `123456` — TEK test hesabi: App Review demo hesabi + E2E testler (profil "Ayse Bayar", ruhsat 244). 5 Eyl 2026: demo.test@ ve 11 eski test hesabi (test@example.com, +100/+luna/+0705, proteste_angel, aysetokkusbayar@gmail, icloud, Apple relay) SILINDI; gultokkus@gmail.com Ayse'nin kiz kardesi, GERCEK, silme.
 
 ### Manual Release ZORUNLU (v1.0.7'den itibaren)
 v1.0.7 felaketi sonrasi: her release'de Manual release sec, otomatik release yapma. Bkz. DECISIONS.md "Manual Release Zorunlu".
@@ -148,10 +148,10 @@ v1.0.7 felaketi sonrasi: her release'de Manual release sec, otomatik release yap
 - Package: `com.pusulaistanbul.app`
 - Play Store linki: https://play.google.com/store/apps/details?id=com.pusulaistanbul.app
 
-### Abonelikler
-- com.pusulaistanbul.app.aylik (Aylik Plan)
-- com.pusulaistanbul.app.yillik (Yillik Plan)
-- Her ikisi de Etkin
+### Abonelikler — KAPATILDI (5 Eyl 2026)
+- com.pusulaistanbul.app.aylik (Aylik Plan) — temel plan `aylik` Etkin degil
+- com.pusulaistanbul.app.yillik (Yillik Plan) — temel planlar `yillik` + `yillik-yeni` Etkin degil
+- 5 Eyl 2026: Siparis yonetimi'nden 3 etkin yillik abonelik iptal edildi (iade YOK, donem sonuna kadar erisim); kalan 10 zaten iptalli/iadeli/test. Google'da yenilenen abonelik yok.
 
 ### Kapali Test (Alpha)
 - 12 test kullanicisi (12 Nisan 2026'da aktive edildi)
@@ -166,7 +166,7 @@ v1.0.7 felaketi sonrasi: her release'de Manual release sec, otomatik release yap
 
 ### Store Listing
 - Tamamlandi (Turkce — uygulama adi, aciklamalar, ekran goruntuleri, feature graphic, uygulama ikonu)
-- **GUNCELLENMELI:** Description'daki "7 gunluk ucretsiz deneme" referansi freemium modele uygun hale getirilmeli + abonelik iptal bilgisi eklenmeli
+- Aciklama metni v1.2.0 ile "tamamen ucretsiz" olarak yenileniyor (`v1.2.0-yayin-komutlari.md` + `STORE-LISTING-BILGILERI.md`)
 - Play Store ikonu: `assets/images/play-store-icon.png` (512x512 kare PNG, koseleri duz)
 - Feature graphic: `assets/images/feature-graphic.png` (1024x500)
 
@@ -179,7 +179,8 @@ v1.0.7 felaketi sonrasi: her release'de Manual release sec, otomatik release yap
 
 ---
 
-## 5. REVENUECAT
+## 5. REVENUECAT — KALDIRILDI (Eyl 2026, tarihsel)
+> `react-native-purchases`, `lib/revenuecat.ts`, `hooks/use-abonelik.ts` silindi; uygulama tamamen ucretsiz (PROJECT.md Bolum 4). RC dashboard'daki proje duruyor ama app'ten cagrilmiyor. Asagisi eski kurulum, referans icin.
 
 ### Yapilandirma
 - Proje: **Pusula Istanbul**
