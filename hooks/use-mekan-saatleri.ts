@@ -8,7 +8,7 @@ export interface MekanSaat {
   tip: string;
   kategori: string;
   acilis: string;
-  kapanis: string;
+  kapanis: string | null;  // NULL = resmi kaynak vermiyor, gise_kapanis esas (migration mekan_saatleri_kapanis_nullable)
   gise_kapanis: string | null;
   kapali_gun: number | null;
   mevsimsel: boolean;

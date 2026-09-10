@@ -252,7 +252,7 @@ export function MekanSaatleriYonetim(props: { kategori?: string }) {
     setSeciliMekan(m);
     setDuzenleIsim(m.isim);
     setForm({
-      acilis: m.acilis, kapanis: m.kapanis, gise_kapanis: m.gise_kapanis || '',
+      acilis: m.acilis, kapanis: m.kapanis || '', gise_kapanis: m.gise_kapanis || '',
       yaz_acilis: m.yaz_acilis || '', yaz_kapanis: m.yaz_kapanis || '', yaz_gise_kapanis: m.yaz_gise_kapanis || '',
       kis_acilis: m.kis_acilis || '', kis_kapanis: m.kis_kapanis || '', kis_gise_kapanis: m.kis_gise_kapanis || '',
       haftasonu_acilis: m.haftasonu_acilis || '', haftasonu_kapanis: m.haftasonu_kapanis || '',
@@ -272,18 +272,28 @@ export function MekanSaatleriYonetim(props: { kategori?: string }) {
 
   const kaydet = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    // Acilis/kapanis zorunlu: bos kayit ("") uygulamada "Bugun kapandi" hatasina yol acar (Yerebatan, 10 Eyl 2026)
+    // Acilis zorunlu; kapanis VEYA gise kapanisindan en az biri zorunlu (resmi kaynaklar bazen yalnizca gise verir).
+    // Bos alan "" degil null yazilir — "" uygulamada sahte "Bugun kapandi" uretiyordu (Yerebatan, 10 Eyl 2026).
     const SAAT = /^([01]\d|2[0-3]):[0-5]\d$/;
     const acilisT = form.acilis.trim();
     const kapanisT = form.kapanis.trim();
-    if (!SAAT.test(acilisT) || !SAAT.test(kapanisT)) {
-      Alert.alert('Eksik saat', 'Açılış ve kapanış saatleri zorunludur (SS:DD biçiminde).');
+    const giseT = (form.gise_kapanis || '').trim();
+    if (!SAAT.test(acilisT)) {
+      Alert.alert('Eksik saat', 'Açılış saati zorunludur (SS:DD).');
+      return;
+    }
+    if (!kapanisT && !giseT) {
+      Alert.alert('Eksik saat', 'Kapanış ya da gişe kapanış saatinden en az biri girilmelidir.');
+      return;
+    }
+    if ((kapanisT && !SAAT.test(kapanisT)) || (giseT && !SAAT.test(giseT))) {
+      Alert.alert('Hatalı saat', 'Saatler SS:DD biçiminde olmalıdır (örn. 17:30).');
       return;
     }
     const ortakVeri = {
       acilis: acilisT,
-      kapanis: kapanisT,
-      gise_kapanis: form.gise_kapanis || null,
+      kapanis: kapanisT || null,
+      gise_kapanis: giseT || null,
       yaz_acilis: form.yaz_acilis || null,
       yaz_kapanis: form.yaz_kapanis || null,
       yaz_gise_kapanis: form.yaz_gise_kapanis || null,

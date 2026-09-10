@@ -70,14 +70,15 @@ function durum(m: MekanSaat) {
 
   if (m.kapali_gun !== null && m.kapali_gun === gun)
     return { d: 'KAPALI', r: Palette.kapali, s: `${GUNLER[m.kapali_gun]} kapalı` };
-  // Saat bilgisi eksikse KAPALI deme — ("13:21" >= "" JS'te her zaman true olur)
-  if (!acilis || !kapanis)
+  // Bazi mekanlarda resmi kaynak yalnizca gise kapanisini verir; kapanis bos olabilir.
+  // Bos saatle karsilastirma yapma ("13:21" >= "" JS'te her zaman true → sahte KAPALI).
+  if (!acilis || !(kapanis || gise))
     return { d: 'SAAT YOK', r: Palette.bilgi, s: 'Saat bilgisi eksik' };
   if (cumaGunuMu() && m.cuma_kapali_bas && m.cuma_kapali_bit)
     if (saatStr >= m.cuma_kapali_bas && saatStr < m.cuma_kapali_bit)
       return { d: 'KAPALI', r: Palette.kapali, s: `Cuma arası — ${m.cuma_kapali_bit}'de açılacak` };
   if (saatStr < acilis) return { d: 'KAPALI', r: Palette.kapali, s: `${acilis}'de açılıyor` };
-  if (saatStr >= kapanis) return { d: 'KAPALI', r: Palette.kapali, s: 'Bugün kapandı' };
+  if (kapanis && saatStr >= kapanis) return { d: 'KAPALI', r: Palette.kapali, s: 'Bugün kapandı' };
   if (gise && saatStr >= gise) return { d: 'GİŞE KAPALI', r: Palette.uyari, s: 'Giriş durdu' };
   return { d: 'AÇIK', r: Palette.acik, s: `Gişe ${gise || kapanis}'e kadar` };
 }
@@ -155,7 +156,7 @@ export default function Muzeler() {
                 </View>
                 <View style={st.kartAlt}>
                   <DurumNoktasi renk={d.r} boyut={8} />
-                  <Text style={[st.saatBilgi, { color: t.textSecondary }]}>{acilis}–{kapanis}</Text>
+                  <Text style={[st.saatBilgi, { color: t.textSecondary }]}>{acilis}–{kapanis || '—'}</Text>
                   {gise && <Text style={[st.giseBilgi, { color: t.textSecondary }]}>Gişe: {gise}</Text>}
                 </View>
                 {m.kapali_gun !== null && <Text style={[st.kapaliGun, { color: t.durumKapali }]}>{GUNLER[m.kapali_gun]} kapalı</Text>}
@@ -197,7 +198,7 @@ export default function Muzeler() {
                   </View>
                   <View style={[st.detayKutu, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
                     <Text style={[st.detayEtiket, { color: t.textSecondary }]}>Kapanış</Text>
-                    <Text style={[st.detayDeger, { color: t.text }]}>{kapanis}</Text>
+                    <Text style={[st.detayDeger, { color: t.text }]}>{kapanis || '—'}</Text>
                   </View>
                   <View style={[st.detayKutu, { backgroundColor: t.bgCard, borderColor: t.kartBorder }]}>
                     <Text style={[st.detayEtiket, { color: t.textSecondary }]}>Gişe Kapanış</Text>
