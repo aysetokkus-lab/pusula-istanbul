@@ -70,6 +70,9 @@ function durum(m: MekanSaat) {
 
   if (m.kapali_gun !== null && m.kapali_gun === gun)
     return { d: 'KAPALI', r: Palette.kapali, s: `${GUNLER[m.kapali_gun]} kapalı` };
+  // Saat bilgisi eksikse KAPALI deme — ("13:21" >= "" JS'te her zaman true olur)
+  if (!acilis || !kapanis)
+    return { d: 'SAAT YOK', r: Palette.bilgi, s: 'Saat bilgisi eksik' };
   if (cumaGunuMu() && m.cuma_kapali_bas && m.cuma_kapali_bit)
     if (saatStr >= m.cuma_kapali_bas && saatStr < m.cuma_kapali_bit)
       return { d: 'KAPALI', r: Palette.kapali, s: `Cuma arası — ${m.cuma_kapali_bit}'de açılacak` };

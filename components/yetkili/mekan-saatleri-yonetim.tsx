@@ -272,9 +272,17 @@ export function MekanSaatleriYonetim(props: { kategori?: string }) {
 
   const kaydet = async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    // Acilis/kapanis zorunlu: bos kayit ("") uygulamada "Bugun kapandi" hatasina yol acar (Yerebatan, 10 Eyl 2026)
+    const SAAT = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const acilisT = form.acilis.trim();
+    const kapanisT = form.kapanis.trim();
+    if (!SAAT.test(acilisT) || !SAAT.test(kapanisT)) {
+      Alert.alert('Eksik saat', 'Açılış ve kapanış saatleri zorunludur (SS:DD biçiminde).');
+      return;
+    }
     const ortakVeri = {
-      acilis: form.acilis,
-      kapanis: form.kapanis,
+      acilis: acilisT,
+      kapanis: kapanisT,
       gise_kapanis: form.gise_kapanis || null,
       yaz_acilis: form.yaz_acilis || null,
       yaz_kapanis: form.yaz_kapanis || null,
