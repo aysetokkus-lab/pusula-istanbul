@@ -87,7 +87,9 @@ export function useEtkinlikler() {
         .from('etkinlikler')
         .select('*')
         .eq('aktif', true)
-        .gte('tarih', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+        // Bitiş saati olan etkinlik bitişe kadar listede kalır (çok günlü dahil);
+        // bitiş saati yoksa başladığı günün sonuna kadar kalır.
+        .or(`bitis_tarih.gte.${new Date().toISOString()},and(bitis_tarih.is.null,tarih.gte.${new Date(new Date().setHours(0, 0, 0, 0)).toISOString()})`)
         .order('tarih', { ascending: true })
         .limit(50);
 
